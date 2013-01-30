@@ -1,0 +1,7 @@
+CC=gcc
+CFLAGS=-O3 -I/usr/local/include/leptonica/ -I../cornerDetection/fastsrc -I../common  -L/usr/lib 
+LDFLAGS=-l lept -ltiff -ljpeg -lpng -lz -lm -lfftw3
+OBJ=spectralAnalysis.o 
+
+spectralAnalysis: $(OBJ)
+	$(CC) $(CFLAGS) $(OBJ) $(LDFLAGS) -o $@

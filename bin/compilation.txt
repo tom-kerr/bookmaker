@@ -1,0 +1,23 @@
+
+---------
+leptonica 1.69
+
+sudo apt-get install libpng12-dev libjpeg62-dev libtiff4-dev
+
+./configure
+sudo make
+sudo make install
+
+
+---------
+fftw
+
+./configure
+sudo make
+sudo make install
+
+
+---------
+spectralAnalysis
+
+gcc -O3 spectralAnalysis.c -o spectralAnalysis -I/usr/local/include/leptonica/ -L/usr/ lib -l lept -lm -ltiff -ljpeg -lpng -lz -lm -lfftw3 

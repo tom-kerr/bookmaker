@@ -1,0 +1,188 @@
+
+
+void AddToCluster(struct corners *corners,
+		  struct clusters *clusters,
+		  unsigned int *queue,
+		  unsigned int queue_count,
+		  unsigned int join,
+		  unsigned int *num_assigned) {
+  
+  /*
+  unsigned int c;
+  for (c=0; c < queue_count; c++) {    
+    printf("%u %u\n", queue_count, queue[c]);
+    printf("%u->%u\n",c,clusters->cluster[join][c]);
+  }
+  */
+
+  //exit(0);
+
+
+
+  unsigned int c1, c2, exists;
+  unsigned int *queue2; 
+  unsigned int queue2_count = 0;
+
+  if ((queue2 = (unsigned int *) 
+       malloc(sizeof(unsigned int)*queue_count))==NULL)
+    printf("Failed to allocate queue2...\n");
+    
+  for (c1=0; c1 < queue_count; c1++) {
+    exists = 0;
+    for (c2=0; c2 < clusters->cluster_size[join]; c2++) {      
+      if (queue[c1] == clusters->cluster[join][c2]) { 
+	exists = 1;
+	break;
+      }
+    }
+    if (exists == 0) {
+      //printf("will add %u of %u\n",c1,queue_count);
+      queue2[queue2_count] = queue[c1];
+      queue2_count++;
+    }       
+  }
+ 
+  unsigned int i;
+  unsigned int *tmp = NULL;
+  if (queue2_count>0) {
+    if ((tmp = (unsigned int *) 
+	realloc(clusters->cluster[join], 
+		sizeof(unsigned int)*(queue2_count+clusters->cluster_size[join])))!=NULL) {
+      clusters->cluster[join] = tmp;
+    } else 
+      printf("Failed to reallocate cluster %u... \n", join);
+      
+
+    for(i=0; i<queue2_count; i++) {
+      clusters->cluster[join][clusters->cluster_size[join]] = queue2[i];
+      clusters->cluster_size[join]++;    
+      printf("add| num assigned %u\n", *num_assigned);
+      corners->assigned[*num_assigned] = queue2[i];
+      *num_assigned+=1;
+      //printf("%u   size%u\n",join,clusters->cluster_size[join]);
+    }
+  }
+
+  free(tmp);
+  free(queue2);
+}
+
+
+
+
+int SearchClustersForQueuedCorners(struct clusters *clusters,
+			     unsigned int *queue,
+			     unsigned int queue_count) {
+
+  
+  unsigned int c1,c2,cl;
+  int join = -1;
+  if (clusters->num_clusters > 0)
+    for (c1=0; c1 < queue_count; c1++) {
+      //printf("EVALUATING CORNER %u...\n",queue[c1]);
+      for (cl=0; cl < clusters->num_clusters; cl++) {
+	//printf("checking in cluster %u...\n",cl);
+	for (c2=0; c2 < clusters->cluster_size[cl]; c2++) {
+	  //printf("size %u\n",clusters->cluster_size[cl]);
+	  //printf("Does corner |%u| match cluster %u %u value |%u|?\n", queue[c1],cl,c2,clusters->cluster[cl][c2]);
+	  if (queue[c1] == clusters->cluster[cl][c2]) {
+	    //printf("\nFound Match in corner %u..joining to cluster %u\n",queue[c1], cl);
+	    join = cl;
+	    break;
+	  }
+	  if (join != -1)
+	    break;
+	}
+	if (join != -1)
+	  break;
+      }
+      if (join != -1)
+	break;
+    }
+
+  return join;
+}
+
+
+  
+
+
+unsigned int CornerIsContainedByWindow(unsigned int x,unsigned int y,
+				       struct dimensions *window) {
+
+  if (((x >= window->l) && (x <= window->r)) && 
+      ((y >= window->t) && (y <= window->b)))         
+    return 1;
+  else
+    return 0;  
+}
+
+
+void InitWindow(struct dimensions *window,
+		struct corners *corners,
+		struct clusters *clusters,
+		unsigned int c) {
+  
+  if ((corners->x[c] - clusters->window_width) < 0)
+    window->l = 0;
+  else
+    window->l = corners->x[c] - clusters->window_width;
+  
+  if ((corners->y[c] - clusters->window_height) < 0)
+    window->t = 0;
+  else
+    window->t = corners->y[c] - clusters->window_height;
+  
+  window->r = corners->x[c] + clusters->window_width;
+  window->b = corners->y[c] + clusters->window_height;
+
+  //return window;
+}
+
+
+/*
+    set = 0;
+    //printf("%u---num assigned %u\n", c1, num_assigned);
+    //then check against list of corners already in a cluster 
+    for (ac=0; ac < num_assigned; ac++) {
+      if (corners->assigned[ac] == c1) {
+	//printf("corner %u is already assigned...\n",c1);
+        set = 1;//already in cluster
+        break;
+      }
+    }
+    
+    //if we didnt find a match we will make try to form a new cluster around it
+    if (set==0) {
+      //printf("trying to form cluster around corner %u \n", c1);
+      InitWindow(window, corners, clusters, c1);
+      queue_count = 0;
+      //check all corners against window
+      for (c2=0; c2 < corners->num_corners; c2++) {   
+	if (c2 != c1) {
+	  //printf("checking corner %u\n",c2);
+	  if (CornerIsContainedByWindow(corners->x[c2], corners->y[c2], window)) {
+	    //printf("adding corner %u to the queue\n", c2);
+	    queue[queue_count] = c2;
+	    queue_count++;
+	  }
+	}
+      }
+      
+      
+      //if we found more than one corner, we check to see if they are contained
+      //in an already existing cluster. if they are we add everything in the current
+      // queue to that cluster. if not we start a new cluster.
+      if (queue_count > 1 ) {	  
+	join = SearchClustersForQueuedCorners(clusters, queue, queue_count);
+	//start a new cluster
+	if (join == -1) {
+	  StartNewCluster(corners, clusters, queue, queue_count, &num_assigned);
+	}
+	else {
+	  //printf("Will try adding %u corners to cluster %u...\n\n", queue_count, join);
+	  //AddToCluster(corners, clusters, queue, queue_count, join, &num_assigned);
+	}  
+      }   
+    }
+*/
