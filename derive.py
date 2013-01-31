@@ -128,7 +128,7 @@ class Derive:
             leafnum = '%04d' % leaf
             in_file = self.book.dirs['cropped'] + '/' + self.book.identifier + '_' + leafnum + '.pnm'
             if not os.path.exists(in_file):
-                Util.bail('cannot make pdf: input image file(s) missing', self.book.logger)
+                Util.bail('cannot make pdf: input image file ' + str(in_file) + ' missing', self.book.logger)
             out_file = self.book.dirs['derived'] + '/' + self.book.identifier + '_' + leafnum + '.pdf'
             cmd = 'hocr2pdf'
             args = {'in_file': in_file,

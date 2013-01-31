@@ -12,7 +12,7 @@ from standardcrop import StandardCrop
 from cropper import Cropper
 from ocr import OCR
 from derive import Derive
-from gui_common import Common
+from gui.common import Common
 
 
 class ProcessHandler:
@@ -65,7 +65,8 @@ class ProcessHandler:
             self.wait(func, proc_id, bookarg)
             return False
         else:
-            args =  (self,).__add__((bookarg,),)
+            #args = (self,).__add__((bookarg,),) if bookarg is not None else (self,)
+            args = (self,) + tuple((bookarg,)) if bookarg is not None else (self,)
             new_thread = threading.Thread(None, func, proc_id, (args))
             new_thread.daemon = True
             new_thread.logger = logger
@@ -74,9 +75,10 @@ class ProcessHandler:
             self.processes += 1
             if not self.poll:
                 self.init_poll()
-            new_thread.logger.message('New Thread Started -->   ' +
-                                      'Identifier: ' + str(proc_id) + 
-                                      '   Task: ' + str(func), 'processing')
+            if logger:
+                new_thread.logger.message('New Thread Started -->   ' +
+                                          'Identifier: ' + str(proc_id) + 
+                                          '   Task: ' + str(func), 'processing')
             return True
 
 
@@ -194,7 +196,7 @@ class ProcessHandler:
                                  book.logger)
             elif f == 'pdf':
                 self.add_process(self.Derive.pdf, 
-                                 book.identifier + '_' + f, (),
+                                 book.identifier + '_' + f, None,
                                  book.logger)
             elif f == 'djvu':
                 self.add_process(self.Derive.djvu,

@@ -1,5 +1,5 @@
 #!/usr/bin/python
-from gui_bookmaker import Bookmaker
+from gui.bookmaker import Bookmaker
 
 def init_session():
     i = Bookmaker()

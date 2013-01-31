@@ -1,0 +1,28 @@
+
+class Metadata:
+
+    book_structure = { 0:'Normal',
+                       1:'Title',
+                       2:'Colophon',
+                       3:'Contents',
+                       4:'Foreward',
+                       5:'Preface',
+                       6:'Acknowledgment',
+                       7:'Introduction',
+                       8:'Dedication',
+                       9:'Prologue',
+                       10:'Chapter',
+                       11:'Section',
+                       12:'Epilogue',
+                       13:'Extro',
+                       14:'Afterward',
+                       15:'Conclusion',
+                       16:'PostScript',
+                       17:'Appendix',
+                       18:'Glossary',
+                       19:'Bibliography',
+                       20:'Index',
+                       21:'Tissue',
+                       22:'Cover',
+                       23:'ColorCard',
+                       24:'Delete'}
