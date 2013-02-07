@@ -12,11 +12,8 @@ class History:
             self.state[leaf]['history'] = {}
             self.state[leaf]['history'][0] = {'leaf': leaf,
                                               'cropBox': book.cropBox.return_page_data_copy(leaf),
-                                              'pageCrop': (copy(book.pageCrop.box[leaf]), 
-                                                           copy(book.pageCrop.box_with_skew_padding[leaf])),
-                                              'contentCrop': (copy(book.contentCrop.box[leaf]), 
-                                                              copy(book.contentCrop.box_with_skew_padding[leaf]))
-                                              }
+                                              'pageCrop': book.pageCrop.return_page_data_copy(leaf),
+                                              'contentCrop': book.contentCrop.return_page_data_copy(leaf)}
 
     
     def record_change(self, data):

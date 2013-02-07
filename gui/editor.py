@@ -1650,7 +1650,6 @@ class ImageEditor:
         prev = self.history.state[leaf]['current']-1
         if prev < 0 : prev = 0
         undo_data = self.history.state[leaf]['history'][prev]
-
         for crop in ('pageCrop', 'cropBox', 'contentCrop'):
             if crop in undo_data:
                 self.book.crops[crop].box[leaf] = copy(undo_data[crop]['box'])
@@ -2019,10 +2018,8 @@ class ExportHandler:
         self.formats_vbox.pack_start(self.derive_progress, expand=True, fill=False)
         Common.follow_progress(self.update_derive_progress)
         self.ProcessHandler.derive_formats(self.editor.book, formats)
-        proc_id = Common.check_thread_exceptions(self.ProcessHandler.ThreadQueue)
-        if proc_id:
-            self.ProcessHandler.destroy_thread(proc_id)
-        
+        self.ProcessHandler.check_thread_exceptions()
+                
 
     def update_derive_progress(self):
         pass

@@ -23,27 +23,29 @@ class Environment:
                             ('draw_content_dimensions', False),
                             ('draw_page_number_candidates', False),
                             ('draw_noise', False)])
-    mode = 'terminal'
+    interface = 'command'
     proc_mode = None
     dir_mode = 0755
     scale_factor = 4
 
 
-    def __init__(self, root_dir):
+    def __init__(self, dir_list):
         Environment.set_current_path()
         self.books = []
-        if self.find_valid_subdirs(root_dir):
-            Environment.proc_mode = 'Batch'
-        else:
-            Environment.proc_mode = 'Single'
-            raw_data = Environment.is_sane(root_dir)
-            if raw_data:
-                self.init_new_book(root_dir, raw_data)
+        for root_dir in dir_list:
+            if self.find_valid_subdirs(root_dir):
+                Environment.proc_mode = 'Batch'
+            else:
+                Environment.proc_mode = 'Single'
+                raw_data = Environment.is_sane(root_dir)
+                if raw_data:
+                    self.init_new_book(root_dir, raw_data)
         if len(self.books) < 1:
             Util.bail('No valid directories found for processing...')
         for book in self.books:
             book.start_time = time.time()
             book.settings = Environment.load_settings(book.root_dir)
+            book.init_crops()
             Environment.make_dirs(book.dirs)
             book.logger = Logger()
             Environment.set_logs(book)
@@ -80,7 +82,8 @@ class Environment:
 
     def init_new_book(self, book_dir, raw_data):
         book = BookData(book_dir, raw_data)
-        self.books.append(book)
+        if book not in self.books:
+            self.books.append(book)
         
 
     @staticmethod
@@ -296,6 +299,25 @@ class BookData:
             }
 
 
+
+    def init_crops(self):
+        xml_file = self.scandata_file if self.settings['respawn'] is False else None        
+        self.pageCrop = Crop('pageCrop', 0, self.page_count, 
+                             self.raw_image_dimensions[0][1], 
+                             self.raw_image_dimensions[0][0], 
+                             xml_file)
+        self.cropBox = Crop('cropBox', 0, self.page_count,
+                            self.raw_image_dimensions[0][1],
+                            self.raw_image_dimensions[0][0],
+                            xml_file)
+        self.contentCrop = Crop('contentCrop', 0, self.page_count,
+                                self.raw_image_dimensions[0][1],
+                                self.raw_image_dimensions[0][0])
+        self.crops = {'pageCrop': self.pageCrop,
+                      'cropBox': self.cropBox,
+                      'contentCrop': self.contentCrop}
+
+
     def import_crops(self):
         self.pageCrop = Crop('pageCrop', 0, self.page_count, 
                              self.raw_image_dimensions[0][1], 
@@ -309,9 +331,6 @@ class BookData:
                                 self.raw_image_dimensions[0][1],
                                 self.raw_image_dimensions[0][0],
                                 self.scandata_file)
-        self.crops = {'pageCrop': self.pageCrop,
-                      'cropBox': self.cropBox,
-                      'contentCrop': self.contentCrop}
 
 
 class Logger:

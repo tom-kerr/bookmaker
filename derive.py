@@ -148,7 +148,7 @@ class Derive:
         self.book.logger.message('Finished PDF.')
 
                                 
-    def full_plain_text(self, ProcessHandler, ocr_data = None):        
+    def full_plain_text(self, ProcessHandler, ocr_data=None):        
         self.book.logger.message('Creating Full Plain Text...')
         if ocr_data is None:
             if self.OCR.parse_hocr_stack():
@@ -171,4 +171,4 @@ class Derive:
             out_file.write(string)
         except:
             Util.bail('failed to write full plain text', self.book.logger)
-        self.book.logger.message('Finished.')
+        self.book.logger.message('Finished Text.')

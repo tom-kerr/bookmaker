@@ -21,7 +21,7 @@ class Bookmaker:
 
 
     def __init__(self):
-        Environment.mode = 'gui'
+        Environment.interface = 'gui'
         Environment.set_current_path()
         self.init_window()
         self.set_operation_toggle()

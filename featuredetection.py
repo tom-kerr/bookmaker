@@ -14,20 +14,21 @@ class FeatureDetection:
     exec_time = 0
     fms = False
 
-    def __init__(self, book):
+    def __init__(self, ProcessHandler, book):
+        self.ProcessHandler = ProcessHandler
         self.book = book
-        xml_file = self.book.scandata_file if self.book.settings['respawn'] is False else None
-        
-        self.book.pageCropFull = Crop('pageCrop', 0, self.book.page_count, 
-                                      self.book.raw_image_dimensions[0][1], 
-                                      self.book.raw_image_dimensions[0][0], 
-                                      xml_file)
+
+        #xml_file = self.book.scandata_file if self.book.settings['respawn'] is False else None        
+        #self.book.pageCrop = Crop('pageCrop', 0, self.book.page_count, 
+        #                              self.book.raw_image_dimensions[0][1], 
+        #                              self.book.raw_image_dimensions[0][0], 
+        #                              xml_file)
         self.book.pageCropScaled = Crop('pageCrop', 0, self.book.page_count,
                                         self.book.raw_image_dimensions[0][1]/4,
                                         self.book.raw_image_dimensions[0][0]/4)
-        self.book.contentCropFull = Crop('contentCrop', 0, self.book.page_count,
-                                         self.book.raw_image_dimensions[0][1],
-                                         self.book.raw_image_dimensions[0][0])
+        #self.book.contentCrop = Crop('contentCrop', 0, self.book.page_count,
+        #                                 self.book.raw_image_dimensions[0][1],
+        #                                 self.book.raw_image_dimensions[0][0])
         self.book.contentCropScaled = Crop('contentCrop', 0, self.book.page_count,
                                            self.book.raw_image_dimensions[0][1]/4,
                                            self.book.raw_image_dimensions[0][0]/4)
@@ -36,20 +37,21 @@ class FeatureDetection:
         self.ImageOps = ImageOps()
 
                          
-    def pipeline(self):
+    def pipeline(self, ProcessHandler):
         self.book.logger.message('Entering FeatureDetection pipeline...','global')
         for leaf in range(0, self.book.page_count):
-            self.book.logger.message('...leaf ' + str(leaf) + ' of ' + str(self.book.page_count) + '...', 
+            self.book.logger.message('...leaf ' + str(leaf) + ' of ' + 
+                                     str(self.book.page_count) + '...', 
                                      ('global','featureDetection'))
             rot_dir = -1 if leaf%2==0 else 1
             self.find_page(leaf, rot_dir)                        
             corner_data = self.get_corners(leaf)
             self.get_clusters(leaf, corner_data)
             self.get_content_dimensions(leaf)
-            self.book.contentCropFull.box[leaf] = self.book.contentCropScaled.scale_box(leaf, scale_factor=0.25)
+            self.book.contentCrop.box[leaf] = self.book.contentCropScaled.scale_box(leaf, scale_factor=0.25)
             leaf_exec_time = self.ImageOps.return_total_leaf_exec_time(leaf)
             #FeatureDetection.exec_time += leaf_exec_time
-            self.book.logger.message('Finished FeatureDetection for leaf ' + str(leaf)+ 'in: ' + str(leaf_exec_time) + ' seconds\n')
+            self.book.logger.message('Finished FeatureDetection for leaf ' + str(leaf)+ ' in: ' + str(leaf_exec_time) + ' seconds\n')
             self.check_exec_times(leaf)
             self.ImageOps.complete(leaf, 'Finished FeatureDetection ' + str(leaf_exec_time))
         self.analyse_noise()
@@ -57,8 +59,8 @@ class FeatureDetection:
         #self.book.logger.message('total executable time: ' + 
         #                         str(FeatureDetection.exec_time/60) +' minutes')
         if self.book.settings['respawn']:
-            self.book.pageCropFull.xml_io(self.book.scandata_file, 'export')
-        self.book.contentCropFull.xml_io(self.book.scandata_file, 'export')
+            self.book.pageCrop.xml_io(self.book.scandata_file, 'export')
+        self.book.contentCrop.xml_io(self.book.scandata_file, 'export')
 
 
     def check_exec_times(self, leaf):
@@ -85,13 +87,17 @@ class FeatureDetection:
                         leafnum + '.jpg')
             output = self.page_detection(leaf, in_file, out_file, rot_dir)
             self.parse_page_detection_output(leaf, output)
-        self.book.pageCropScaled.box[leaf] = self.book.pageCropFull.scale_box(leaf, scale_factor = 4)
+        self.book.pageCropScaled.box[leaf] = self.book.pageCrop.scale_box(leaf, scale_factor = 4)
 
 
     def page_detection(self, leaf, in_file, out_file, rot_dir, 
                        debug_out = '/home/reklak/development/debug/debug.jpg', log = 'pageDetection'):
         if not os.path.exists(in_file):
-            Util.bail(str(in_file) + ' does not exist', self.book.logger)
+            self.ProcessHandler.ThreadQueue.put((self.book.identifier + '_page_detection',
+                                                 str(in_file) +  'does not exist',
+                                                 self.book.logger))
+            self.ProcessHandler.ThreadQueue.join()
+            #Util.bail(str(in_file) + ' does not exist', self.book.logger)
         cmd = 'pageDetection'
         args = {'in_file': in_file, 
                 'out_file': out_file,
@@ -113,50 +119,50 @@ class FeatureDetection:
             m = re.search(pattern, output)
             if m is not None:
                 if field is 'PAGE_L:':
-                    self.book.pageCropFull.box[leaf].set_dimension('l', int(m.group(1)))
+                    self.book.pageCrop.box[leaf].set_dimension('l', int(m.group(1)))
                 if field is 'PAGE_T:':
-                    self.book.pageCropFull.box[leaf].set_dimension('t', int(m.group(1)))
+                    self.book.pageCrop.box[leaf].set_dimension('t', int(m.group(1)))
                 if field is 'PAGE_R:':
-                    self.book.pageCropFull.box[leaf].set_dimension('r', int(m.group(1)))
+                    self.book.pageCrop.box[leaf].set_dimension('r', int(m.group(1)))
                 if field is 'PAGE_B:':
-                    self.book.pageCropFull.box[leaf].set_dimension('b', int(m.group(1)))
+                    self.book.pageCrop.box[leaf].set_dimension('b', int(m.group(1)))
                 if field is 'SKEW_ANGLE:':
-                    self.book.pageCropFull.skew_angle[leaf] = float(m.group(1))
-                    self.book.pageCropFull.skew_active[leaf] = True
+                    self.book.pageCrop.skew_angle[leaf] = float(m.group(1))
+                    self.book.pageCrop.skew_active[leaf] = True
                     self.book.pageCropScaled.skew_angle[leaf] = float(m.group(1))
                     self.book.pageCropScaled.skew_active[leaf] = True
-                    self.book.contentCropFull.skew_angle[leaf] = float(m.group(1))
-                    self.book.contentCropFull.skew_active[leaf] = True
+                    self.book.contentCrop.skew_angle[leaf] = float(m.group(1))
+                    self.book.contentCrop.skew_active[leaf] = True
                     self.book.contentCropScaled.skew_angle[leaf] = float(m.group(1))
                     self.book.contentCropScaled.skew_active[leaf] = True
                 if field is 'SKEW_CONF:':
-                    self.book.pageCropFull.skew_conf[leaf] = float(m.group(1))
+                    self.book.pageCrop.skew_conf[leaf] = float(m.group(1))
                     self.book.pageCropScaled.skew_conf[leaf] = float(m.group(1))
-                    self.book.contentCropFull.skew_conf[leaf] = float(m.group(1))                    
-                    self.book.contentCropFull.skew_angle[leaf] = float(m.group(1))
+                    self.book.contentCrop.skew_conf[leaf] = float(m.group(1))                    
+                    self.book.contentCrop.skew_angle[leaf] = float(m.group(1))
                     self.book.contentCropScaled.skew_active[leaf] = True
             else:
                 if field is 'PAGE_L:':
-                    self.book.pageCropFull.box[leaf].set_dimension('l', 0)
+                    self.book.pageCrop.box[leaf].set_dimension('l', 0)
                 if field is 'PAGE_T:':
-                    self.book.pageCropFull.box[leaf].set_dimension('t', 0)
+                    self.book.pageCrop.box[leaf].set_dimension('t', 0)
                 if field is 'PAGE_R:':
-                    self.book.pageCropFull.box[leaf].set_dimension('r', self.book.pageCropFull.image_width-1)
+                    self.book.pageCrop.box[leaf].set_dimension('r', self.book.pageCrop.image_width-1)
                 if field is 'PAGE_B:':
-                    self.book.pageCropFull.box[leaf].set_dimension('b', self.book.pageCropFull.image_height-1)
+                    self.book.pageCrop.box[leaf].set_dimension('b', self.book.pageCrop.image_height-1)
                 if field is 'SKEW_ANGLE:':
-                    self.book.pageCropFull.skew_angle[leaf] = 0.0
-                    self.book.pageCropFull.skew_active[leaf] = False
+                    self.book.pageCrop.skew_angle[leaf] = 0.0
+                    self.book.pageCrop.skew_active[leaf] = False
                     self.book.pageCropScaled.skew_angle[leaf] = 0.0
                     self.book.pageCropScaled.skew_active[leaf] = False
-                    self.book.contentCropFull.skew_angle[leaf] = 0.0
-                    self.book.contentCropFull.skew_active[leaf] = False
+                    self.book.contentCrop.skew_angle[leaf] = 0.0
+                    self.book.contentCrop.skew_active[leaf] = False
                     self.book.contentCropScaled.skew_angle[leaf] = 0.0
                     self.book.contentCropScaled.skew_active[leaf] = False
                 if field is 'SKEW_CONF:':
-                    self.book.pageCropFull.skew_conf[leaf] = 0.0
+                    self.book.pageCrop.skew_conf[leaf] = 0.0
                     self.book.pageCropScaled.skew_conf[leaf] = 0.0
-                    self.book.contentCropFull.skew_conf[leaf] = 0.0
+                    self.book.contentCrop.skew_conf[leaf] = 0.0
                     self.book.contentCropScaled.skew_conf[leaf] = 0.0
 
 
@@ -187,10 +193,10 @@ class FeatureDetection:
                     leafnum + '.txt')
             
         if self.book.settings['respawn']:                
-            self.book.pageCropFull.skew(self.book.thumb_rotation_point['x'],
+            self.book.pageCrop.skew(self.book.thumb_rotation_point['x'],
                                         self.book.thumb_rotation_point['y'],
                                         leaf)
-            self.book.pageCropScaled.box[leaf] = self.book.pageCropFull.scale_box(leaf, scale_factor = 4)
+            self.book.pageCropScaled.box[leaf] = self.book.pageCrop.scale_box(leaf, scale_factor = 4)
             self.filter_corners(leaf, in_file, out_file, self.book.pageCropScaled.box[leaf] )
         return FeatureDetection.parse_corner_data(out_file)            
 
@@ -583,7 +589,7 @@ class FeatureDetection:
                     self.clusters[leaf].cluster[num].size = self.filtered_clusters[leaf].cluster[num].size
                     self.filtered_clusters[leaf].cluster[num] = None
             self.get_content_dimensions(leaf)
-            self.book.contentCropFull.box[leaf] = self.book.contentCropScaled.scale_box(leaf, 
+            self.book.contentCrop.box[leaf] = self.book.contentCropScaled.scale_box(leaf, 
                                                                                         scale_factor=0.25)
 
 

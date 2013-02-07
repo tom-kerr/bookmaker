@@ -198,13 +198,3 @@ class Common:
     def follow_progress(func):
         gobject.timeout_add(100, func)
 
-
-    @staticmethod
-    def check_thread_exceptions(ThreadQueue):
-        try:
-            proc_id, message, logger = ThreadQueue.get()
-        except Queue.Empty:
-            return None
-        else:
-            Common.dialog(message=message)
-            return proc_id

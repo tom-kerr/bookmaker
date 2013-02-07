@@ -23,14 +23,16 @@ class Util:
             cmd = components[0]
             components[1] = [re.sub("^ +", '', c) for c in components[1].split('^') if c is not ''][0]
             redir = open(str(components[1]), mode)
-        else:
+        elif return_output is True:
             redir = subprocess.PIPE
+        else:
+            redir = open(os.devnull, 'w')
 
         cmd = [re.sub("^ +", '', c) for c in cmd.split('^') if c is not '']
                 
         try:
             start = Util.microseconds()
-            if redirect in ('stdout', False):
+            if redirect in ('stdout', True, False):
                 p = subprocess.Popen(cmd, stdout=redir)
             elif redirect == 'stdin':
                 p = subprocess.Popen(cmd, stdin=redir)

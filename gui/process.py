@@ -190,7 +190,7 @@ class Process():
         self.add_button.set_child_visible(False)
         selected = Common.get_user_selection()
         if selected is not None:
-            self.environment = Environment(selected)
+            self.environment = Environment([selected])
             for book in self.environment.books:
                 if book.identifier not in self.books:
                     self.add_book(book)
@@ -284,7 +284,7 @@ class Process():
                 path = self.model.get_path(self.books[identifier].entry)
                 self.model[path][1] = 'processing'
                 self.follow_progress(identifier)
-            
+    
 
     def wait(self, identifier):
         path = self.model.get_path(self.books[identifier].entry)
@@ -296,6 +296,11 @@ class Process():
 
             
     def update_progress(self, identifier):        
+        #proc_id = self.ProcessHandler.check_thread_exceptions()
+        #if proc_id:
+        #    print proc_id
+        #    self.ProcessHandler.destroy_thread(proc_id)
+
         if not identifier in self.ProcessHandler.item_queue:            
             path = self.model.get_path(self.books[identifier].entry)
             completed = len(self.ProcessHandler.FeatureDetection.ImageOps.completed_ops)
@@ -309,7 +314,7 @@ class Process():
             self.model[path][3] = str(estimated_mins) + ' min ' + str(estimated_secs) + 'sec'
 
             current_time = time.time()
-            elapsed_secs = int(current_time - self.books[identifier].starttime)
+            elapsed_secs = int(current_time - self.books[identifier].start_time)
             elapsed_mins = int(elapsed_secs/60)
             elapsed_secs -= elapsed_mins * 60
             self.model[path][4] = str(elapsed_mins) + ' min ' + str(elapsed_secs) + 'sec'

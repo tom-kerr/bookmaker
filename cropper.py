@@ -95,6 +95,8 @@ class Cropper:
                 in_file = self.book.dirs['cropped'] + '/' + str(start) + '_grayscale.pnm'
             else:
                 in_file = raw_pnm_flipped_skewed
+
+            self.book.crops[crop].calculate_box_with_skew_padding(leaf)
             crp = self.book.crops[crop].box_with_skew_padding[leaf]            
             cmd = 'pamcut'
             args = {'l': int(crp.l),
