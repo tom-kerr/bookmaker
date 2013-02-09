@@ -1451,7 +1451,7 @@ class ImageEditor:
         height = image.get_height()
                     
         subsection = self.get_subsection(image, leaf, self.active_crop)
-
+        
         if leaf%2==0:
             self.left_event_box = self.get_crop_event_box(subsection, leaf, self.active_crop)            
             event_box = self.left_event_box

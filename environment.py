@@ -29,7 +29,7 @@ class Environment:
     scale_factor = 4
 
 
-    def __init__(self, dir_list):
+    def __init__(self, dir_list, args=None):
         Environment.set_current_path()
         self.books = []
         for root_dir in dir_list:
@@ -44,7 +44,7 @@ class Environment:
             Util.bail('No valid directories found for processing...')
         for book in self.books:
             book.start_time = time.time()
-            book.settings = Environment.load_settings(book.root_dir)
+            book.settings = Environment.load_settings(book.root_dir, args)
             book.init_crops()
             Environment.make_dirs(book.dirs)
             book.logger = Logger()
@@ -56,8 +56,7 @@ class Environment:
     def log_settings(book):        
         book.logger.message('*****SETTINGS*****')
         for setting, value in book.settings.items():
-            if value:
-                book.logger.message(setting + ':' + str(value))
+            book.logger.message(setting + ':' + str(value))
         book.logger.message('*****SETTINGS*****\n')
 
 
@@ -128,9 +127,8 @@ class Environment:
         return raw_images, raw_dimensions
 
 
-
     @staticmethod
-    def load_settings(path):
+    def load_settings(path, args=None):
         settings_file = path + '/settings.yaml'
         try:
             stream = file(settings_file, 'r')
@@ -138,10 +136,31 @@ class Environment:
         except:
             Environment.write_settings(path, Environment.settings)
             return Environment.settings
-        default_settings = Environment.settings
-        for setting, value in settings.iteritems():
-            if setting in default_settings:
-                default_settings[setting] = value
+        if args:
+            if args.respawn:
+                settings['respawn'] = True
+            elif args.no_respawn:
+                settings['respawn'] = False
+            if args.make_cornered_thumbs is not None:
+                settings['make_cornered_thumbs'] = args.make_cornered_thumbs
+            if args.draw_clusters is not None:
+                settings['draw_clusters'] = args.draw_clusters
+            if args.draw_removed_clusters is not None:
+                settings['draw_removed_clusters'] = args.draw_removed_clusters
+            if args.draw_invalid_clusters is not None:
+                settings['draw_invalid_clusters'] = args.draw_invalid_clusters
+            if args.draw_content_dimensions is not None:
+                settings['draw_content_dimensions'] = args.draw_content_dimensions
+            if args.draw_page_number_candidates is not None:
+                settings['draw_page_number_candidates'] = args.draw_page_number_candidates
+            if args.draw_noise is not None:
+                settings['draw_noise'] = args.draw_noise
+            if args.save_settings:
+                Environment.write_settings(path, settings)
+        #default_settings = Environment.settings
+        #for setting, value in settings.iteritems():
+        #    if setting in default_settings:
+        #        default_settings[setting] = value
         return settings
 
 
@@ -157,7 +176,7 @@ class Environment:
         except:
             print 'Failed to save settings!'
 
-
+    
     @staticmethod
     def make_dirs(dirs):
         for name, dir in dirs.items():
@@ -331,6 +350,9 @@ class BookData:
                                 self.raw_image_dimensions[0][1],
                                 self.raw_image_dimensions[0][0],
                                 self.scandata_file)
+        self.crops = {'pageCrop': self.pageCrop,
+                      'cropBox': self.cropBox,
+                      'contentCrop': self.contentCrop}
 
 
 class Logger:

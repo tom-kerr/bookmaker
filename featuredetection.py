@@ -18,17 +18,10 @@ class FeatureDetection:
         self.ProcessHandler = ProcessHandler
         self.book = book
 
-        #xml_file = self.book.scandata_file if self.book.settings['respawn'] is False else None        
-        #self.book.pageCrop = Crop('pageCrop', 0, self.book.page_count, 
-        #                              self.book.raw_image_dimensions[0][1], 
-        #                              self.book.raw_image_dimensions[0][0], 
-        #                              xml_file)
         self.book.pageCropScaled = Crop('pageCrop', 0, self.book.page_count,
                                         self.book.raw_image_dimensions[0][1]/4,
                                         self.book.raw_image_dimensions[0][0]/4)
-        #self.book.contentCrop = Crop('contentCrop', 0, self.book.page_count,
-        #                                 self.book.raw_image_dimensions[0][1],
-        #                                 self.book.raw_image_dimensions[0][0])
+
         self.book.contentCropScaled = Crop('contentCrop', 0, self.book.page_count,
                                            self.book.raw_image_dimensions[0][1]/4,
                                            self.book.raw_image_dimensions[0][0]/4)
@@ -61,7 +54,7 @@ class FeatureDetection:
         if self.book.settings['respawn']:
             self.book.pageCrop.xml_io(self.book.scandata_file, 'export')
         self.book.contentCrop.xml_io(self.book.scandata_file, 'export')
-
+        
 
     def check_exec_times(self, leaf):
         self.book.logger.message(" current average exec times:\n "+
