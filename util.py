@@ -69,7 +69,7 @@ class Util:
 
 
     @staticmethod
-    def halt(message, logger=None):
+    def halt(message=None, logger=None):
         if logger is not None:
             logger.message('Halting...', 'global')
         sys.exit(0)

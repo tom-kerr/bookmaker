@@ -3,16 +3,16 @@ from pyPdf import PdfFileReader, PdfFileWriter
 
 from util import Util
 from imageops import ImageOps
-from util import Util
 from ocr import OCR
 
 
 class Derive:
 
 
-    def __init__(self, book):
+    def __init__(self, ProcessHandler, book):
+        self.ProcessHandler = ProcessHandler
         self.book = book
-        self.OCR = OCR(self.book)
+        self.OCR = OCR(ProcessHandler, self.book)
         self.ImageOps = ImageOps()
 
 
@@ -35,19 +35,18 @@ class Derive:
 
 
 
-    def djvu(self, ProcessHandler, ocr_data=None):
+    def djvu(self, ocr_data=None):
         self.book.logger.message('Creating Searchable DjVu...')
         hocr_files = self.OCR.get_hocr_files()
         djvu_files = []
         for leaf in range(1, self.book.page_count-1):
-
             leafnum = '%04d' % leaf
             in_file = self.book.dirs['cropped'] + '/' + self.book.identifier + '_' + leafnum + '.pnm'
             if not os.path.exists(in_file):
-                ProcessHandler.ThreadQueue.put((self.book.identifier + '_djvu',
+                self.ProcessHandler.ThreadQueue.put((self.book.identifier + '_djvu',
                                                 'cannot make djvu: input image file(s) missing',
                                                 self.book.logger))
-                ProcessHandler.ThreadQueue.join()
+                self.ProcessHandler.ThreadQueue.join()
                 
             out_file = self.book.dirs['derived'] + '/' + self.book.identifier + '_' + leafnum + '.djvu'
             cmd = 'c44'
@@ -109,11 +108,14 @@ class Derive:
                 pass
         
 
-    def pdf(self, ProcessHandler):
+    def pdf(self):
         self.book.logger.message('Creating Searchable PDF...')
         hocr_files = self.OCR.get_hocr_files()
         if not hocr_files: 
-            Util.bail('cannot make pdf: no hocr files found', self.book.logger)
+            self.ProcessHandler.ThreadQueue.put((self.book.identifier + '_pdf',
+                                            'cannot make pdf: no hocr files found', 
+                                            self.book.logger))
+            self.ProcessHandler.ThreadQueue.join()
         pdf_out = PdfFileWriter()
         for leaf in range(1, self.book.page_count-1):
             if leaf in hocr_files:
@@ -128,7 +130,10 @@ class Derive:
             leafnum = '%04d' % leaf
             in_file = self.book.dirs['cropped'] + '/' + self.book.identifier + '_' + leafnum + '.pnm'
             if not os.path.exists(in_file):
-                Util.bail('cannot make pdf: input image file ' + str(in_file) + ' missing', self.book.logger)
+                self.ProcessHandler.ThreadQueue.put((self.book.identifier + '_pdf',
+                                                'cannot make pdf: input image file ' + str(in_file) + ' missing', 
+                                                self.book.logger))
+                self.ProcessHandler.ThreadQueue.join()
             out_file = self.book.dirs['derived'] + '/' + self.book.identifier + '_' + leafnum + '.pdf'
             cmd = 'hocr2pdf'
             args = {'in_file': in_file,
@@ -148,19 +153,23 @@ class Derive:
         self.book.logger.message('Finished PDF.')
 
                                 
-    def full_plain_text(self, ProcessHandler, ocr_data=None):        
+    def full_plain_text(self, ocr_data=None):        
         self.book.logger.message('Creating Full Plain Text...')
         if ocr_data is None:
             if self.OCR.parse_hocr_stack():
                 ocr_data = self.OCR.ocr_data
             else:
-                Util.bail('Unable to derive full plain text: no ocr data found', self.book.logger)
-
+                self.ProcessHandler.ThreadQueue.put((self.book.identifier + '_text',
+                                                'Unable to derive full plain text: no ocr data found', 
+                                                self.book.logger))
+                self.ProcessHandler.ThreadQueue.join()
         try:
             out_file = open(self.book.dirs['derived'] + '/' + self.book.identifier + '_full_plain_text.txt', 'w')
         except IOError:
-            Util.bail('Could not open full plain text for writing', self.book.logger)
-
+            self.ProcessHandler.ThreadQueue.put((self.book.identifier + '_text',
+                                            'Could not open full plain text for writing', 
+                                            self.book.logger))
+            self.ProcessHandler.ThreadQueue.join()
         string = ''
         for page in ocr_data:
             for paragraph in page.paragraphs:
@@ -170,5 +179,8 @@ class Derive:
         try:
             out_file.write(string)
         except:
-            Util.bail('failed to write full plain text', self.book.logger)
+            self.ProcessHandler.ThreadQueue.put((self.book.identifier + '_text',
+                                            'failed to write full plain text', 
+                                            self.book.logger))
+            self.ProcessHandler.ThreadQueue.join()
         self.book.logger.message('Finished Text.')

@@ -94,7 +94,11 @@ class Bookmaker:
                 book_data = BookData(selected, raw_data)
                 book_data.logger = Logger()
                 Environment.set_logs(book_data, 'a')
-                book_data.import_crops()
+                try:
+                    book_data.import_crops()
+                except Exception as e:
+                    Common.dialog(None, gtk.MESSAGE_ERROR, str(e))
+                    return
                 Common.set_window_size(window,
                                        gtk.gdk.screen_width()-1,
                                        gtk.gdk.screen_height()-1)

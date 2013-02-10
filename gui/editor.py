@@ -1,4 +1,4 @@
-import sys, os, re, math
+import sys, os, re, math, time
 from copy import copy
 import StringIO
 import Image
@@ -10,7 +10,7 @@ gobject.threads_init()
 
 from util import Util
 from datastructures import Crop, Box
-from processing import ProcessHandler
+from processing import ProcessHandling
 from ocr import OCR
 from history import History
 from metadata import Metadata
@@ -1710,7 +1710,8 @@ class ExportHandler:
                                                        self.editor.window.height),
                                               'color': 'gray',
                                               'show': True})
-        self.ProcessHandler = ProcessHandler()
+        self.ProcessHandler = ProcessHandling()
+        Common.run_in_background(self.ProcessHandler.check_thread_exceptions)
         self.build_stack_controls()
         self.build_derivative_controls()
         
@@ -1967,12 +1968,12 @@ class ExportHandler:
     def run_ocr(self, widget):
         self.init_ocr_button.destroy()
         self.ocr_hbox.pack_start(self.ocr_progress, expand=True, fill=True)
-        Common.follow_progress(self.update_ocr_progress)
-        try:
-            self.ProcessHandler.run_ocr(self.editor.book, self.language)
-        except:
-            print 'failed ocr'
-            
+        Common.run_in_background(self.update_ocr_progress)        
+        self.ProcessHandler.add_process(self.ProcessHandler.run_ocr,
+                                        self.editor.book.identifier + '_run_ocr',
+                                        (self.editor.book, self.language), 
+                                        self.editor.book.logger)
+
 
     def update_ocr_progress(self):
         completed = len(self.ProcessHandler.OCR.ImageOps.completed_ops)
@@ -1988,17 +1989,16 @@ class ExportHandler:
     def run_cropper(self, widget):
         self.init_crop_button.destroy()
         self.cropping_vbox.pack_start(self.cropping_progress, expand=True, fill=True)
-        Common.follow_progress(self.update_cropping_progress)
-        self.ProcessHandler.run_cropper(self.editor.book, 
-                                    self.active_crop, 
-                                    self.grayscale, 
-                                    self.normalize,
-                                    self.invert)
-
+        Common.run_in_background(self.update_cropping_progress)
+        self.ProcessHandler.add_process(self.ProcessHandler.run_cropper,
+                                        self.editor.book.identifier + '_run_cropper',
+                                        (self.editor.book, self.active_crop, 
+                                         self.grayscale, self.normalize, self.invert), 
+                                        self.editor.book.logger)
+        
 
     def update_cropping_progress(self):
         completed = len(self.ProcessHandler.Cropper.ImageOps.completed_ops)
-        #print completed
         fraction = float(completed)/float(self.editor.book.page_count-2)
         self.cropping_progress.set_fraction(fraction)
         self.cropping_progress.set_text(str(int(fraction*100)) + '%')
@@ -2016,9 +2016,11 @@ class ExportHandler:
         if len(formats) < 1:
             return
         self.formats_vbox.pack_start(self.derive_progress, expand=True, fill=False)
-        Common.follow_progress(self.update_derive_progress)
-        self.ProcessHandler.derive_formats(self.editor.book, formats)
-        self.ProcessHandler.check_thread_exceptions()
+        Common.run_in_background(self.update_derive_progress)
+        self.ProcessHandler.add_process(self.ProcessHandler.derive_formats,
+                                        self.editor.book.identifier,
+                                        (self.editor.book, formats), self.editor.book.logger)
+        
                 
 
     def update_derive_progress(self):

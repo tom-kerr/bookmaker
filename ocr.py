@@ -20,15 +20,15 @@ class OCR:
                              ('Spanish', ''), ('Tagalog', 'tgl'), ('Turkish', 'tur'), ('Ukranian', 'ukr'), ('Vietnamese', 'vie')])
 
 
-    def __init__(self, book):
+    def __init__(self, ProcessHandler, book):
+        self.ProcessHandler = ProcessHandler
         self.book = book
         self.ImageOps = ImageOps()
         self.ocr_data = None
+        
 
-
-    def tesseract_hocr_pipeline(self, ProcessHandler, start, end, lang='eng'):
-        for leaf in range(start, end):
-            
+    def tesseract_hocr_pipeline(self, start, end, lang='eng'):
+        for leaf in range(start, end):            
             #if page is blank, we skip ocr on it
             if not self.book.contentCrop.box[leaf].is_valid():
                 self.ImageOps.complete(leaf, 'skipped ocr')
@@ -36,6 +36,11 @@ class OCR:
 
             leafnum = '%04d' % leaf
             cropped_file = self.book.dirs['cropped'] + '/' + self.book.identifier + '_' + str(leafnum) + '.pnm'
+            if not os.path.exists(cropped_file):
+                ProcessHandler.ThreadQueue.put((self.book.identifier + '_ocr', 
+                                                'cannot run ocr: input image file(s) missing',
+                                                self.book.logger))
+                ProcessHandler.ThreadQueue.join()
             html_out = self.book.dirs['ocr'] + '/' + self.book.identifier + '_' + str(leafnum)
             cmd = 'tesseract'
             args = {'in_file': cropped_file,
@@ -50,13 +55,19 @@ class OCR:
                 try:
                     os.rename(html_out + '.html', html_out + '.hocr')
                 except:
-                    Util.bail('failed to rename tesseract hocr output for leaf ' + str(leaf))
+                    self.ProcessHandler.ThreadQueue.put((self.book.identifier + '_ocr',
+                                                         'failed to rename tesseract hocr output for leaf ' + str(leaf),
+                                                         self.book.logger))
+                    self.ProcessHandler.ThreadQueue.join()
 
                     
     def parse_hocr_stack(self):
         hocr_files = self.get_hocr_files()
         if not hocr_files:
-            Util.bail('cannot parse hocr stack: no files found')
+            self.ProcessHandler.ThreadQueue.put((self.book.identifier + '_ocr',
+                                                 'cannot parse hocr stack: no files found',
+                                                 self.book.logger))
+            self.ProcessHandler.ThreadQueue.join()
         self.ocr_data = []
         for leaf, hocr in hocr_files.items():
             self.ocr_data.append(OCR.parse_hocr(hocr))
@@ -70,10 +81,10 @@ class OCR:
             f = self.book.dirs['ocr'] + '/' + self.book.identifier + '_' + leafnum + '.hocr'
             if os.path.exists(f):
                 files[leaf] = f
-        if len(files) < 1:
-            return False
-        else:
-            return files
+        #if len(files) < 1:
+        #    return False
+        #else:
+        return files
         
 
     @staticmethod

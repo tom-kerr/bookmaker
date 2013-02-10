@@ -9,7 +9,7 @@ import gobject
 gobject.threads_init()
 
 from environment import Environment
-from processing import ProcessHandler
+from processing import ProcessHandling
 from common import Common
 from editor import Editor
 from options import Options
@@ -23,7 +23,8 @@ class Process():
         self.cmap = window.get_colormap()
         self.editing = []
         self.books = {}
-        self.ProcessHandler = ProcessHandler()
+        self.ProcessHandler = ProcessHandling()
+        Common.run_in_background(self.ProcessHandler.check_thread_exceptions)
         self.init_main()
         self.init_tasklist()
         self.init_buttons()

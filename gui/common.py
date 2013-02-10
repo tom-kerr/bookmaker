@@ -195,6 +195,6 @@ class Common:
 
 
     @staticmethod
-    def follow_progress(func):
+    def run_in_background(func):
         gobject.timeout_add(100, func)
 

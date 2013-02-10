@@ -10,12 +10,13 @@ from imageops import ImageOps
 class Cropper:
 
 
-    def __init__(self, book):
+    def __init__(self, ProcessHandler, book):
+        self.ProcessHandler = ProcessHandler
         self.book = book
         self.ImageOps = ImageOps()
 
 
-    def pipeline(self, ProcessHandler, start, end, crop, grayscale, normalize, invert):
+    def pipeline(self, start, end, crop, grayscale, normalize, invert):
         self.book.logger.message('Entering Cropper pipeline...','global')
         for leaf in range(start, end):
             self.book.logger.message('...leaf ' + str(leaf) + ' of ' + str(self.book.page_count) + '...', 
@@ -107,7 +108,9 @@ class Cropper:
                     'out_file': cropped}
             self.ImageOps.execute(leaf, cmd, args, self.book.logger, log='derivation', redirect='stdout')
             self.ImageOps.complete(leaf, 'finished cropping')
-            for f in [f for f in (raw_pnm, raw_pnm_flipped, raw_pnm_flipped_skewed, grayscale, normalized, inverted) if f not in (None, False)]:
+            for f in [f for f in (raw_pnm, raw_pnm_flipped, 
+                                  raw_pnm_flipped_skewed, 
+                                  grayscale, normalized, inverted) if f not in (None, False)]:
                 try:    
                     os.remove(f)
                 except:

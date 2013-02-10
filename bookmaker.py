@@ -1,13 +1,20 @@
 #!/usr/bin/python
 import sys, argparse
+from util import Util
 from environment import Environment
-from processing import ProcessHandler
-
+from processing import ProcessHandling
 
 def main(args):
     
-    E = Environment(args.root_dir, args)        
-    P = ProcessHandler()
+    try:
+        E = Environment(args.root_dir, args)            
+    except Exception as e:
+        Util.bail(str(e))
+
+    P = ProcessHandling()
+    P.add_process(P.check_thread_exceptions,
+                  'check_thread_exceptions',
+                  None)
 
     for book in E.books:        
         queue = P.new_queue()
@@ -22,10 +29,11 @@ def main(args):
                 queue[book.identifier + '_derive'] = P.derive_formats, (book, ('djvu', 'pdf', 'epub', 'text')), book.logger, None
             elif args.derive:
                 queue[book.identifier + '_derive'] = P.derive_formats, (book, tuple(args.derive)), book.logger, None
-                
+
         P.add_process(P.drain_queue, 
                       book.identifier + '_drain_queue', 
-                      (queue, 'sync'), book.logger)        
+                      (queue, 'sync'), book.logger)
+        
 
 
 if __name__ == "__main__":

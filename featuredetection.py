@@ -30,7 +30,7 @@ class FeatureDetection:
         self.ImageOps = ImageOps()
 
                          
-    def pipeline(self, ProcessHandler):
+    def pipeline(self):
         self.book.logger.message('Entering FeatureDetection pipeline...','global')
         for leaf in range(0, self.book.page_count):
             self.book.logger.message('...leaf ' + str(leaf) + ' of ' + 
@@ -90,7 +90,6 @@ class FeatureDetection:
                                                  str(in_file) +  'does not exist',
                                                  self.book.logger))
             self.ProcessHandler.ThreadQueue.join()
-            #Util.bail(str(in_file) + ' does not exist', self.book.logger)
         cmd = 'pageDetection'
         args = {'in_file': in_file, 
                 'out_file': out_file,
@@ -198,21 +197,26 @@ class FeatureDetection:
                               t=44, s='', n=9, l = '-l', 
                               log = 'fastCornerDetection'):        
         if not os.path.exists(in_file):
-            Util.bail(str(in_file) + ' does not exist', self.book.logger)
+            self.ProcessHandler.ThreadQueue.put((self.book.identifier + '_featuredetection',
+                                            str(in_file) + ' does not exist',
+                                            self.book.logger))
+            self.ProcessHandler.ThreadQueue.join()
         if FeatureDetection.fms:
             s = '-s'
         cmd = 'fastCornerDetection'
         args = {'in_file': in_file,
                 'out_file': out_file,
                 't':t, 's':s, 'n':n, 'l':l }
-
         self.ImageOps.execute(leaf, cmd, args, self.book.logger, log, return_output = False)
 
 
     def filter_corners(self, leaf, in_file, out_file, 
                        crop, log='fastCornerDetection'):
         if not os.path.exists(in_file):
-            Util.bail(str(in_file) + ' does not exist', self.book.logger)
+            self.ProcessHandler.ThreadQueue.put((self.book.identifier + '_featuredetection',
+                                            str(in_file) + ' does not exist',
+                                            self.book.logger))
+            self.ProcessHandler.ThreadQueue.join()
         if not crop.is_valid():
             return
         crop.resize(-10)
@@ -225,7 +229,6 @@ class FeatureDetection:
                 'b':crop.b,
                 'thumb_width':self.book.raw_image_dimensions[0][1]/4,
                 'thumb_height':self.book.raw_image_dimensions[0][0]/4 }
-
         self.ImageOps.execute(leaf, cmd, args, self.book.logger, log, return_output = False)
         crop.resize(10)
 
@@ -282,7 +285,10 @@ class FeatureDetection:
                          skew_angle, center_x, center_y, 
                          log='clusterAnalysis'):
         if not os.path.exists(in_file):
-            Util.bail(str(in_file) + ' does not exist', self.book.logger)
+            self.ProcessHandler.ThreadQueue.put((self.book.identifier + '_featuredetection',
+                                            str(in_file) + ' does not exist',
+                                            self.book.logger))
+            self.ProcessHandler.ThreadQueue.join()
         if cmd is 'slidingWindow':
             args = {'in_file': in_file,
                     'out_file': out_file,
