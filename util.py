@@ -10,10 +10,12 @@ class Util:
     HALT = False
 
     @staticmethod
-    def cmd(cmd, redirect=False, return_output=False, logger=None):
+    def cmd(cmd, current_wd=None, logger=None,
+            redirect=False, return_output=False, print_output=False):
+
         if Util.HALT:
             Util.halt('Halting command ' + str(cmd), logger)
-        if redirect is not False:
+        if redirect in ('stdout', 'stdin'):
             if redirect == 'stdout':
                 components = cmd.split(' > ')
                 mode = 'wb'
@@ -23,25 +25,45 @@ class Util:
             cmd = components[0]
             components[1] = [re.sub("^ +", '', c) for c in components[1].split('^') if c is not ''][0]
             redir = open(str(components[1]), mode)
-        elif return_output is True:
+        elif return_output:
             redir = subprocess.PIPE
-        else:
-            redir = open(os.devnull, 'w')
-
+        devnull = open(os.devnull, 'w')
+            
         cmd = [re.sub("^ +", '', c) for c in cmd.split('^') if c is not '']
-                
+
+        if redirect == 'stdin':
+            sin = redir
+            sout = None
+        elif redirect == 'stdout':
+            sin = None
+            sout = redir
+        elif return_output:
+            sin = None
+            sout = redir
+        else:
+            sin = None
+            sout = None
+        
+        if not return_output:
+            if redirect in ('stdin', False) and print_output:
+                sout = None
+            elif redirect in ('stdin', False) and not print_output:
+                sout = devnull
         try:
             start = Util.microseconds()
-            if redirect in ('stdout', True, False):
-                p = subprocess.Popen(cmd, stdout=redir)
-            elif redirect == 'stdin':
-                p = subprocess.Popen(cmd, stdin=redir)
+            if current_wd is not None:
+                p = subprocess.Popen(cmd, cwd=current_wd, stdout=sout, stdin=sin)
+            else:
+                p = subprocess.Popen(cmd, stdout=sout, stdin=sin)
+            
             output = p.communicate()
-            #if p.returncode != 0:
-            #    raise Exception('Non-Zero Return Value')  
             end = Util.microseconds()
+            if p.returncode != 0:
+                print 'd' + p.returncode
         except Exception as e:
-            Util.bail('\nCommand: ' + str(' '.join(cmd)) + ' \n\nException: ' + str(e), logger)
+            fname, lineno = Util.exception_info()
+            raise Exception(str(e) + ' (' + fname + ', line ' + str(lineno) + ')')
+
 
         if return_output:
             return  {'output': output[0], 
@@ -51,21 +73,12 @@ class Util:
             return {'exec_time': end - start,
                     'pid': p.pid}
 
-    """
+
     @staticmethod
-    def eval(cmd, return_output = False):
-        try:
-            start = Util.microseconds()
-            output = eval(cmd)
-            end = Util.microseconds()
-        except Exception as e:
-            Util.bail('failed to evaluate ' + str(cmd) + ' ' + str(e))
-        if return_output:
-            return {'output':output,
-                    'exec_time':end - start}
-        else:
-            return {'exec_time':end - start}
-            """
+    def exception_info():
+        exc_type, exc_obj, exc_tb = sys.exc_info()
+        fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]      
+        return (fname, exc_tb.tb_lineno)
 
 
     @staticmethod

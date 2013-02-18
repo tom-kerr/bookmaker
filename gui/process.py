@@ -8,6 +8,7 @@ import gtk
 import gobject
 gobject.threads_init()
 
+from util import Util
 from environment import Environment
 from processing import ProcessHandling
 from common import Common
@@ -24,7 +25,6 @@ class Process():
         self.editing = []
         self.books = {}
         self.ProcessHandler = ProcessHandling()
-        Common.run_in_background(self.ProcessHandler.check_thread_exceptions)
         self.init_main()
         self.init_tasklist()
         self.init_buttons()
@@ -241,13 +241,17 @@ class Process():
             return
         identifier = identifier[0]
         if not identifier in self.editing:
-            self.books[identifier].import_crops()
-            window = gtk.Window(gtk.WINDOW_TOPLEVEL)
-            window.connect('destroy', self.close_editor, identifier)
-            Common.set_window_size(window,
-                                   gtk.gdk.screen_width()-1,
-                                   gtk.gdk.screen_height()-1)
-            editor = Editor(window, self.books[identifier])
+            try:
+                self.books[identifier].import_crops()
+                window = gtk.Window(gtk.WINDOW_TOPLEVEL)
+                window.connect('destroy', self.close_editor, identifier)
+                Common.set_window_size(window,
+                                       gtk.gdk.screen_width()-1,
+                                       gtk.gdk.screen_height()-1)
+                editor = Editor(window, self.books[identifier])
+            except Exception as e:
+                Common.dialog(None, gtk.MESSAGE_ERROR, str(e))
+                return
             self.editing.append(identifier)
             path = self.model.get_path(self.books[identifier].entry)
             self.model[path][1] = 'editing'
@@ -277,15 +281,20 @@ class Process():
         ids = self.get_selected()
         if ids is None:
             return
-        rowiter = None
+        if not self.ProcessHandler.monitor_threads:
+            Common.run_in_background(self.ProcessHandler.monitor_thread_exceptions, 1000)
+        queue = self.ProcessHandler.new_queue()
         for identifier in ids:
             if self.ProcessHandler.add_process(self.ProcessHandler.run_main, 
-                                               identifier, self.books[identifier],
+                                               identifier + '_main', self.books[identifier],
                                                self.books[identifier].logger):
+                self.books[identifier].start_time = Util.microseconds()
                 path = self.model.get_path(self.books[identifier].entry)
                 self.model[path][1] = 'processing'
                 self.follow_progress(identifier)
-    
+            else:
+                self.wait(identifier)
+            
 
     def wait(self, identifier):
         path = self.model.get_path(self.books[identifier].entry)
@@ -297,13 +306,16 @@ class Process():
 
             
     def update_progress(self, identifier):        
-        #proc_id = self.ProcessHandler.check_thread_exceptions()
-        #if proc_id:
-        #    print proc_id
-        #    self.ProcessHandler.destroy_thread(proc_id)
-
+        if identifier not in self.books:
+            return False
         if not identifier in self.ProcessHandler.item_queue:            
             path = self.model.get_path(self.books[identifier].entry)
+            if (identifier + '_main' in self.ProcessHandler.errors or 
+                identifier + '_featuredetection' in self.ProcessHandler.errors):
+                self.model[path][1] = 'ERROR'
+                self.model[path][3] = '--'
+                #self.model[path][4] = '--'
+                return True
             completed = len(self.ProcessHandler.FeatureDetection.ImageOps.completed_ops)
             fraction = float(completed) / float(self.books[identifier].page_count)  
 
@@ -324,20 +336,4 @@ class Process():
             if fraction == 1.0:
                 self.model[path][1] = 'finished'
                 return False
-            #line = self.books[identifier].logs['global'].readline()
-            #if line:
-            #    path = self.model.get_path(self.books[identifier].entry)
-            #    if re.search('[0-9a-zA-Z]', line):
-            #        match = re.search('total exec time for leaf [0-9]+', line)
-            #        if match:
-            #            leaf = re.search('[0-9]+', match.group(0))
-            #            fraction = float(leaf.group(0)) / float(self.books[identifier].page_count)  
-            #            self.model[path][3] = fraction*100                                            
-            #        match = re.search('Finished in [\.0-9]+ minutes', line)
-            #        if match:
-            #            self.model[path][1] = 'finished'
-            #            self.model[path][3] = 100
-            #            return False
-        else:
-            self.wait(identifier)
         return True

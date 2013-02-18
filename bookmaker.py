@@ -12,9 +12,9 @@ def main(args):
         Util.bail(str(e))
 
     P = ProcessHandling()
-    P.add_process(P.check_thread_exceptions,
-                  'check_thread_exceptions',
-                  None)
+    #P.add_process(P.check_thread_exceptions,
+    #              'check_thread_exceptions',
+    #              None)
 
     for book in E.books:        
         queue = P.new_queue()

@@ -1,7 +1,0 @@
-#ifndef _SLIDINGWINDOWCONSTANTS_H_
-#define _SLIDINGWINDOWCONSTANTS_H_
-
-#define DESKEW_OUT 0
-
-
-#endif

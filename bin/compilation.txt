@@ -15,9 +15,3 @@ fftw
 ./configure
 sudo make
 sudo make install
-
-
----------
-spectralAnalysis
-
-gcc -O3 spectralAnalysis.c -o spectralAnalysis -I/usr/local/include/leptonica/ -L/usr/ lib -l lept -lm -ltiff -ljpeg -lpng -lz -lm -lfftw3 

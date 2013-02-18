@@ -2,7 +2,6 @@ import pygtk
 pygtk.require("2.0")
 import gtk, gobject
 gobject.threads_init()
-import Queue
 
 from util import Util
 
@@ -195,6 +194,6 @@ class Common:
 
 
     @staticmethod
-    def run_in_background(func):
-        gobject.timeout_add(100, func)
+    def run_in_background(func, milliseconds=100):
+        gobject.timeout_add(milliseconds, func)
 

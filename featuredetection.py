@@ -95,7 +95,14 @@ class FeatureDetection:
                 'out_file': out_file,
                 'rotation_direction': rot_dir,
                 'debug_out': debug_out}
-        return self.ImageOps.execute(leaf, cmd, args, self.book.logger, log, return_output = True)
+        try:
+            output = self.ImageOps.execute(leaf, cmd, args, self.book.logger, log, return_output = True)
+        except Exception as e:
+            self.ProcessHandler.ThreadQueue.put((self.book.identifier + '_featuredetection',
+                                                 str(e), self.book.logger))
+            self.ProcessHandler.ThreadQueue.join()
+        else:
+            return output
 
 
     def parse_page_detection_output(self, leaf, output):
@@ -207,7 +214,12 @@ class FeatureDetection:
         args = {'in_file': in_file,
                 'out_file': out_file,
                 't':t, 's':s, 'n':n, 'l':l }
-        self.ImageOps.execute(leaf, cmd, args, self.book.logger, log, return_output = False)
+        try:
+            self.ImageOps.execute(leaf, cmd, args, self.book.logger, log, return_output=False)
+        except Exception as e:
+            self.ProcessHandler.ThreadQueue.put((self.book.identifier + '_featuredetection',
+                                                 str(e), self.book.logger))
+            self.ProcessHandler.ThreadQueue.join()
 
 
     def filter_corners(self, leaf, in_file, out_file, 
@@ -229,7 +241,12 @@ class FeatureDetection:
                 'b':crop.b,
                 'thumb_width':self.book.raw_image_dimensions[0][1]/4,
                 'thumb_height':self.book.raw_image_dimensions[0][0]/4 }
-        self.ImageOps.execute(leaf, cmd, args, self.book.logger, log, return_output = False)
+        try:
+            self.ImageOps.execute(leaf, cmd, args, self.book.logger, log, return_output = False)
+        except Exception as e:
+            self.ProcessHandler.ThreadQueue.put((self.book.identifier + '_featuredetection',
+                                                 str(e), self.book.logger))
+            self.ProcessHandler.ThreadQueue.join()
         crop.resize(10)
 
 
@@ -280,14 +297,15 @@ class FeatureDetection:
             self.parse_cluster_data(leaf, out_file)
             self.filter_clusters(leaf)    
 
+
     def cluster_analysis(self, cmd,
                          leaf, in_file, out_file, corner_data, 
                          skew_angle, center_x, center_y, 
                          log='clusterAnalysis'):
         if not os.path.exists(in_file):
             self.ProcessHandler.ThreadQueue.put((self.book.identifier + '_featuredetection',
-                                            str(in_file) + ' does not exist',
-                                            self.book.logger))
+                                                 str(in_file) + ' does not exist',
+                                                 self.book.logger))
             self.ProcessHandler.ThreadQueue.join()
         if cmd is 'slidingWindow':
             args = {'in_file': in_file,
@@ -299,8 +317,13 @@ class FeatureDetection:
                     'center_y': center_y}
         elif cmd is 'optics':
             pass
-        self.ImageOps.execute(leaf, cmd, args, self.book.logger, log, return_output = False)
-
+        try:
+            self.ImageOps.execute(leaf, cmd, args, self.book.logger, log, return_output = False)
+        except Exception as e:
+            self.ProcessHandler.ThreadQueue.put((self.book.identifier + '_featuredetection',
+                                                 str(e), self.book.logger))
+            self.ProcessHandler.ThreadQueue.join()
+            
  
     @staticmethod
     def get_cluster_data(cluster_file):

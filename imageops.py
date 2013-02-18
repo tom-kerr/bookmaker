@@ -9,22 +9,22 @@ class ImageOps:
     ops = {
         'pageDetection': { 
             'args' : ['in_file','rotation_direction','out_file','debug_out' ],
-            'cmd' : '{PATH}/bin/cv/pageDetector/./pageDetector^ {in_file} {rotation_direction} {out_file}' ,
+            'cmd' : '{PATH}/bin/pageDetector/./pageDetector^ {in_file} {rotation_direction} {out_file}' ,
             'message':'RUNNING PAGE DETECTOR',            
             },
         'fastCornerDetection': {
             'args': ['in_file','out_file','t','s','n','l'],
-            'cmd': '{PATH}/bin/cv/cornerDetection/./fast^ -t {t} {s} -n {n} {l} {in_file} {out_file}',
+            'cmd': '{PATH}/bin/cornerDetection/./fast^ -t {t} {s} -n {n} {l} {in_file} {out_file}',
             'message': 'RUNNING FAST CORNER DETECTOR',            
             },
         'cornerFilter': { 
             'args': ['in_file', 'out_file', 'l', 'r', 't', 'b', 'thumb_width', 'thumb_height'],
-            'cmd': '{PATH}/bin/./cornerFilter^ {in_file} {out_file} {l} {r} {t} {b} {thumb_width} {thumb_height}',
+            'cmd': '{PATH}/bin/cornerFilter/cornerFilter^ {in_file} {out_file} {l} {r} {t} {b} {thumb_width} {thumb_height}',
             'message': 'RUNNING CORNER FILTER',            
             },
         'slidingWindow': {
             'args': ['in_file','out_file','window_width','window_height','skew_angle','center_x','center_y','log'],
-            'cmd': '{PATH}/bin/cv/clusterAnalysis/slidingWindow/./slidingWindow^ {in_file} {out_file} {window_width} {window_height} {skew_angle} {center_x} {center_y}',
+            'cmd': '{PATH}/bin/clusterAnalysis/slidingWindow/./slidingWindow^ {in_file} {out_file} {window_width} {window_height} {skew_angle} {center_x} {center_y}',
             'message': 'RUNNING SLIDING WINDOW CLUSTER ANALYSIS',            
             },
         'rawtothumb': {
@@ -106,8 +106,8 @@ class ImageOps:
             self.avg_exec_time = 0
             
         
-    def execute(self, leaf, cmd, args, logger, log='global', 
-                redirect=False, return_output=False):
+    def execute(self, leaf, cmd, args, logger, log='global', current_wd=None,
+                redirect=False, return_output=False, print_output=False):
         if cmd in ImageOps.ops:
             CMD = ImageOps.ops[cmd]['cmd']
         else:
@@ -126,9 +126,10 @@ class ImageOps:
         logger.message(ImageOps.ops[cmd]['message'], log)
         logger.message(CMD.replace('^', ' '), log)
         try:
-            output = Util.cmd(CMD, redirect, return_output, logger)
+            output = Util.cmd(CMD, current_wd=current_wd, logger=logger, 
+                              redirect=redirect, return_output=return_output, print_output=print_output)
         except Exception as e:
-            Util.bail(str(e), logger)
+            raise Exception(str(e))
         self.current_pid = output['pid']
         self.exec_times[cmd]['total_exec_time'] += output['exec_time']
         if leaf not in self.exec_times[cmd]['image_exec_times'].keys():
