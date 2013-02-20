@@ -1,0 +1,12 @@
+#include <stdio.h>
+#include <stdlib.h>
+
+int main() {
+
+  int *p1, *p2, n;
+  n = 5;
+  p1 = n;
+
+  printf("p1 is %d\n",p1);
+
+}

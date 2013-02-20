@@ -1,0 +1,17 @@
+#ifndef _PAGEDETECTOR_H_
+#define _PAGEDETECTOR_H_
+
+PIX* normalized_gray(PIX* pix,
+		     int rotDir);
+
+void runFastDetector9(PIX *pix,
+		      int w, int h,
+		      xy *corners,
+		      int *num_corners);
+
+//void getCorners(char *file, struct corners *corners);
+
+float getNonContentAvgLuma(PIX *scaled_4_gray, 
+			   struct corners *corners);
+
+#endif

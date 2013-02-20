@@ -1,0 +1,42 @@
+#ifndef _FOURIER_H_
+#define _FOURIER_H_
+
+
+void freeFourierData(struct fouriercomponents *f,
+                     unsigned int signal_count);
+
+void freeBandData(struct bandfilter *b,
+                  unsigned int signal_count);
+
+void setFourierData(void **lines,
+                    struct fouriercomponents *f,
+                    unsigned int signal_size,
+                    unsigned int signal_count,
+                    int scan_mode,
+                    int start,
+                    int end);
+
+void extractFrequencies(struct fouriercomponents *_FTS,
+                        struct bandfilter *_B);
+
+void findLowFreqPeaks(PIX *pix_gray,
+                      struct bandfilter *_HrzB,
+                      struct bandfilter *_VrtB,
+                      struct dimensions *book,
+                      struct dimensions *_PAGE,
+                      float avgLumaBook,
+                      unsigned int w,
+                      unsigned int h,
+                      int rotDir);
+/*
+void detectMattingSignature(struct bandfilter *_B,
+                            struct regions *_R,
+                            struct dimensions *book,
+                            unsigned int signal_count,
+                            int rotDir);
+*/
+
+void calcFourierTransforms(struct fouriercomponents *FTS);
+
+
+#endif
