@@ -1711,7 +1711,7 @@ class ExportHandler:
                                               'color': 'gray',
                                               'show': True})
         self.ProcessHandler = ProcessHandling()
-        Common.run_in_background(self.ProcessHandler.check_thread_exceptions)
+        Common.run_in_background(self.ProcessHandler.monitor_thread_exceptions)
         self.build_stack_controls()
         self.build_derivative_controls()
         

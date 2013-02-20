@@ -10,7 +10,7 @@ class Util:
     HALT = False
 
     @staticmethod
-    def cmd(cmd, current_wd=None, logger=None,
+    def cmd(cmd, current_wd=None, logger=None, retval=False,
             redirect=False, return_output=False, print_output=False):
 
         if Util.HALT:
@@ -58,12 +58,15 @@ class Util:
             
             output = p.communicate()
             end = Util.microseconds()
-            if p.returncode != 0:
-                print 'd' + p.returncode
+            #if p.returncode != 0:
+            #    print 'd' + p.returncode
         except Exception as e:
             fname, lineno = Util.exception_info()
             raise Exception(str(e) + ' (' + fname + ', line ' + str(lineno) + ')')
 
+
+        if retval:
+            return p.returncode
 
         if return_output:
             return  {'output': output[0], 
