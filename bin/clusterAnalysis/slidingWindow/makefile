@@ -1,5 +1,5 @@
 SHELL=/bin/sh
-CORES:=$(grep -c processor /proc/cpuinfo)
+CORES:=$(shell grep -c ^processor /proc/cpuinfo)
 CC=gcc
 CFLAGS=-g -I../../common -I../../cornerDetection -L/usr/lib 
 ifneq ("1", "$(CORES)")

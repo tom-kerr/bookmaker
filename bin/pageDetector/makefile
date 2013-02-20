@@ -1,5 +1,5 @@
 SHELL=/bin/sh
-CORES:=$(grep -c processor /proc/cpuinfo)
+CORES:=$(shell grep -c ^processor /proc/cpuinfo)
 CC=gcc
 CFLAGS= -g -I/usr/local/include/leptonica -IspectralAnalysis -I../cornerDetection -I../common -I../clusterAnalysis/slidingWindow  -L/usr/lib
 ifneq ("1", "$(CORES)") 

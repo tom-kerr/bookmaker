@@ -1,5 +1,5 @@
 SHELL=/bin/sh
-CORES=$(grep -c processor /proc/cpuinfo)
+CORES=$(shell grep -c ^processor /proc/cpuinfo)
 CC=gcc
 CFLAGS=
 ifneq ("1", "$(CORES)")
@@ -8,5 +8,5 @@ endif
 LDFLAGS=-lm
 OBJ=cornerFilter.o
 
-cornerFilter: $(OBJ)
+cornerFilter: $(OBJ) 	
 	$(CC) $(CFLAGS) $(OBJ) $(LDFLAGS) -o $@

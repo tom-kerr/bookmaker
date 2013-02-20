@@ -24,8 +24,9 @@ print 'Environment: ' + dist, plat
 
 py_dep = {'yaml': {'Ubuntu': 'python-yaml'},
           'lxml': {'Ubuntu': 'python-lxml'},
-          'pygtk': {},
-          'psutil': {'Ubuntu': 'python-psutil'}
+          'psutil': {'Ubuntu': 'python-psutil'},
+          'pypdf': {'Ubuntu': 'python-pypdf'},
+          'pygtk': {}
           }
 
 sys_dep = { 'djvulibre': { 'source': 'http://downloads.sourceforge.net/project/djvu/DjVuLibre/3.5.25/djvulibre-3.5.25.3.tar.gz',
