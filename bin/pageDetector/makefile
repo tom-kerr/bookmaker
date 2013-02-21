@@ -5,7 +5,7 @@ CFLAGS= -g -I/usr/local/include/leptonica -IspectralAnalysis -I../cornerDetectio
 ifneq ("1", "$(CORES)") 
 	CFLAGS += -O3	
 endif
-LDFLAGS=-l lept -ljpeg -lpng -lz -lm -lfftw3
+LDFLAGS=-l lept -ltiff -ljpeg -lpng -lz -lm -lfftw3
 OBJ=pagedetector.o 
 
 pageDetector: $(OBJ) 

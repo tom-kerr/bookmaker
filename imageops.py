@@ -14,7 +14,7 @@ class ImageOps:
             },
         'fastCornerDetection': {
             'args': ['in_file','out_file','t','s','n','l'],
-            'cmd': '{PATH}/bin/cornerDetection/./fast^ -t {t} {s} -n {n} {l} {in_file} {out_file}',
+            'cmd': '{PATH}/bin/cornerDetection/./fast_{PLAT_ARCH}^ -t {t} {s} -n {n} {l} {in_file} {out_file}',
             'message': 'RUNNING FAST CORNER DETECTOR',            
             },
         'cornerFilter': { 
@@ -123,6 +123,10 @@ class ImageOps:
             else:
                 Util.bail('invalid argument "' +str(arg)+ ' ' +str(value)+ '" sent to imgops')
         CMD = re.sub('\{PATH\}', Environment.current_path, CMD)
+
+        if cmd == 'fastCornerDetection':
+            CMD = re.sub('\{PLAT_ARCH\}', Environment.platform + '_' + Environment.architecture, CMD)
+
         logger.message(ImageOps.ops[cmd]['message'], log)
         logger.message(CMD.replace('^', ' '), log)
         try:

@@ -1,5 +1,6 @@
 import os
 import sys
+import platform
 import glob
 import re
 import Image
@@ -27,10 +28,11 @@ class Environment:
     proc_mode = None
     dir_mode = 0755
     scale_factor = 4
-
+    
 
     def __init__(self, dir_list, args=None):
         Environment.set_current_path()
+        Environment.check_system()
         self.books = []
         for root_dir in dir_list:
             if self.find_valid_subdirs(root_dir):
@@ -58,6 +60,18 @@ class Environment:
         for setting, value in book.settings.items():
             book.logger.message(setting + ':' + str(value))
         book.logger.message('*****SETTINGS*****\n')
+
+
+    @staticmethod
+    def check_system():
+        plat = sys.platform
+        if re.search('linux', plat):
+            Environment.platform = 'linux'
+        if re.search('darwin', plat):
+            Environment.platform = 'darwin'
+        if re.search('win', plat):
+            Environment.platform = 'win'
+        Environment.architecture = platform.uname()[-2]
 
 
     @staticmethod

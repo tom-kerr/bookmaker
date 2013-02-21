@@ -29,14 +29,16 @@ py_dep = {'yaml': {'Ubuntu': 'python-yaml'},
           'pygtk': {}
           }
 
-sys_dep = { 'djvulibre': { 'source': 'http://downloads.sourceforge.net/project/djvu/DjVuLibre/3.5.25/djvulibre-3.5.25.3.tar.gz',
+sys_dep = { 'libtiff': {'Ubuntu': 'libtiff4-dev'},
+
+            'djvulibre': { 'source': 'http://downloads.sourceforge.net/project/djvu/DjVuLibre/3.5.25/djvulibre-3.5.25.3.tar.gz',
                            'Ubuntu': 'djvulibre-bin'},
             'exactimage': {'source': 'http://dl.exactcode.de/oss/exact-image/exact-image-0.8.7.tar.bz2',
                            'Ubuntu': 'exactimage'},
             'fftw': {'source': 'http://www.fftw.org/fftw-3.3.3.tar.gz',
                      'Ubuntu': 'libfftw3-3'},
             'leptonica': {'source': 'http://www.leptonica.com/source/leptonica-1.69.tar.gz',
-                          'Ubuntu': 'libleptonica'},
+                          'Ubuntu': 'libleptonica-dev'},
             'tesseract': {'source': '',
                           'Ubuntu': 'tesseract-ocr*'}
             }
