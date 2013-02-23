@@ -1494,6 +1494,10 @@ class ImageEditor:
         image_file = (self.book.dirs['book'] + '/' + self.book.identifier + '_thumbs/' + 
                       self.book.identifier + '_thumb_' + str(leafnum) + '.jpg')
         
+        #image_file = (self.book.dirs['book'] + '/' + self.book.identifier + '_corners_thumbs/' + 
+        #              self.book.identifier + '_thumb_' + str(leafnum) + '.jpg')
+
+
         angle = self.get_angle(leaf)
                         
         if leaf%2==0:
@@ -1794,6 +1798,7 @@ class ExportHandler:
         
         self.cropping_vbox.pack_start(self.controls_hbox, expand=True, fill=False)
         self.cropping_vbox.pack_start(self.init_crop_button, expand=True, fill=True)
+        self.cropping_vbox.pack_start(self.cropping_progress, expand=True, fill=True)
         self.cropping_frame.add(self.cropping_vbox)
         self.stack_controls.put(self.cropping_frame, 0, 25)
 
@@ -1896,6 +1901,7 @@ class ExportHandler:
 
         self.ocr_hbox.pack_start(self.ocr_lang_options, expand=True, fill=True)
         self.ocr_hbox.pack_start(self.init_ocr_button, expand=True, fill=True)
+        self.ocr_hbox.pack_start(self.ocr_progress, expand=True, fill=True)
         self.ocr_frame.add(self.ocr_hbox)
         self.stack_controls.put(self.ocr_frame, 0, 200)
 
@@ -1940,15 +1946,21 @@ class ExportHandler:
 
         self.derive_button.connect('clicked', self.init_derive)
 
-        self.derive_progress = gtk.ProgressBar()
-        self.derive_progress.show()
+        self.derive_progress = {}
+        for d in ('pdf', 'djvu', 'epub', 'text'):
+            self.derive_progress[d] = gtk.ProgressBar()
+            self.derive_progress[d].show()
         
         self.formats_vbox.pack_start(self.derive_pdf, expand=True, fill=False)
+        self.formats_vbox.pack_start(self.derive_progress['pdf'], expand=True, fill=False)
         self.formats_vbox.pack_start(self.derive_djvu, expand=True, fill=False)
+        self.formats_vbox.pack_start(self.derive_progress['djvu'], expand=True, fill=False)        
         self.formats_vbox.pack_start(self.derive_epub, expand=True, fill=False)
+        self.formats_vbox.pack_start(self.derive_progress['epub'], expand=True, fill=False)
         self.formats_vbox.pack_start(self.derive_plain_text, expand=True, fill=False)
-        self.formats_vbox.pack_start(self.derive_button, expand=True, fill=False)
+        self.formats_vbox.pack_start(self.derive_progress['text'], expand=True, fill=False)
 
+        self.formats_vbox.pack_start(self.derive_button, expand=True, fill=False)        
         self.derivative_controls.put(self.formats_vbox, 0, 0)
 
 
@@ -1966,8 +1978,7 @@ class ExportHandler:
 
 
     def run_ocr(self, widget):
-        self.init_ocr_button.destroy()
-        self.ocr_hbox.pack_start(self.ocr_progress, expand=True, fill=True)
+        #self.init_ocr_button.destroy()
         Common.run_in_background(self.update_ocr_progress)        
         self.ProcessHandler.add_process(self.ProcessHandler.run_ocr,
                                         self.editor.book.identifier + '_run_ocr',
@@ -1987,8 +1998,7 @@ class ExportHandler:
 
 
     def run_cropper(self, widget):
-        self.init_crop_button.destroy()
-        self.cropping_vbox.pack_start(self.cropping_progress, expand=True, fill=True)
+        #self.init_crop_button.destroy()
         Common.run_in_background(self.update_cropping_progress)
         self.ProcessHandler.add_process(self.ProcessHandler.run_cropper,
                                         self.editor.book.identifier + '_run_cropper',
@@ -2015,8 +2025,7 @@ class ExportHandler:
                 formats.append(name)
         if len(formats) < 1:
             return
-        self.formats_vbox.pack_start(self.derive_progress, expand=True, fill=False)
-        Common.run_in_background(self.update_derive_progress)
+        Common.run_in_background(self.update_derive_progress, 2000)
         self.ProcessHandler.add_process(self.ProcessHandler.derive_formats,
                                         self.editor.book.identifier,
                                         (self.editor.book, formats), self.editor.book.logger)
@@ -2024,4 +2033,23 @@ class ExportHandler:
                 
 
     def update_derive_progress(self):
-        pass
+        fractions = {}
+        for d in ('pdf', 'djvu', 'epub', 'text'):
+            completed = 0
+
+            if d in self.ProcessHandler.Derive.ImageOps.completed_ops:
+                fractions[d] = 1.0
+            else:
+                for leaf, comp in self.ProcessHandler.Derive.ImageOps.completed_ops.items():
+                    for msg in comp:
+                        if re.search(d, msg):
+                            completed += 1
+                            break
+                fractions[d] = float(completed)/float(self.editor.book.page_count-2)
+
+            self.derive_progress[d].set_fraction(fractions[d])
+            self.derive_progress[d].set_text(str(int(fractions[d]*100)) + '%')
+        for d in ('pdf', 'djvu', 'epub', 'text'):
+            if fractions[d] != 1.0:
+                return True
+        return False

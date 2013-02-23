@@ -27,7 +27,6 @@ class ProcessHandling:
         self.processes = 0
         
         self.ThreadQueue = Queue.Queue()
-        #self.process_queue = self.new_queue()
         self.item_queue = self.new_queue()
         self.errors = []
         
@@ -73,8 +72,6 @@ class ProcessHandling:
                 self.handle_thread_exceptions()
             except Exception as e:
                 raise Exception(str(e))
-            if Util.HALT:
-                Util.halt()
             finished = 0
             active_pids = []
             for pid, thread in self.active_threads.items():
@@ -99,8 +96,6 @@ class ProcessHandling:
 
     def add_process(self, func, pid, args, logger=None, call_back=None):
         time.sleep(0.25)
-        if Util.HALT:
-            Util.HALT = False
         if self.already_processing(pid):
             return False
         self.clear_errors(pid)
@@ -144,10 +139,9 @@ class ProcessHandling:
         for pid in destroy:
             self.destroy_thread(pid)
         self.item_queue = self.new_queue()
-        #self.process_queue = self.new_queue()
-        Util.HALT = True
         self.poll = None
         self.monitor_threads = False
+        #Util.end_active_processes()
 
 
     def destroy_thread(self, pid):
@@ -209,10 +203,7 @@ class ProcessHandling:
             elif Environment.interface == 'command':
                 print msg
             self.ThreadQueue.put((pid, message, logger))            
-        if Util.HALT:
-            return False
-        else:
-            return True
+        return True
 
 
     def handle_thread_exceptions(self):
@@ -238,12 +229,13 @@ class ProcessHandling:
         try:
             self.drain_queue(queue, 'async')
             self.make_standard_crop(book)
+            self.FeatureDetection.ImageOps.complete('featuredetection')
         except Exception as e:
             Util.bail(str(e))            
         end_time = self.inactive_threads[book.identifier + '_featuredetection'].end_time
         start_time = self.inactive_threads[book.identifier + '_featuredetection'].start_time
         book.logger.message("Finished Main Processing in " + str((end_time - start_time)/60) + ' minutes')
-        
+
 
     def autopaginate(self):
         pass
@@ -274,8 +266,10 @@ class ProcessHandling:
                                                                       book.logger, None)
         try:
             self.drain_queue(queue, 'async')
+            self.Cropper.ImageOps.complete('cropper') 
         except Exception as e:
-            raise Exception(str(e))
+            Util.bail(str(e))
+            #raise Exception(str(e))
         
 
     def run_ocr(self, book, language):
@@ -294,8 +288,10 @@ class ProcessHandling:
                                                                   book.logger, None)   
         try:
             self.drain_queue(queue, 'async')
+            self.OCR.ImageOps.complete('ocr') 
         except Exception as e:
-            raise Exception(str(e))
+            Util.bail(str(e))
+            #raise Exception(str(e))
         
 
     def derive_formats(self, book, formats):
@@ -316,9 +312,12 @@ class ProcessHandling:
                 queue[book.identifier + '_' + f] = (self.Derive.djvu, 
                                                     None, book.logger, None)
             elif 'epub':
+                self.Derive.epub()
                 pass
 
         try:
             self.drain_queue(queue, 'async')
+            self.Derive.ImageOps.complete('derive')
         except Exception as e:
-            raise Exception(str(e))
+            Util.bail(str(e))
+            #raise Exception(str(e))

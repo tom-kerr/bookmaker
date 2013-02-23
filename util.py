@@ -7,14 +7,12 @@ import time
 
 class Util:
 
-    HALT = False
+    active_procs = []
 
     @staticmethod
     def cmd(cmd, current_wd=None, logger=None, retval=False,
             redirect=False, return_output=False, print_output=False):
-
-        if Util.HALT:
-            Util.halt('Halting command ' + str(cmd), logger)
+        devnull = open(os.devnull, 'w')
         if redirect in ('stdout', 'stdin'):
             if redirect == 'stdout':
                 components = cmd.split(' > ')
@@ -27,8 +25,7 @@ class Util:
             redir = open(str(components[1]), mode)
         elif return_output:
             redir = subprocess.PIPE
-        devnull = open(os.devnull, 'w')
-            
+                    
         cmd = [re.sub("^ +", '', c) for c in cmd.split('^') if c is not '']
 
         if redirect == 'stdin':
@@ -55,15 +52,16 @@ class Util:
                 p = subprocess.Popen(cmd, cwd=current_wd, stdout=sout, stdin=sin)
             else:
                 p = subprocess.Popen(cmd, stdout=sout, stdin=sin)
-            
+
+            Util.active_procs.append(p)
             output = p.communicate()
             end = Util.microseconds()
-            #if p.returncode != 0:
-            #    print 'd' + p.returncode
+            Util.active_procs.remove(p)
+
         except Exception as e:
+            Util.active_pids.append(p.pid)
             fname, lineno = Util.exception_info()
             raise Exception(str(e) + ' (' + fname + ', line ' + str(lineno) + ')')
-
 
         if retval:
             return p.returncode
@@ -75,6 +73,18 @@ class Util:
         else:
             return {'exec_time': end - start,
                     'pid': p.pid}
+
+
+    
+    @staticmethod
+    def end_active_processes():
+        for p in Util.active_procs:
+            try:
+                p.terminate()
+            except:
+                pass
+
+        
 
 
     @staticmethod

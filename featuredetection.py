@@ -476,21 +476,20 @@ class FeatureDetection:
         self.left_reference_leaf = None
         self.right_reference_leaf = None
         self.book.pageCropScaled.get_box_metadata()
-        while self.left_reference_leaf is None and self.right_reference_leaf is None:
-            for leaf, box in self.book.pageCropScaled.box.iteritems():
-                if ((box.w in self.book.pageCropScaled.meta['w']['stats_hist']['above_mean'] or
-                     box.w in self.book.pageCropScaled.meta['w']['stats_hist']['below_mean']) and
-                    (box.h in self.book.pageCropScaled.meta['h']['stats_hist']['above_mean'] or
-                     box.h in self.book.pageCropScaled.meta['h']['stats_hist']['below_mean'])):
-                    if leaf%2==0 and self.left_reference_leaf is None:
-                        self.book.logger.message('left reference leaf is ' + str(leaf), log)
-                        self.left_reference_leaf = self.book.pageCropScaled.box[leaf]
-                    elif leaf%2==0 and self.right_reference_leaf is None:
-                        self.book.logger.message('right reference leaf is ' + str(leaf), log)
-                        self.right_reference_leaf = self.book.pageCropScaled.box[leaf]
-                if leaf > self.book.page_count-1:
-                    self.book.logger.message('could not find suitable reference leafs...aborting noise analysis', log)
-                    return False
+        for leaf, box in self.book.pageCropScaled.box.iteritems():
+            if ((box.w in self.book.pageCropScaled.meta['w']['stats_hist']['above_mean'] or
+                 box.w in self.book.pageCropScaled.meta['w']['stats_hist']['below_mean']) and
+                (box.h in self.book.pageCropScaled.meta['h']['stats_hist']['above_mean'] or
+                 box.h in self.book.pageCropScaled.meta['h']['stats_hist']['below_mean'])):
+                if leaf%2==0 and self.left_reference_leaf is None:
+                    self.book.logger.message('left reference leaf is ' + str(leaf), log)
+                    self.left_reference_leaf = self.book.pageCropScaled.box[leaf]
+                elif leaf%2==0 and self.right_reference_leaf is None:
+                    self.book.logger.message('right reference leaf is ' + str(leaf), log)
+                    self.right_reference_leaf = self.book.pageCropScaled.box[leaf]
+        if self.left_reference_leaf is None and self.right_reference_leaf is None:
+            self.book.logger.message('could not find suitable reference leafs...aborting noise analysis', log)
+            return False
         return True
 
 

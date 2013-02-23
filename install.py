@@ -30,7 +30,7 @@ py_dep = {'yaml': {'Ubuntu': 'python-yaml'},
           }
 
 sys_dep = { 'libtiff': {'Ubuntu': 'libtiff4-dev'},
-
+            'netpbm': {'Ubuntu': 'netpbm'},
             'djvulibre': { 'source': 'http://downloads.sourceforge.net/project/djvu/DjVuLibre/3.5.25/djvulibre-3.5.25.3.tar.gz',
                            'Ubuntu': 'djvulibre-bin'},
             'exactimage': {'source': 'http://dl.exactcode.de/oss/exact-image/exact-image-0.8.7.tar.bz2',
@@ -73,12 +73,14 @@ def check_sys_dep():
     for pkg, dists in sys_dep.items():
         if dist in dists:
             if not install_with_package_manager(dists[dist]):
-                print 'failed...will try to compile from source...'
+                if dists['source'] is not None:
+                    print 'failed...will try to compile from source...'
+                    source_dir = download_and_extract(dists['source'])
+                    install_from_source(source_dir)
+        else:
+            if dists['source'] is not None:
                 source_dir = download_and_extract(dists['source'])
                 install_from_source(source_dir)
-        else:
-            source_dir = download_and_extract(dists['source'])
-            install_from_source(source_dir)
 
 
 def download_and_extract(source):

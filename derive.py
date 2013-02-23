@@ -18,7 +18,7 @@ class Derive:
 
     def epub(self):
         self.book.logger.message('Creating EPUB...')
-
+        self.ImageOps.complete('epub') 
 
 
 
@@ -90,8 +90,11 @@ class Derive:
         args = {'options': '-c',
                 'out_file': djvu_out,
                 'in_files': djvu_files}
-        self.ImageOps.execute('all', cmd, args, self.book.logger)
+        self.ImageOps.execute('djvm', cmd, args, self.book.logger)
+        self.ImageOps.complete('djvu') 
         self.book.logger.message('Finished DjVu.')
+        
+
         try:
             os.remove(tmpocrlisp)
         except:
@@ -150,8 +153,9 @@ class Derive:
         pdf = file(self.book.dirs['derived'] + '/' + self.book.identifier + '.pdf', 'wb')
         pdf_out.write(pdf)
         pdf.close()
+        self.ImageOps.complete('pdf') 
         self.book.logger.message('Finished PDF.')
-
+        
                                 
     def full_plain_text(self, ocr_data=None):        
         self.book.logger.message('Creating Full Plain Text...')
@@ -183,4 +187,6 @@ class Derive:
                                             'failed to write full plain text', 
                                             self.book.logger))
             self.ProcessHandler.ThreadQueue.join()
+        self.ImageOps.complete('text') 
         self.book.logger.message('Finished Text.')
+        

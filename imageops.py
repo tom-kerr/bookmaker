@@ -70,17 +70,17 @@ class ImageOps:
         'tesseract':{
             'args': ['in_file','out_base','language','psm', 'hocr'],
             'cmd': 'tesseract^ {in_file} {out_base} -l {language} {psm} {hocr}',
-            'message': 'RUNNING TESSERACT',
+            'message': 'RUNNING TESSERACT (ocr)',
             },
         'hocr2pdf': {
             'args': ['in_file', 'out_file', 'hocr_file'],
             'cmd': 'hocr2pdf^ -i^ {in_file} -o^ {out_file} < {hocr_file}',
-            'message': 'RUNNING HOCR2PDF'
+            'message': 'RUNNING HOCR2PDF (pdf)'
             },
         'c44': {
             'args': ['slice', 'bpp', 'percent', 'decibel', 'dbfrac', 'mask', 'dpi', 'gamma', 'in_file', 'out_file'],
             'cmd': 'c44^ {slice} {bpp} {percent} {decibel} {dbfrac} {mask} {dpi} {gamma} {in_file} {out_file}',
-            'message': 'RUNNING C44'
+            'message': 'RUNNING C44 (djvu)'
             },
         'djvused': {
             'args': ['options', 'script', 'djvu_file'],
@@ -144,15 +144,15 @@ class ImageOps:
         self.total_exec_time += output['exec_time']
         self.avg_exec_time = self.total_exec_time/len(self.exec_times[cmd]['image_exec_times'])
         logger.message('executed ' + cmd + ' in ' + str(output['exec_time']), log);
-        self.complete(leaf, cmd + str(output['exec_time']))
+        self.complete(leaf, 'FINISHED ' + ImageOps.ops[cmd]['message'] + str(output['exec_time']))
         if return_output:
             return output['output']
 
 
-    def complete(self, leaf, op_string):
-        if leaf not in self.completed_ops:
-            self.completed_ops[leaf] = []
-        self.completed_ops[leaf].append(op_string)
+    def complete(self, index, op_string='complete'):
+        if index not in self.completed_ops:
+            self.completed_ops[index] = []
+        self.completed_ops[index].append(op_string)
 
 
     def return_total_leaf_exec_time(self, leaf):
