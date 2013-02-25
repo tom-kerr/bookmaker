@@ -18,7 +18,7 @@ class Derive:
 
     def epub(self):
         self.book.logger.message('Creating EPUB...')
-        self.ImageOps.complete('epub') 
+        self.ImageOps.complete(self.book.identifier + '_epub') 
 
 
 
@@ -35,7 +35,8 @@ class Derive:
 
 
 
-    def djvu(self, ocr_data=None):
+    def djvu(self, slices, size, bpp, percent, dpi, gamma, decibel, dbfrac, 
+             crcbnorm, crcbhalf, crcbfull, crcbnone, crcbdelay, mask=None):
         self.book.logger.message('Creating Searchable DjVu...')
         hocr_files = self.OCR.get_hocr_files()
         djvu_files = []
@@ -50,18 +51,72 @@ class Derive:
                 
             out_file = self.book.dirs['derived'] + '/' + self.book.identifier + '_' + leafnum + '.djvu'
             cmd = 'c44'
-            args = {'slice': '', 
-                    'bpp': '', 
-                    'percent': '', 
-                    'decibel': '', 
-                    'dbfrac': '', 
-                    'mask': '', 
-                    'dpi': '', 
-                    'gamma': '', 
-                    'in_file': in_file,
-                    'out_file': out_file}
+            args = {}
+            if slices not in (None, False, '', ' '):
+                args['slice'] = '-slice^ ' + str(slices)
+            else:
+                args['slice'] = None
+            if size not in (None, False, '', ' '):
+                args['size'] = '-size^ ' + str(size)
+            else:
+                args['size'] = None
+            if bpp not in (None, False, '', ' '):
+                args['bpp'] = '-bpp^ ' + str(bpp)
+            else:
+                args['bpp'] = None
+            if percent not in (None, False, '', ' '):
+                args['percent'] = '-percent^ ' + str(percent)
+            else:
+                args['percent'] = None
+            if dpi not in (None, False, '', ' '):
+                args['dpi'] = '-dpi^ ' + str(dpi)
+            else:
+                args['dpi'] = None
+            if gamma not in (None, False, '', ' '):
+                args['gamma'] = '-gamma^ ' + str(gamma)
+            else:
+                args['gamma'] = None
+            if decibel not in (None, False, '', ' '):
+                args['decibel'] = '-decibel^ ' + str(decibel)
+            else:
+                args['decibel'] = None
+            if dbfrac not in (None, False, '', ' '):
+                args['dbfrac'] = '-dbfrac^ ' + str(dbfrac)
+            else:
+                args['dbfrac'] = None            
+            if crcbnorm:
+                args['crcb'] = '-crcbnormal'
+            elif crcbhalf:
+                args['crcb'] = '-crcbhalf'
+            elif crcbfull:
+                args['crcb'] = '-crcbfull'
+            elif crcbnone:
+                args['crcb'] = '-crcbnone'
+            else:
+                args['crcb'] = None
+
+            if crcbnorm or crcbhalf:
+                if crcbdelay not in (None, False, '', ' '):
+                    args['crcbdelay'] = '-crcbdelay^ ' + str(crcbdelay)
+                else:
+                    args['crcbdelay'] = None
+
+            if mask not in (None, False, '', ' '):
+                args['mask'] = '-mask^ ' + str(mask)
+            else:
+                args['mask'] = ''
+            
+            args['in_file'] = in_file
+            args['out_file'] = out_file
+            
             self.ImageOps.execute(leaf, cmd, args, self.book.logger, log='derivation')
-            djvu_files.append(out_file)
+            if os.path.exists(out_file):
+                djvu_files.append(out_file)
+            else:
+                self.ProcessHandler.ThreadQueue.put((self.book.identifier + '_djvu',
+                                                     'cannot make djvu: failed to create ' + str(out_file),
+                                                     self.book.logger))
+                self.ProcessHandler.ThreadQueue.join()
 
             #if ocr_data is None:
             if leaf in hocr_files:
@@ -83,18 +138,29 @@ class Derive:
                 args = {'options': "-f",
                         'script': set_text,
                         'djvu_file': djvu_file}
-                self.ImageOps.execute(leaf, cmd, args, self.book.logger, log='derivation')
-        
+                try:
+                    self.ImageOps.execute(leaf, cmd, args, self.book.logger, log='derivation')
+                except Exception as e:
+                    self.ProcessHandler.ThreadQueue.put((self.book.identifier + '_djvu',
+                                                         str(e),
+                                                         self.book.logger))
+                    self.ProcessHandler.ThreadQueue.join()
+
         djvu_out = self.book.dirs['derived'] + '/' + self.book.identifier + '.djvu '
         cmd = 'djvm'
         args = {'options': '-c',
                 'out_file': djvu_out,
                 'in_files': djvu_files}
-        self.ImageOps.execute('djvm', cmd, args, self.book.logger)
-        self.ImageOps.complete('djvu') 
+        try:
+            self.ImageOps.execute('djvm', cmd, args, self.book.logger)
+        except Exception as e:
+            self.ProcessHandler.ThreadQueue.put((self.book.identifier + '_djvu',
+                                                 str(e),
+                                                 self.book.logger))
+            self.ProcessHandler.ThreadQueue.join()
+        self.ImageOps.complete(self.book.identifier + '_djvu') 
         self.book.logger.message('Finished DjVu.')
         
-
         try:
             os.remove(tmpocrlisp)
         except:
@@ -102,8 +168,7 @@ class Derive:
         try:
             os.remove(set_text)
         except:
-            pass
-        
+            pass        
         for djvu_file in djvu_files:
             try:
                 os.remove(djvu_file)
@@ -111,7 +176,7 @@ class Derive:
                 pass
         
 
-    def pdf(self):
+    def pdf(self, no_image, sloppy, ppi):
         self.book.logger.message('Creating Searchable PDF...')
         hocr_files = self.OCR.get_hocr_files()
         if not hocr_files: 
@@ -139,10 +204,35 @@ class Derive:
                 self.ProcessHandler.ThreadQueue.join()
             out_file = self.book.dirs['derived'] + '/' + self.book.identifier + '_' + leafnum + '.pdf'
             cmd = 'hocr2pdf'
-            args = {'in_file': in_file,
-                    'out_file': out_file,
-                    'hocr_file': hocr}
-            self.ImageOps.execute(leaf, cmd, args, self.book.logger, log='derivation', redirect='stdin')
+            args = {}
+            if no_image:
+                args['no_image'] = '-n'
+            else:
+                args['no_image'] = None
+            if sloppy:
+                args['sloppy'] = '-s'
+            else:
+                args['sloppy'] = None
+            if ppi not in (None, False, '', ' '):
+                args['resolution'] = '-r^ ' + str(ppi)
+            else:
+                args['resolution'] = None                
+            args['in_file'] = in_file
+            args['out_file'] = out_file
+            args['hocr_file'] = hocr
+            try:
+                self.ImageOps.execute(leaf, cmd, args, self.book.logger, log='derivation', redirect='stdin')
+            except Exception as e:
+                self.ProcessHandler.ThreadQueue.put((self.book.identifier + '_djvu',
+                                                     str(e),
+                                                     self.book.logger))
+                self.ProcessHandler.ThreadQueue.join()
+
+            if not os.path.exists(out_file):
+                self.ProcessHandler.ThreadQueue.put((self.book.identifier + '_pdf',
+                                                     'cannot make pdf: failed to create ' + str(out_file), 
+                                                     self.book.logger))
+                self.ProcessHandler.ThreadQueue.join()
             pdf_page = PdfFileReader(file(out_file, 'rb'))
             pdf_out.addPage(pdf_page.getPage(0))
             os.remove(out_file)
@@ -153,7 +243,7 @@ class Derive:
         pdf = file(self.book.dirs['derived'] + '/' + self.book.identifier + '.pdf', 'wb')
         pdf_out.write(pdf)
         pdf.close()
-        self.ImageOps.complete('pdf') 
+        self.ImageOps.complete(self.book.identifier +'_pdf') 
         self.book.logger.message('Finished PDF.')
         
                                 
@@ -187,6 +277,6 @@ class Derive:
                                             'failed to write full plain text', 
                                             self.book.logger))
             self.ProcessHandler.ThreadQueue.join()
-        self.ImageOps.complete('text') 
+        self.ImageOps.complete(self.book.identifier +'_text') 
         self.book.logger.message('Finished Text.')
         

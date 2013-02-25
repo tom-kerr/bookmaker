@@ -137,6 +137,8 @@ class Common:
                 widget.set_digits(value)
             elif property == 'set_value':
                 widget.set_value(value)
+            elif property == 'set_text':
+                widget.set_text(str(value))
             elif property == 'set_shadow_type':
                 widget.set_shadow_type(value)
             elif property == 'set_label_align':

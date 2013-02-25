@@ -28,14 +28,15 @@ class ProcessHandling:
         
         self.ThreadQueue = Queue.Queue()
         self.item_queue = self.new_queue()
-        self.errors = []
+        self.handled_exceptions = []
+        self.unhandled_exceptions = []
         
         self.poll = None
         self.monitor_threads = False
         self.FeatureDetection = None
         self.Cropper = None
         self.OCR = None
-
+        self.Derive = None
 
     def init_poll(self):
         self.poll = threading.Thread(None, self.poll_threads, 'poll_threads')
@@ -85,20 +86,20 @@ class ProcessHandling:
                 time.sleep(1)
 
 
-    def clear_errors(self, pid):
+    def clear_exceptions(self, pid):
         remove = None
-        for num, item in enumerate(self.errors):
+        for num, item in enumerate(self.handled_exceptions):
             if item == pid:
                 remove = num
         if remove is not None:
-            del self.errors[remove]
+            del self.handled_exceptions[remove]
 
 
     def add_process(self, func, pid, args, logger=None, call_back=None):
         time.sleep(0.25)
         if self.already_processing(pid):
             return False
-        self.clear_errors(pid)
+        self.clear_exceptions(pid)
         if self.processes >= self.cores:
             self.wait(func, pid, args)
             return False
@@ -197,11 +198,13 @@ class ProcessHandling:
         except Queue.Empty:
             pass
         else:
-            msg = 'Exception in thread ' + pid + ':\n' + message
-            if Environment.interface == 'gui':
-                Common.dialog(message=msg)
-            elif Environment.interface == 'command':
-                print msg
+            if pid not in self.unhandled_exceptions:
+                self.unhandled_exceptions.append(pid)
+                msg = 'Exception in thread ' + pid + ':\n' + message
+                if Environment.interface == 'gui':
+                    Common.dialog(message=msg)
+                elif Environment.interface == 'command':
+                    print msg
             self.ThreadQueue.put((pid, message, logger))            
         return True
 
@@ -212,7 +215,8 @@ class ProcessHandling:
         except Queue.Empty:
             pass
         else:
-            self.errors.append(pid)
+            self.handled_exceptions.append(pid)
+            self.unhandled_exceptions.remove(pid)
             msg = 'Exception in thread ' + pid + ':\n' + message
             self.destroy_thread(pid)
             raise Exception(msg)
@@ -229,11 +233,11 @@ class ProcessHandling:
         try:
             self.drain_queue(queue, 'async')
             self.make_standard_crop(book)
-            self.FeatureDetection.ImageOps.complete('featuredetection')
         except Exception as e:
             Util.bail(str(e))            
         end_time = self.inactive_threads[book.identifier + '_featuredetection'].end_time
         start_time = self.inactive_threads[book.identifier + '_featuredetection'].start_time
+        self.FeatureDetection.ImageOps.complete(book.identifier + '_featuredetection')
         book.logger.message("Finished Main Processing in " + str((end_time - start_time)/60) + ' minutes')
 
 
@@ -266,10 +270,9 @@ class ProcessHandling:
                                                                       book.logger, None)
         try:
             self.drain_queue(queue, 'async')
-            self.Cropper.ImageOps.complete('cropper') 
+            self.Cropper.ImageOps.complete(book.identifier + '_cropper') 
         except Exception as e:
             Util.bail(str(e))
-            #raise Exception(str(e))
         
 
     def run_ocr(self, book, language):
@@ -288,16 +291,15 @@ class ProcessHandling:
                                                                   book.logger, None)   
         try:
             self.drain_queue(queue, 'async')
-            self.OCR.ImageOps.complete('ocr') 
+            self.OCR.ImageOps.complete(book.identifier + '_ocr') 
         except Exception as e:
             Util.bail(str(e))
-            #raise Exception(str(e))
         
 
     def derive_formats(self, book, formats):
         self.Derive = Derive(self, book)
         queue = self.new_queue()
-        for f in formats:
+        for f, args in formats.items():
             if f == 'text':
                 if self.OCR is not None:
                     ocr_data = self.OCR.ocr_data
@@ -307,17 +309,16 @@ class ProcessHandling:
                                                     ocr_data, book.logger, None)
             elif f == 'pdf':
                 queue[book.identifier + '_' + f] = (self.Derive.pdf, 
-                                                    None, book.logger, None)
+                                                    args, book.logger, None)
             elif f == 'djvu':
                 queue[book.identifier + '_' + f] = (self.Derive.djvu, 
-                                                    None, book.logger, None)
+                                                    args, book.logger, None)
             elif 'epub':
                 self.Derive.epub()
                 pass
 
         try:
             self.drain_queue(queue, 'async')
-            self.Derive.ImageOps.complete('derive')
+            self.Derive.ImageOps.complete(book.identifier + '_derive')
         except Exception as e:
             Util.bail(str(e))
-            #raise Exception(str(e))

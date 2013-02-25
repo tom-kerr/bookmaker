@@ -310,12 +310,13 @@ class Process():
             return False
         if not identifier in self.ProcessHandler.item_queue:            
             path = self.model.get_path(self.books[identifier].entry)
-            if (identifier + '_main' in self.ProcessHandler.errors or 
-                identifier + '_featuredetection' in self.ProcessHandler.errors):
+            if (identifier + '_main' in self.ProcessHandler.handled_exceptions or 
+                identifier + '_featuredetection' in self.ProcessHandler.handled_exceptions):
                 self.model[path][1] = 'ERROR'
                 self.model[path][3] = '--'
                 #self.model[path][4] = '--'
                 return True
+            
             completed = len(self.ProcessHandler.FeatureDetection.ImageOps.completed_ops)
             fraction = float(completed) / float(self.books[identifier].page_count)  
 

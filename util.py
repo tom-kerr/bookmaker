@@ -27,7 +27,7 @@ class Util:
             redir = subprocess.PIPE
                     
         cmd = [re.sub("^ +", '', c) for c in cmd.split('^') if c is not '']
-
+        
         if redirect == 'stdin':
             sin = redir
             sout = None

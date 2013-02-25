@@ -73,13 +73,13 @@ class ImageOps:
             'message': 'RUNNING TESSERACT (ocr)',
             },
         'hocr2pdf': {
-            'args': ['in_file', 'out_file', 'hocr_file'],
-            'cmd': 'hocr2pdf^ -i^ {in_file} -o^ {out_file} < {hocr_file}',
+            'args': ['no_image', 'sloppy', 'resolution', 'in_file', 'out_file', 'hocr_file'],
+            'cmd': 'hocr2pdf^ {no_image} {sloppy} {resolution} -i^ {in_file} -o^ {out_file} < {hocr_file}',
             'message': 'RUNNING HOCR2PDF (pdf)'
             },
         'c44': {
-            'args': ['slice', 'bpp', 'percent', 'decibel', 'dbfrac', 'mask', 'dpi', 'gamma', 'in_file', 'out_file'],
-            'cmd': 'c44^ {slice} {bpp} {percent} {decibel} {dbfrac} {mask} {dpi} {gamma} {in_file} {out_file}',
+            'args': ['slice', 'size', 'bpp', 'percent', 'dpi', 'gamma', 'decibel', 'dbfrac', 'crcb', 'crcbdelay', 'mask', 'in_file', 'out_file'],
+            'cmd': 'c44^ {slice} {size} {bpp} {percent} {dpi} {gamma} {decibel} {dbfrac} {crcb} {crcbdelay} {mask} {in_file} {out_file}',
             'message': 'RUNNING C44 (djvu)'
             },
         'djvused': {
@@ -111,22 +111,24 @@ class ImageOps:
         if cmd in ImageOps.ops:
             CMD = ImageOps.ops[cmd]['cmd']
         else:
-            Util.bail('invalid image operation')                
+            raise Exception('invalid image operation')                
         for arg, value in args.iteritems():
             if type(value) == type(list()):
                 value = ''.join([str(v) + '^' for v in value if value not in (None, '', ' ')])
             elif value not in (None, '', ' '):
                 value = str(value) + '^'
+            elif value in (None, '', ' '):
+                value = ''
             if arg in ImageOps.ops[cmd]['args']:
                 pattern = '\{'+str(arg)+'\}'
                 CMD = re.sub(pattern, value, CMD)
             else:
-                Util.bail('invalid argument "' +str(arg)+ ' ' +str(value)+ '" sent to imgops')
+                raise Exception('invalid argument "' +str(arg)+ ' ' +str(value)+ '" sent to imgops')
         CMD = re.sub('\{PATH\}', Environment.current_path, CMD)
 
         if cmd == 'fastCornerDetection':
             CMD = re.sub('\{PLAT_ARCH\}', Environment.platform + '_' + Environment.architecture, CMD)
-
+        
         logger.message(ImageOps.ops[cmd]['message'], log)
         logger.message(CMD.replace('^', ' '), log)
         try:

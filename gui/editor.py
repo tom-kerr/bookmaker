@@ -1728,11 +1728,11 @@ class ExportHandler:
                                                  'show': True})
 
         self.stack_controls_frame = Common.new_widget('Frame',
-                                                      {'label': 'Stack Controls',
+                                                      {#'label': 'Stack Controls',
                                                        'size_request': (self.editor.window.width/2, 
                                                                         self.editor.window.height),
-                                                       'set_shadow_type': gtk.SHADOW_ETCHED_IN,
-                                                       'set_label_align': (0.5,0.5),
+                                                       'set_shadow_type': gtk.SHADOW_NONE,
+                                                       #'set_label_align': (0.5,0.5),
                                                        'show': True})        
         self.active_crop = 'cropBox'
         self.grayscale = False
@@ -1756,11 +1756,11 @@ class ExportHandler:
                                                       'show': True})
         
         self.derivative_controls_frame = Common.new_widget('Frame',
-                                                           {'label': 'Derivative Controls',
+                                                           {#'label': 'Derivative Controls',
                                                             'size_request': (self.editor.window.width/2, 
                                                                              self.editor.window.height),
-                                                            'set_shadow_type': gtk.SHADOW_ETCHED_IN,
-                                                            'set_label_align': (0.5,0.5),
+                                                            'set_shadow_type': gtk.SHADOW_NONE,
+                                                            #'set_label_align': (0.5,0.5),
                                                             'show': True})        
         self.init_derivatives()
 
@@ -1773,7 +1773,7 @@ class ExportHandler:
         self.cropping_frame = Common.new_widget('Frame',
                                                 {'label': 'Cropping',
                                                  'size_request': (self.editor.window.width/4, 150),
-                                                 'set_shadow_type': gtk.SHADOW_ETCHED_IN,
+                                                 'set_shadow_type': gtk.SHADOW_OUT,
                                                  'set_label_align': (0.5,0.5),
                                                  'show': True})
 
@@ -1788,11 +1788,12 @@ class ExportHandler:
         self.init_proc_options()
         
         self.cropping_progress = gtk.ProgressBar()
+        self.cropping_progress.set_text('0%')
         self.cropping_progress.show()
 
         self.init_crop_button = Common.new_widget('Button',
                                                   {'label': 'Initialize Cropping',
-                                                   'size_request': (self.editor.window.width/4, -1),
+                                                   'size_request': (-1, -1),
                                                    'show': True})
         self.init_crop_button.connect('clicked', self.run_cropper)
         
@@ -1800,7 +1801,7 @@ class ExportHandler:
         self.cropping_vbox.pack_start(self.init_crop_button, expand=True, fill=True)
         self.cropping_vbox.pack_start(self.cropping_progress, expand=True, fill=True)
         self.cropping_frame.add(self.cropping_vbox)
-        self.stack_controls.put(self.cropping_frame, 0, 25)
+        self.stack_controls.put(self.cropping_frame, 0, 0)
 
 
     def init_crops(self):        
@@ -1873,8 +1874,8 @@ class ExportHandler:
     def init_ocr(self):
         self.ocr_frame = Common.new_widget('Frame',
                                            {'label': 'OCR',
-                                            'size_request': (self.editor.window.width/4, -1),
-                                            'set_shadow_type': gtk.SHADOW_ETCHED_IN,
+                                            'size_request': (int(self.editor.window.width*.45), -1),
+                                            'set_shadow_type': gtk.SHADOW_OUT,
                                             'set_label_align': (0.5,0.5),
                                             'show': True})
 
@@ -1883,6 +1884,7 @@ class ExportHandler:
                                            'show': True})
                 
         self.ocr_progress = gtk.ProgressBar()
+        self.ocr_progress.set_text('0%')
         self.ocr_progress.show()
 
         self.init_ocr_button = Common.new_widget('Button',
@@ -1908,23 +1910,24 @@ class ExportHandler:
 
 
     def init_derivatives(self):
-        self.formats_frame = Common.new_widget('Frame',
-                                               {'size_request': (self.editor.window.width/4, -1),
-                                                'set_shadow_type': gtk.SHADOW_ETCHED_IN,
-                                                'set_label_align': (0.5,0.5),
-                                                'show': True})
+        #self.formats_frame = Common.new_widget('Frame',
+        #                                       {'label': 'Derivatives',
+        #                                        'size_request': (self.editor.window.width/2, -1),
+        #                                        'set_shadow_type': gtk.SHADOW_ETCHED_IN,
+        #                                        'set_label_align': (0.5,0.5),
+        #                                        'show': True})
         
         self.formats_vbox = Common.new_widget('VBox',
-                                              {'size_request': (-1, -1),
+                                              {'size_request': (int(self.editor.window.width*.47), -1),
                                                'show': True})
+        self.derive_progress = {}
+        for d in ('pdf', 'djvu', 'epub', 'text'):
+            self.derive_progress[d] = gtk.ProgressBar()
+            self.derive_progress[d].set_text('0%')
+            self.derive_progress[d].show()
 
-        self.derive_pdf = Common.new_widget('CheckButton',
-                                            {'label': 'PDF',
-                                             'show': True})
-
-        self.derive_djvu = Common.new_widget('CheckButton',
-                                            {'label': 'DjVu',
-                                             'show': True})
+        self.init_pdf()
+        self.init_djvu()
 
         self.derive_epub = Common.new_widget('CheckButton',
                                              {'label': 'EPUB',
@@ -1939,22 +1942,17 @@ class ExportHandler:
                                                 'size_request': (-1, -1),
                                                 'show': True})
 
-        self.derivatives = {'pdf': self.derive_pdf, 
-                            'djvu': self.derive_djvu, 
-                            'epub': self.derive_epub, 
-                            'text': self.derive_plain_text}
+        self.derivatives = {'pdf': (self.derive_pdf, self.return_pdf_args), 
+                            'djvu': (self.derive_djvu, self.return_djvu_args),
+                            'epub': (self.derive_epub, None),
+                            'text': (self.derive_plain_text, None)}
 
-        self.derive_button.connect('clicked', self.init_derive)
-
-        self.derive_progress = {}
-        for d in ('pdf', 'djvu', 'epub', 'text'):
-            self.derive_progress[d] = gtk.ProgressBar()
-            self.derive_progress[d].show()
+        self.derive_button.connect('clicked', self.run_derive)
         
-        self.formats_vbox.pack_start(self.derive_pdf, expand=True, fill=False)
-        self.formats_vbox.pack_start(self.derive_progress['pdf'], expand=True, fill=False)
-        self.formats_vbox.pack_start(self.derive_djvu, expand=True, fill=False)
-        self.formats_vbox.pack_start(self.derive_progress['djvu'], expand=True, fill=False)        
+        self.formats_vbox.pack_start(self.pdf_frame, expand=True, fill=False, padding=15)
+        self.formats_vbox.pack_start(self.djvu_frame, expand=True, fill=False, padding=15)
+        
+        
         self.formats_vbox.pack_start(self.derive_epub, expand=True, fill=False)
         self.formats_vbox.pack_start(self.derive_progress['epub'], expand=True, fill=False)
         self.formats_vbox.pack_start(self.derive_plain_text, expand=True, fill=False)
@@ -1962,6 +1960,321 @@ class ExportHandler:
 
         self.formats_vbox.pack_start(self.derive_button, expand=True, fill=False)        
         self.derivative_controls.put(self.formats_vbox, 0, 0)
+
+
+
+
+    def init_pdf(self):
+        self.pdf_frame = Common.new_widget('Frame', 
+                                           {'size_request': (self.editor.window.width/2, 100),
+                                            'set_shadow_type': gtk.SHADOW_OUT,
+                                            'show': True})
+
+        self.pdf_vbox = Common.new_widget('VBox',
+                                          {'size_request': (-1, -1),
+                                           'show': True})
+
+        self.derive_pdf = Common.new_widget('CheckButton',
+                                            {'label': 'PDF',
+                                             'show': True})
+        self.derive_pdf.connect('clicked', self.toggle_pdf)
+
+
+        self.pdf_options = Common.new_widget('HBox',
+                                             {'size_request': (-1, -1),
+                                              'show': True})
+
+        self.pdf_no_image = Common.new_widget('CheckButton',
+                                              {'label': 'No Image',
+                                               'is_sensitive': False,
+                                               'show': True})
+
+        self.pdf_sloppy = Common.new_widget('CheckButton',
+                                            {'label': 'Sloppy Text',
+                                             'is_sensitive': False,
+                                             'show': True})
+        
+        ppi_label = Common.new_widget('Label',
+                                      {'label': 'PPI:',
+                                       'size_request': (-1, -1),
+                                       'show': True})
+        self.pdf_resolution = Common.new_widget('Entry',
+                                                {'size_request': (40, 25),
+                                                 'is_sensitive': False,
+                                                 'show': True})
+        #self.pdf_resolution_buffer = gtk.TextBuffer()
+        #self.pdf_resolution.set_buffer(
+
+        
+        self.pdf_options.pack_start(self.pdf_no_image, expand=True, fill=False)
+        self.pdf_options.pack_start(self.pdf_sloppy, expand=True, fill=False)
+        self.pdf_options.pack_start(ppi_label, expand=False, fill=False)
+        self.pdf_options.pack_start(self.pdf_resolution, expand=True, fill=True)
+
+        self.pdf_vbox.pack_start(self.derive_pdf, expand=False, fill=False)
+        self.pdf_vbox.pack_start(self.pdf_options, expand=True, fill=False)
+        self.pdf_vbox.pack_start(self.derive_progress['pdf'], expand=False, fill=False)
+                
+        self.pdf_frame.add(self.pdf_vbox)
+
+
+    def toggle_pdf(self, widget):
+        if self.derive_pdf.get_active():
+            self.pdf_no_image.set_sensitive(True)
+            self.pdf_sloppy.set_sensitive(True)
+            self.pdf_resolution.set_sensitive(True)
+        else:
+            self.pdf_no_image.set_sensitive(False)
+            self.pdf_sloppy.set_sensitive(False)
+            self.pdf_resolution.set_sensitive(False)
+
+    def return_pdf_args(self):
+        return (self.pdf_no_image.get_active(),
+                self.pdf_sloppy.get_active(),
+                self.pdf_resolution.get_text())
+
+
+    def init_djvu(self):
+        self.djvu_frame = Common.new_widget('Frame', 
+                                            {'size_request': (int(self.editor.window.width*.45), -1),
+                                             'set_shadow_type': gtk.SHADOW_OUT,
+                                             'show': True})
+
+        self.djvu_table = gtk.Table(4, 4)
+        self.djvu_table.show()
+
+
+        self.djvu_vbox = Common.new_widget('VBox',
+                                           {'size_request': (-1, -1),
+                                            'show': True})
+
+        self.derive_djvu = Common.new_widget('CheckButton',
+                                             {'label': 'DjVu',
+                                              'show': True})
+        self.derive_djvu.connect('clicked', self.toggle_djvu)
+        
+        slice_label = Common.new_widget('Label',
+                                        {'label': 'Slice:',
+                                         'size_request': (60, -1),
+                                         'show': True})
+        self.djvu_slice = Common.new_widget('Entry', 
+                                            {'size_request': (100, 25),
+                                             'set_text': '',
+                                             'is_sensitive': False,
+                                             'show': True})
+        
+        size_label = Common.new_widget('Label',
+                                       {'label': 'Size:',
+                                        'size_request': (60, -1),
+                                        'show': True})
+        self.djvu_size = Common.new_widget('Entry', 
+                                           {'size_request': (100, 25),
+                                            'set_text': '',
+                                            'is_sensitive': False,
+                                            'show': True})
+       
+        bpp_label = Common.new_widget('Label',
+                                       {'label': 'Bpp:',
+                                        'size_request': (60, -1),
+                                        'show': True})
+        self.djvu_bpp = Common.new_widget('Entry', 
+                                          {'size_request': (100, 25),
+                                           'set_text': '',
+                                           'is_sensitive': False,
+                                           'show': True})
+
+        percent_label = Common.new_widget('Label',
+                                          {'label': 'Percent:',
+                                           'size_request': (60, -1),
+                                           'show': True})
+        self.djvu_percent = Common.new_widget('Entry', 
+                                              {'size_request': (100, 25),
+                                               'set_text': '',
+                                               'is_sensitive': False,
+                                               'show': True})
+
+        ppi_label = Common.new_widget('Label',
+                                      {'label': 'PPI:',
+                                       'size_request': (60, -1),
+                                       'show': True})
+        self.djvu_ppi = Common.new_widget('Entry', 
+                                          {'size_request': (40, 25),
+                                           'set_text': '',
+                                           'is_sensitive': False,
+                                           'show': True})
+
+        gamma_label = Common.new_widget('Label',
+                                        {'label': 'Gamma:',
+                                         'size_request': (60, -1),
+                                         'show': True})
+        self.djvu_gamma = Common.new_widget('HScale',
+                                            {'size_request': (100, -1),
+                                             'is_sensitive': False,
+                                             'set_range': (0.3, 4.9),
+                                             'set_increments': (0.1, 0.1),
+                                             'set_digits': 1,
+                                             'set_value': 2.2,
+                                             'set_value_pos': gtk.POS_BOTTOM,
+                                             'set_update_policy': gtk.UPDATE_CONTINUOUS,
+                                             'show': True})
+        
+        decibel_label = Common.new_widget('Label',
+                                          {'label': 'Decibel',
+                                           'size_request': (60, -1),
+                                           'show': True})
+        self.djvu_decibel = Common.new_widget('HScale',
+                                              {'size_request': (100, -1),
+                                               'is_sensitive': False,
+                                               'set_range': (16, 48),
+                                               'set_increments': (1, 1),
+                                               'set_digits': 0,
+                                               'set_value': 48,
+                                               'set_value_pos': gtk.POS_BOTTOM,
+                                               'set_update_policy': gtk.UPDATE_CONTINUOUS,
+                                               'show': True})
+
+        fract_label = Common.new_widget('Label',
+                                        {'label': 'Fract:',
+                                         'size_request': (50, -1),
+                                         'show': True})
+        self.djvu_fract = Common.new_widget('Entry', 
+                                            {'size_request': (60, 25),
+                                             'set_text': '',
+                                             'is_sensitive': False,
+                                             'show': True})
+
+
+        self.djvu_crcboptions = Common.new_widget('HBox',
+                                                {'size_request': (-1, -1),
+                                                 'show': True})
+
+        self.djvu_crcbnorm = Common.new_widget('RadioButton',
+                                               {'label': 'CRCB Normal',
+                                                'is_sensitive': False, 
+                                                'show': True})
+
+        self.djvu_crcbhalf = Common.new_widget('RadioButton',
+                                               {'label': 'CRCB Half',
+                                                'is_sensitive': False, 
+                                                'group': self.djvu_crcbnorm,
+                                                'show': True})
+        
+        self.djvu_crcbfull = Common.new_widget('RadioButton',
+                                               {'label': 'CRCB Full',
+                                                'is_sensitive': False, 
+                                                'group': self.djvu_crcbnorm,
+                                                'show': True})
+        
+        self.djvu_crcbnone = Common.new_widget('RadioButton',
+                                               {'label': 'CRCB None',
+                                                'is_sensitive': False, 
+                                                'group': self.djvu_crcbnorm,
+                                                'show': True})
+
+        self.djvu_crcbnorm.set_active(True)
+
+        self.djvu_crcbnorm.connect('toggled', self.toggle_crcb)
+        self.djvu_crcbhalf.connect('toggled', self.toggle_crcb)
+        self.djvu_crcbfull.connect('toggled', self.toggle_crcb)
+        self.djvu_crcbnone.connect('toggled', self.toggle_crcb)
+
+        crcbdelay_label = Common.new_widget('Label',
+                                            {'label': 'CRCB Delay:',
+                                             'size_request': (-1, -1),
+                                             'show': True})
+        self.djvu_crcbdelay = Common.new_widget('Entry', 
+                                                {'size_request': (60, 25),
+                                                 'set_text': '',
+                                                 'is_sensitive': False,
+                                                 'show': True})
+
+        self.djvu_table.attach(slice_label, 0, 1, 0, 1)
+        self.djvu_table.attach(self.djvu_slice, 1, 2, 0, 1)
+        self.djvu_table.attach(size_label, 2, 3, 0, 1)
+        self.djvu_table.attach(self.djvu_size, 3, 4, 0, 1)
+
+        self.djvu_table.attach(bpp_label, 0, 1, 1, 2)
+        self.djvu_table.attach(self.djvu_bpp, 1, 2, 1, 2)
+        self.djvu_table.attach(percent_label, 2, 3, 1, 2)
+        self.djvu_table.attach(self.djvu_percent, 3, 4, 1, 2)
+
+        self.djvu_table.attach(ppi_label, 0, 1, 2, 3)
+        self.djvu_table.attach(self.djvu_ppi, 1, 2, 2, 3)
+        self.djvu_table.attach(gamma_label, 2, 3, 2, 3)
+        self.djvu_table.attach(self.djvu_gamma, 3, 4, 2, 3)
+
+        self.djvu_table.attach(decibel_label, 0, 1, 3, 4)
+        self.djvu_table.attach(self.djvu_decibel, 1, 2, 3, 4)
+        self.djvu_table.attach(fract_label, 2, 3, 3, 4)
+        self.djvu_table.attach(self.djvu_fract, 3, 4, 3, 4)
+
+        self.djvu_crcboptions.pack_start(self.djvu_crcbnorm, expand=True, fill=True)
+        self.djvu_crcboptions.pack_start(self.djvu_crcbhalf, expand=True, fill=True)
+        self.djvu_crcboptions.pack_start(self.djvu_crcbfull, expand=True, fill=True)
+        self.djvu_crcboptions.pack_start(self.djvu_crcbnone, expand=True, fill=True)
+        self.djvu_crcboptions.pack_start(crcbdelay_label, expand=True, fill=False)
+        self.djvu_crcboptions.pack_start(self.djvu_crcbdelay, expand=True, fill=True)
+        
+        self.djvu_vbox.pack_start(self.derive_djvu, expand=False, fill=False)
+        self.djvu_vbox.pack_start(self.djvu_table, expand=False, fill=False)
+        self.djvu_vbox.pack_start(self.djvu_crcboptions, expand=True, fill=True)
+        self.djvu_vbox.pack_start(self.derive_progress['djvu'], expand=False, fill=False)
+                
+        self.djvu_frame.add(self.djvu_vbox)
+
+
+    def toggle_crcb(self, widget):
+        if self.djvu_crcbnorm.get_active() or self.djvu_crcbhalf.get_active():
+            self.djvu_crcbdelay.set_sensitive(True)
+        else:
+            self.djvu_crcbdelay.set_sensitive(False)
+        
+    
+    def toggle_djvu(self, widget):
+        if self.derive_djvu.get_active():
+            self.djvu_slice.set_sensitive(True)
+            self.djvu_size.set_sensitive(True)
+            self.djvu_bpp.set_sensitive(True)
+            self.djvu_percent.set_sensitive(True)
+            self.djvu_ppi.set_sensitive(True)
+            self.djvu_gamma.set_sensitive(True)
+            self.djvu_decibel.set_sensitive(True)
+            self.djvu_fract.set_sensitive(True)
+            self.djvu_crcbnorm.set_sensitive(True)
+            self.djvu_crcbhalf.set_sensitive(True)
+            self.djvu_crcbfull.set_sensitive(True)
+            self.djvu_crcbnone.set_sensitive(True)
+            self.toggle_crcb(None)
+        else:
+            self.djvu_slice.set_sensitive(False)
+            self.djvu_size.set_sensitive(False)
+            self.djvu_bpp.set_sensitive(False)
+            self.djvu_percent.set_sensitive(False)
+            self.djvu_ppi.set_sensitive(False)
+            self.djvu_gamma.set_sensitive(False)
+            self.djvu_decibel.set_sensitive(False)
+            self.djvu_fract.set_sensitive(False)
+            self.djvu_crcbnorm.set_sensitive(False)
+            self.djvu_crcbhalf.set_sensitive(False)
+            self.djvu_crcbfull.set_sensitive(False)
+            self.djvu_crcbnone.set_sensitive(False)
+            self.djvu_crcbdelay.set_sensitive(False)
+
+
+    def return_djvu_args(self):
+        return (self.djvu_slice.get_text(),
+                self.djvu_size.get_text(),
+                self.djvu_bpp.get_text(),
+                self.djvu_percent.get_text(),
+                self.djvu_ppi.get_text(),
+                self.djvu_gamma.get_value(),
+                self.djvu_decibel.get_value(),
+                self.djvu_fract.get_text(),
+                self.djvu_crcbnorm.get_active(),
+                self.djvu_crcbhalf.get_active(),
+                self.djvu_crcbfull.get_active(),
+                self.djvu_crcbnone.get_active(),
+                self.djvu_crcbdelay.get_text())
 
 
     def set_language(self, widget):
@@ -1979,16 +2292,19 @@ class ExportHandler:
 
     def run_ocr(self, widget):
         #self.init_ocr_button.destroy()
-        Common.run_in_background(self.update_ocr_progress)        
         self.ProcessHandler.add_process(self.ProcessHandler.run_ocr,
                                         self.editor.book.identifier + '_run_ocr',
                                         (self.editor.book, self.language), 
                                         self.editor.book.logger)
+        Common.run_in_background(self.update_ocr_progress)        
 
 
     def update_ocr_progress(self):
-        completed = len(self.ProcessHandler.OCR.ImageOps.completed_ops)
-        fraction = float(completed)/float(self.editor.book.page_count-2)
+        if self.editor.book.identifier + '_ocr' in self.ProcessHandler.OCR.ImageOps.completed_ops:
+            fraction = 1.0
+        else:
+            completed = len(self.ProcessHandler.OCR.ImageOps.completed_ops)
+            fraction = float(completed)/float(self.editor.book.page_count-2)
         self.ocr_progress.set_fraction(fraction)
         self.ocr_progress.set_text(str(int(fraction*100)) + '%')
         if fraction == 1.0:
@@ -1999,17 +2315,20 @@ class ExportHandler:
 
     def run_cropper(self, widget):
         #self.init_crop_button.destroy()
-        Common.run_in_background(self.update_cropping_progress)
         self.ProcessHandler.add_process(self.ProcessHandler.run_cropper,
                                         self.editor.book.identifier + '_run_cropper',
                                         (self.editor.book, self.active_crop, 
                                          self.grayscale, self.normalize, self.invert), 
                                         self.editor.book.logger)
-        
+        Common.run_in_background(self.update_cropping_progress)
+
 
     def update_cropping_progress(self):
-        completed = len(self.ProcessHandler.Cropper.ImageOps.completed_ops)
-        fraction = float(completed)/float(self.editor.book.page_count-2)
+        if self.editor.book.identifier + '_cropper' in self.ProcessHandler.Cropper.ImageOps.completed_ops:
+            fraction = 1.0
+        else:
+            completed = len(self.ProcessHandler.Cropper.ImageOps.completed_ops)
+            fraction = float(completed)/float(self.editor.book.page_count-2)
         self.cropping_progress.set_fraction(fraction)
         self.cropping_progress.set_text(str(int(fraction*100)) + '%')
         if fraction == 1.0:
@@ -2018,26 +2337,27 @@ class ExportHandler:
             return True
 
 
-    def init_derive(self, widget):
-        formats = []
-        for name, widget in self.derivatives.items():
-            if widget.get_active():
-                formats.append(name)
+    def run_derive(self, widget):
+        formats = {}
+        for name, attr in self.derivatives.items():
+            if attr[0].get_active():
+                if attr[1] is not None:
+                    formats[name] = attr[1]()
+                else:
+                    formats[name] = None
         if len(formats) < 1:
             return
-        Common.run_in_background(self.update_derive_progress, 2000)
         self.ProcessHandler.add_process(self.ProcessHandler.derive_formats,
                                         self.editor.book.identifier,
                                         (self.editor.book, formats), self.editor.book.logger)
-        
-                
+        Common.run_in_background(self.update_derive_progress, 2000)
 
+                
     def update_derive_progress(self):
         fractions = {}
         for d in ('pdf', 'djvu', 'epub', 'text'):
             completed = 0
-
-            if d in self.ProcessHandler.Derive.ImageOps.completed_ops:
+            if self.editor.book.identifier + '_' + d in self.ProcessHandler.Derive.ImageOps.completed_ops:
                 fractions[d] = 1.0
             else:
                 for leaf, comp in self.ProcessHandler.Derive.ImageOps.completed_ops.items():
@@ -2046,7 +2366,6 @@ class ExportHandler:
                             completed += 1
                             break
                 fractions[d] = float(completed)/float(self.editor.book.page_count-2)
-
             self.derive_progress[d].set_fraction(fractions[d])
             self.derive_progress[d].set_text(str(int(fractions[d]*100)) + '%')
         for d in ('pdf', 'djvu', 'epub', 'text'):
