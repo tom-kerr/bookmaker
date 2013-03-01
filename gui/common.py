@@ -54,6 +54,12 @@ class Common:
 
 
     @staticmethod
+    def set_all_sensitive(widgets, is_sensitive):
+        for widget in widgets:
+            widget.set_sensitive(is_sensitive)
+
+
+    @staticmethod
     def new_widget(widget, args=None):
         if widget is None:
             return None
@@ -196,6 +202,8 @@ class Common:
 
 
     @staticmethod
-    def run_in_background(func, milliseconds=100):
-        gobject.timeout_add(milliseconds, func)
-
+    def run_in_background(func, milliseconds=100, args=None):
+        if args:
+            gobject.timeout_add(milliseconds, func, args)
+        else:
+            gobject.timeout_add(milliseconds, func)

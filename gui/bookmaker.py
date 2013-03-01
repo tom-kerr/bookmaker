@@ -101,7 +101,7 @@ class Bookmaker:
                     return
                 Common.set_window_size(window,
                                        gtk.gdk.screen_width()-1,
-                                       gtk.gdk.screen_height()-1)
+                                       gtk.gdk.screen_height()-25)
             #try:
             self.editor = Editor(window, book_data)
             #except Exception as E:

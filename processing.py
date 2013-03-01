@@ -1,3 +1,4 @@
+#import yappi
 import os, sys, time
 from collections import OrderedDict
 from datetime import date
@@ -188,6 +189,7 @@ class ProcessHandling:
                 not [thread.func for pid, thread in self.active_threads.items() 
                      if thread.func in ('drain_queue', 'run_main', 'run_ocr', 
                                         'run_cropper', 'derive_formats')]):
+                self.poll = False
                 break
 
 
@@ -223,6 +225,7 @@ class ProcessHandling:
 
                 
     def run_main(self, book):
+        #yappi.start()
         book.logger.message("Began Main Processing...")               
         if book.settings['respawn']:
             Environment.clean_dirs(book.dirs)
@@ -239,7 +242,8 @@ class ProcessHandling:
         start_time = self.inactive_threads[book.identifier + '_featuredetection'].start_time
         self.FeatureDetection.ImageOps.complete(book.identifier + '_featuredetection')
         book.logger.message("Finished Main Processing in " + str((end_time - start_time)/60) + ' minutes')
-
+        #yappi.print_stats()
+        
 
     def autopaginate(self):
         pass

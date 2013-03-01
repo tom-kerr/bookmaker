@@ -1718,26 +1718,47 @@ class ExportHandler:
         Common.run_in_background(self.ProcessHandler.monitor_thread_exceptions)
         self.build_stack_controls()
         self.build_derivative_controls()
-        
+        self.build_global_controls()
+
+
+    def build_global_controls(self):
+        self.global_controls = Common.new_widget('HBox',
+                                                 {'size_request': (int(self.editor.window.width*.95), 50),
+                                                  'show': True})
+        self.global_progress = gtk.ProgressBar()
+        self.global_progress.set_text('0%')
+        self.global_progress.show()
+
+        self.global_derive_button = Common.new_widget('Button',
+                                                      {'label': 'Run All',
+                                                       'size_request': (100, -1),
+                                                       'show': True})
+        self.global_derive_button.connect('clicked', self.run_all)
+
+        self.global_controls.pack_start(self.global_progress, expand=True, fill=True)
+        self.global_controls.pack_start(self.global_derive_button, expand=False, fill=False)
+        self.main_layout.put(self.global_controls, 0, self.editor.window.height-50)
+
+
 
     def build_stack_controls(self):
         self.stack_controls = Common.new_widget('Layout', 
                                                 {'size_request': (self.editor.window.width/2, 
-                                                                  self.editor.window.height),
+                                                                  self.editor.window.height-50),
                                                  'color': 'gray',
                                                  'show': True})
 
         self.stack_controls_frame = Common.new_widget('Frame',
                                                       {#'label': 'Stack Controls',
                                                        'size_request': (self.editor.window.width/2, 
-                                                                        self.editor.window.height),
+                                                                        self.editor.window.height-50),
                                                        'set_shadow_type': gtk.SHADOW_NONE,
                                                        #'set_label_align': (0.5,0.5),
                                                        'show': True})        
         self.active_crop = 'cropBox'
-        self.grayscale = False
-        self.normalize = False
-        self.invert = False
+        #self.grayscale = False
+        #self.normalize = False
+        #self.invert = False
 
         self.init_cropping()
         self.init_ocr()
@@ -1746,27 +1767,36 @@ class ExportHandler:
         self.main_layout.put(self.stack_controls_frame, 0, 0)
 
 
+    def disable_interface(self):
+        self.toggle_pdf(mode=False)
+        self.toggle_djvu(mode=False)
+        Common.set_all_sensitive((self.init_crop_button,
+                                  self.pageCrop_selector,
+                                  self.cropBox_selector,
+                                  self.contentCrop_selector,
+                                  self.grayscale_option,
+                                  self.normalize_option,
+                                  self.invert_option,                                  
+                                  self.init_ocr_button,
+                                  self.ocr_lang_options,
+                                  self.derive_button,                                  
+                                  self.global_derive_button), False)
 
-        
-    def build_derivative_controls(self):
-        self.derivative_controls = Common.new_widget('Layout', 
-                                                     {'size_request': (self.editor.window.width/2, 
-                                                                       self.editor.window.height),
-                                                      'color': 'gray',
-                                                      'show': True})
-        
-        self.derivative_controls_frame = Common.new_widget('Frame',
-                                                           {#'label': 'Derivative Controls',
-                                                            'size_request': (self.editor.window.width/2, 
-                                                                             self.editor.window.height),
-                                                            'set_shadow_type': gtk.SHADOW_NONE,
-                                                            #'set_label_align': (0.5,0.5),
-                                                            'show': True})        
-        self.init_derivatives()
 
-        self.derivative_controls_frame.add(self.derivative_controls)
-        self.main_layout.put(self.derivative_controls_frame, self.editor.window.width/2, 0)
-
+    def enable_interface(self):
+        self.toggle_pdf()
+        self.toggle_djvu()
+        self.toggle_derive()
+        Common.set_all_sensitive((self.init_crop_button,
+                                  self.pageCrop_selector,
+                                  self.cropBox_selector,
+                                  self.contentCrop_selector,
+                                  self.grayscale_option,
+                                  self.normalize_option,
+                                  self.invert_option,                                  
+                                  self.init_ocr_button,
+                                  self.ocr_lang_options,
+                                  self.global_derive_button), True)
 
 
     def init_cropping(self):        
@@ -1801,7 +1831,8 @@ class ExportHandler:
         self.cropping_vbox.pack_start(self.init_crop_button, expand=True, fill=True)
         self.cropping_vbox.pack_start(self.cropping_progress, expand=True, fill=True)
         self.cropping_frame.add(self.cropping_vbox)
-        self.stack_controls.put(self.cropping_frame, 0, 0)
+        self.stack_controls.put(self.cropping_frame, 
+                                ((self.editor.window.width/4) - (self.editor.window.width/4)/2 ), 0)
 
 
     def init_crops(self):        
@@ -1835,17 +1866,17 @@ class ExportHandler:
         self.grayscale_option = Common.new_widget('CheckButton',
                                                    {'label': 'Convert To GrayScale',
                                                     'show': True})
-        self.grayscale_option.connect('clicked', self.toggle_grayscale)
+        #self.grayscale_option.connect('clicked', self.toggle_grayscale)
 
         self.normalize_option = Common.new_widget('CheckButton',
                                                   {'label': 'Normalize',
                                                    'show': True})
-        self.normalize_option.connect('clicked', self.toggle_normalize)
+        #self.normalize_option.connect('clicked', self.toggle_normalize)
 
         self.invert_option = Common.new_widget('CheckButton',
                                                {'label': 'Invert B/W',
                                                 'show': True})
-        self.invert_option.connect('clicked', self.toggle_invert)
+        #self.invert_option.connect('clicked', self.toggle_invert)
         
         self.proc_options_vbox.pack_start(self.grayscale_option, expand=True, fill=False)
         self.proc_options_vbox.pack_start(self.normalize_option, expand=True, fill=False)
@@ -1858,7 +1889,7 @@ class ExportHandler:
         if selection is not None:
             self.active_crop = selection
 
-
+    """
     def toggle_grayscale(self, widget):
         self.grayscale = not self.grayscale
 
@@ -1869,7 +1900,7 @@ class ExportHandler:
 
     def toggle_invert(self, widget):
         self.invert = not self.invert
-
+        """
 
     def init_ocr(self):
         self.ocr_frame = Common.new_widget('Frame',
@@ -1879,19 +1910,13 @@ class ExportHandler:
                                             'set_label_align': (0.5,0.5),
                                             'show': True})
 
+        self.ocr_vbox = Common.new_widget('VBox',
+                                          {'size_request': (-1, -1),
+                                           'show': True})
+
         self.ocr_hbox = Common.new_widget('HBox',
                                           {'size_request': (-1, 50),
                                            'show': True})
-                
-        self.ocr_progress = gtk.ProgressBar()
-        self.ocr_progress.set_text('0%')
-        self.ocr_progress.show()
-
-        self.init_ocr_button = Common.new_widget('Button',
-                                                 {'label': 'Initialize OCR',
-                                                  'is_sensitive': False,
-                                                  'show': True})
-        self.init_ocr_button.connect('clicked', self.run_ocr)
         
         self.ocr_lang_options = gtk.combo_box_new_text()
         for num, lang in enumerate(OCR.languages):
@@ -1901,11 +1926,54 @@ class ExportHandler:
         self.ocr_lang_options.connect('changed', self.set_language)
         self.ocr_lang_options.show()
 
-        self.ocr_hbox.pack_start(self.ocr_lang_options, expand=True, fill=True)
+        self.init_ocr_button = Common.new_widget('Button',
+                                                 {'label': 'Initialize OCR',
+                                                  'is_sensitive': False,
+                                                  'show': True})
+        self.init_ocr_button.connect('clicked', self.run_ocr)
+
+        
+        self.ocr_auto_spellcheck = Common.new_widget('RadioButton',
+                                                     {'label': 'Auto-SpellCheck',
+                                                      'is_sensitive': False,
+                                                      'show': True})
+        
+        self.ocr_interactive_spellcheck = Common.new_widget('RadioButton',
+                                                            {'label': 'Auto-SpellCheck',
+                                                             'group': self.ocr_auto_spellcheck,
+                                                             'is_sensitive': False,
+                                                             'show': True})
+        
+        self.ocr_progress = gtk.ProgressBar()
+        self.ocr_progress.set_text('0%')
+        self.ocr_progress.show()
+
+        self.ocr_hbox.pack_start(self.ocr_lang_options, expand=False, fill=True)
         self.ocr_hbox.pack_start(self.init_ocr_button, expand=True, fill=True)
-        self.ocr_hbox.pack_start(self.ocr_progress, expand=True, fill=True)
-        self.ocr_frame.add(self.ocr_hbox)
+        self.ocr_vbox.pack_start(self.ocr_hbox, expand=True, fill=False)
+        self.ocr_vbox.pack_start(self.ocr_progress, expand=True, fill=True)
+        self.ocr_frame.add(self.ocr_vbox)
         self.stack_controls.put(self.ocr_frame, 0, 200)
+
+        
+    def build_derivative_controls(self):
+        self.derivative_controls = Common.new_widget('Layout', 
+                                                     {'size_request': (self.editor.window.width/2, 
+                                                                       self.editor.window.height-50),
+                                                      'color': 'gray',
+                                                      'show': True})
+        
+        self.derivative_controls_frame = Common.new_widget('Frame',
+                                                           {#'label': 'Derivative Controls',
+                                                            'size_request': (self.editor.window.width/2, 
+                                                                             self.editor.window.height-50),
+                                                            'set_shadow_type': gtk.SHADOW_NONE,
+                                                            #'set_label_align': (0.5,0.5),
+                                                            'show': True})        
+        self.init_derivatives()
+
+        self.derivative_controls_frame.add(self.derivative_controls)
+        self.main_layout.put(self.derivative_controls_frame, self.editor.window.width/2, 0)
 
 
 
@@ -1939,6 +2007,7 @@ class ExportHandler:
         
         self.derive_button = Common.new_widget('Button',
                                                {'label': 'Initialize Derive',
+                                                'is_sensitive': False,
                                                 'size_request': (-1, -1),
                                                 'show': True})
 
@@ -1950,8 +2019,7 @@ class ExportHandler:
         self.derive_button.connect('clicked', self.run_derive)
         
         self.formats_vbox.pack_start(self.pdf_frame, expand=True, fill=False, padding=15)
-        self.formats_vbox.pack_start(self.djvu_frame, expand=True, fill=False, padding=15)
-        
+        self.formats_vbox.pack_start(self.djvu_frame, expand=True, fill=False, padding=15)       
         
         self.formats_vbox.pack_start(self.derive_epub, expand=True, fill=False)
         self.formats_vbox.pack_start(self.derive_progress['epub'], expand=True, fill=False)
@@ -1962,6 +2030,19 @@ class ExportHandler:
         self.derivative_controls.put(self.formats_vbox, 0, 0)
 
 
+    def toggle_derive(self):
+        if self.check_derive_format_selected():
+            self.derive_button.set_sensitive(True)
+        else:
+            self.derive_button.set_sensitive(False)
+
+
+    def check_derive_format_selected(self):
+        if (self.derive_pdf.get_active() or self.derive_djvu.get_active() or 
+            self.derive_epub.get_active() or self.derive_plain_text.get_active()):
+            return True
+        else:
+            return False
 
 
     def init_pdf(self):
@@ -2018,15 +2099,22 @@ class ExportHandler:
         self.pdf_frame.add(self.pdf_vbox)
 
 
-    def toggle_pdf(self, widget):
-        if self.derive_pdf.get_active():
-            self.pdf_no_image.set_sensitive(True)
-            self.pdf_sloppy.set_sensitive(True)
-            self.pdf_resolution.set_sensitive(True)
-        else:
-            self.pdf_no_image.set_sensitive(False)
-            self.pdf_sloppy.set_sensitive(False)
-            self.pdf_resolution.set_sensitive(False)
+    def toggle_pdf(self, widget=None, mode=None):
+        if widget is not None:
+            self.toggle_derive()
+
+        widgets = (self.pdf_no_image,
+                   self.pdf_sloppy,
+                   self.pdf_resolution)
+        if mode:
+            Common.set_all_sensitive(widgets, True)
+        elif mode == False:
+            Common.set_all_sensitive(widgets, False)
+        elif self.derive_pdf.get_active():
+            Common.set_all_sensitive(widgets, True)
+        elif not self.derive_pdf.get_active():
+            Common.set_all_sensitive(widgets, False)
+
 
     def return_pdf_args(self):
         return (self.pdf_no_image.get_active(),
@@ -2122,15 +2210,10 @@ class ExportHandler:
                                           {'label': 'Decibel',
                                            'size_request': (60, -1),
                                            'show': True})
-        self.djvu_decibel = Common.new_widget('HScale',
-                                              {'size_request': (100, -1),
+        self.djvu_decibel = Common.new_widget('Entry',
+                                              {'size_request': (100, 25),
                                                'is_sensitive': False,
-                                               'set_range': (16, 48),
-                                               'set_increments': (1, 1),
-                                               'set_digits': 0,
-                                               'set_value': 48,
-                                               'set_value_pos': gtk.POS_BOTTOM,
-                                               'set_update_policy': gtk.UPDATE_CONTINUOUS,
+                                               'set_text': '',
                                                'show': True})
 
         fract_label = Common.new_widget('Label',
@@ -2230,35 +2313,31 @@ class ExportHandler:
             self.djvu_crcbdelay.set_sensitive(False)
         
     
-    def toggle_djvu(self, widget):
-        if self.derive_djvu.get_active():
-            self.djvu_slice.set_sensitive(True)
-            self.djvu_size.set_sensitive(True)
-            self.djvu_bpp.set_sensitive(True)
-            self.djvu_percent.set_sensitive(True)
-            self.djvu_ppi.set_sensitive(True)
-            self.djvu_gamma.set_sensitive(True)
-            self.djvu_decibel.set_sensitive(True)
-            self.djvu_fract.set_sensitive(True)
-            self.djvu_crcbnorm.set_sensitive(True)
-            self.djvu_crcbhalf.set_sensitive(True)
-            self.djvu_crcbfull.set_sensitive(True)
-            self.djvu_crcbnone.set_sensitive(True)
+    def toggle_djvu(self, widget=None, mode=None):
+        if widget is not None:
+            self.toggle_derive()
+        widgets = (self.djvu_slice,
+                   self.djvu_size,
+                   self.djvu_bpp,
+                   self.djvu_percent,
+                   self.djvu_ppi,
+                   self.djvu_gamma,
+                   self.djvu_decibel,
+                   self.djvu_fract,
+                   self.djvu_crcbnorm,
+                   self.djvu_crcbhalf,
+                   self.djvu_crcbfull,
+                   self.djvu_crcbnone,
+                   self.djvu_crcbdelay)
+        if mode:
+            Common.set_all_sensitive(widgets, True)
+        elif mode == False:
+            Common.set_all_sensitive(widgets, False)
+        elif self.derive_djvu.get_active():
+            Common.set_all_sensitive(widgets, True)
             self.toggle_crcb(None)
-        else:
-            self.djvu_slice.set_sensitive(False)
-            self.djvu_size.set_sensitive(False)
-            self.djvu_bpp.set_sensitive(False)
-            self.djvu_percent.set_sensitive(False)
-            self.djvu_ppi.set_sensitive(False)
-            self.djvu_gamma.set_sensitive(False)
-            self.djvu_decibel.set_sensitive(False)
-            self.djvu_fract.set_sensitive(False)
-            self.djvu_crcbnorm.set_sensitive(False)
-            self.djvu_crcbhalf.set_sensitive(False)
-            self.djvu_crcbfull.set_sensitive(False)
-            self.djvu_crcbnone.set_sensitive(False)
-            self.djvu_crcbdelay.set_sensitive(False)
+        elif not self.derive_djvu.get_active():
+            Common.set_all_sensitive(widgets, False)
 
 
     def return_djvu_args(self):
@@ -2268,7 +2347,7 @@ class ExportHandler:
                 self.djvu_percent.get_text(),
                 self.djvu_ppi.get_text(),
                 self.djvu_gamma.get_value(),
-                self.djvu_decibel.get_value(),
+                self.djvu_decibel.get_text(),
                 self.djvu_fract.get_text(),
                 self.djvu_crcbnorm.get_active(),
                 self.djvu_crcbhalf.get_active(),
@@ -2290,27 +2369,59 @@ class ExportHandler:
                     break
 
 
-    def run_ocr(self, widget):
-        #self.init_ocr_button.destroy()
-        self.ProcessHandler.add_process(self.ProcessHandler.run_ocr,
-                                        self.editor.book.identifier + '_run_ocr',
-                                        (self.editor.book, self.language), 
-                                        self.editor.book.logger)
-        Common.run_in_background(self.update_ocr_progress)        
+    def run_all(self, widget):
+        self.disable_interface()
+        queue = self.ProcessHandler.new_queue()
+        update = []
+        queue[self.editor.book.identifier + '_run_cropper'] = (self.ProcessHandler.run_cropper,
+                                                               (self.editor.book, self.active_crop, 
+                                                                self.grayscale_option.get_active(), 
+                                                                self.normalize_option.get_active(), 
+                                                                self.invert_option.get_active()), 
+                                                               self.editor.book.logger, None)
+        Common.run_in_background(self.update_cropping_progress, 2000)
+        update.append('cropper')        
+        if self.language is not None:
+            queue[self.editor.book.identifier + '_run_ocr'] = (self.ProcessHandler.run_ocr,
+                                                               (self.editor.book, self.language), 
+                                                               self.editor.book.logger, None)
+            Common.run_in_background(self.update_ocr_progress, 2000)        
+            update.append('ocr')
+        if self.check_derive_format_selected():
+            formats = self.get_derive_format_args()
+            queue[self.editor.book.identifier] = (self.ProcessHandler.derive_formats,
+                                                  (self.editor.book, formats), 
+                                                  self.editor.book.logger, None)
+            Common.run_in_background(self.update_derive_progress, 2000)
+            update.append('derive')
+        self.ProcessHandler.add_process(self.ProcessHandler.drain_queue,
+                                        self.editor.book.identifier + '_drain_queue',
+                                        (queue, 'sync'), self.editor.book.logger)                
+        Common.run_in_background(self.update_run_all_progress, 2000, update)
 
 
-    def update_ocr_progress(self):
-        if self.editor.book.identifier + '_ocr' in self.ProcessHandler.OCR.ImageOps.completed_ops:
-            fraction = 1.0
-        else:
-            completed = len(self.ProcessHandler.OCR.ImageOps.completed_ops)
-            fraction = float(completed)/float(self.editor.book.page_count-2)
-        self.ocr_progress.set_fraction(fraction)
-        self.ocr_progress.set_text(str(int(fraction*100)) + '%')
-        if fraction == 1.0:
+    def update_run_all_progress(self, update):
+        num_tasks = len(update)
+        total_fraction = 0.0
+        if 'cropper' in update:
+            if self.ProcessHandler.Cropper is not None:
+                total_fraction += self.cropping_fraction/num_tasks
+        if 'ocr' in update:
+            if self.ProcessHandler.OCR is not None:
+                total_fraction += self.ocr_fraction/num_tasks
+        if 'derive' in update:
+            derive_fraction = 0.0
+            if self.ProcessHandler.Derive is not None:
+                for d, fraction in self.derive_fractions.items():
+                    derive_fraction += fraction/len(self.derive_fractions)
+                total_fraction += derive_fraction/num_tasks
+        self.global_progress.set_fraction(total_fraction)
+        self.global_progress.set_text(str(int(total_fraction*100)) + '%')
+        if total_fraction == 1.0:
+            self.enable_interface()
             return False
         else:
-            return True
+            return True                                          
 
 
     def run_cropper(self, widget):
@@ -2318,26 +2429,64 @@ class ExportHandler:
         self.ProcessHandler.add_process(self.ProcessHandler.run_cropper,
                                         self.editor.book.identifier + '_run_cropper',
                                         (self.editor.book, self.active_crop, 
-                                         self.grayscale, self.normalize, self.invert), 
+                                         self.grayscale_option.get_active(), 
+                                         self.normalize_option.get_active(), 
+                                         self.invert_option.get_active()), 
                                         self.editor.book.logger)
-        Common.run_in_background(self.update_cropping_progress)
+        Common.run_in_background(self.update_cropping_progress, 2000)
 
 
     def update_cropping_progress(self):
+        if self.ProcessHandler.Cropper is None:
+            return True
         if self.editor.book.identifier + '_cropper' in self.ProcessHandler.Cropper.ImageOps.completed_ops:
-            fraction = 1.0
+            self.cropping_fraction = 1.0
         else:
             completed = len(self.ProcessHandler.Cropper.ImageOps.completed_ops)
-            fraction = float(completed)/float(self.editor.book.page_count-2)
-        self.cropping_progress.set_fraction(fraction)
-        self.cropping_progress.set_text(str(int(fraction*100)) + '%')
-        if fraction == 1.0:
+            self.cropping_fraction = float(completed)/float(self.editor.book.page_count-2)
+        self.cropping_progress.set_fraction(self.cropping_fraction)
+        self.cropping_progress.set_text(str(int(self.cropping_fraction*100)) + '%')
+        if self.cropping_fraction == 1.0:
+            return False
+        else:
+            return True
+
+
+    def run_ocr(self, widget):
+        #self.init_ocr_button.destroy()
+        self.ProcessHandler.add_process(self.ProcessHandler.run_ocr,
+                                        self.editor.book.identifier + '_run_ocr',
+                                        (self.editor.book, self.language), 
+                                        self.editor.book.logger)
+        Common.run_in_background(self.update_ocr_progress, 2000)        
+
+
+    def update_ocr_progress(self):
+        if self.ProcessHandler.OCR is None:
+            return True
+        if self.editor.book.identifier + '_ocr' in self.ProcessHandler.OCR.ImageOps.completed_ops:
+            self.ocr_fraction = 1.0
+        else:
+            completed = len(self.ProcessHandler.OCR.ImageOps.completed_ops)
+            self.ocr_fraction = float(completed)/float(self.editor.book.page_count-2)
+        self.ocr_progress.set_fraction(self.ocr_fraction)
+        self.ocr_progress.set_text(str(int(self.ocr_fraction*100)) + '%')
+        if self.ocr_fraction == 1.0:
             return False
         else:
             return True
 
 
     def run_derive(self, widget):
+        formats = self.get_derive_format_args()
+        if formats:
+            self.ProcessHandler.add_process(self.ProcessHandler.derive_formats,
+                                            self.editor.book.identifier,
+                                            (self.editor.book, formats), self.editor.book.logger)
+            Common.run_in_background(self.update_derive_progress, 2000)
+
+
+    def get_derive_format_args(self):
         formats = {}
         for name, attr in self.derivatives.items():
             if attr[0].get_active():
@@ -2346,29 +2495,31 @@ class ExportHandler:
                 else:
                     formats[name] = None
         if len(formats) < 1:
-            return
-        self.ProcessHandler.add_process(self.ProcessHandler.derive_formats,
-                                        self.editor.book.identifier,
-                                        (self.editor.book, formats), self.editor.book.logger)
-        Common.run_in_background(self.update_derive_progress, 2000)
+            return None
+        else:
+            return formats
 
                 
     def update_derive_progress(self):
-        fractions = {}
-        for d in ('pdf', 'djvu', 'epub', 'text'):
+        if self.ProcessHandler.Derive is None:
+            return True
+        self.derive_fractions = {}
+        for name, attr in self.derivatives.items():
+            if not attr[0].get_active():
+                continue
             completed = 0
-            if self.editor.book.identifier + '_' + d in self.ProcessHandler.Derive.ImageOps.completed_ops:
-                fractions[d] = 1.0
+            if self.editor.book.identifier + '_' + name in self.ProcessHandler.Derive.ImageOps.completed_ops:
+                self.derive_fractions[name] = 1.0
             else:
                 for leaf, comp in self.ProcessHandler.Derive.ImageOps.completed_ops.items():
                     for msg in comp:
-                        if re.search(d, msg):
+                        if re.search(name, msg):
                             completed += 1
                             break
-                fractions[d] = float(completed)/float(self.editor.book.page_count-2)
-            self.derive_progress[d].set_fraction(fractions[d])
-            self.derive_progress[d].set_text(str(int(fractions[d]*100)) + '%')
-        for d in ('pdf', 'djvu', 'epub', 'text'):
-            if fractions[d] != 1.0:
+                self.derive_fractions[name] = float(completed)/float(self.editor.book.page_count-2)
+            self.derive_progress[name].set_fraction(self.derive_fractions[name])
+            self.derive_progress[name].set_text(str(int(self.derive_fractions[name]*100)) + '%')
+        for d, fraction in self.derive_fractions.items():
+            if fraction != 1.0:
                 return True
         return False

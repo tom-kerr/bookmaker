@@ -179,11 +179,11 @@ class Derive:
     def pdf(self, no_image, sloppy, ppi):
         self.book.logger.message('Creating Searchable PDF...')
         hocr_files = self.OCR.get_hocr_files()
-        if not hocr_files: 
-            self.ProcessHandler.ThreadQueue.put((self.book.identifier + '_pdf',
-                                            'cannot make pdf: no hocr files found', 
-                                            self.book.logger))
-            self.ProcessHandler.ThreadQueue.join()
+        #if not hocr_files: 
+        #    self.ProcessHandler.ThreadQueue.put((self.book.identifier + '_pdf',
+        #                                    'cannot make pdf: no hocr files found', 
+        #                                    self.book.logger))
+        #    self.ProcessHandler.ThreadQueue.join()
         pdf_out = PdfFileWriter()
         for leaf in range(1, self.book.page_count-1):
             if leaf in hocr_files:
