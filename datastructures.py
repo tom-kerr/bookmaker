@@ -23,10 +23,7 @@ class Crop:
         self.box = {}
         self.box_with_skew_padding = {}
 
-        for leaf in range(start, end):
-            self.box[leaf] = Box()
-            self.box_with_skew_padding[leaf] = Box()
-        
+        self.hand_side = {}
         self.classification = dict.fromkeys(range(start, end), 'Normal')                
         self.page_type = dict.fromkeys(range(start, end), 'Normal')        
         self.add_to_access_formats = dict.fromkeys(range(start, end), None)
@@ -35,6 +32,14 @@ class Crop:
         self.skew_conf = dict.fromkeys(range(start, end), None)
         self.skew_active = dict.fromkeys(range(start, end), None)
 
+        for leaf in range(start, end):
+            self.box[leaf] = Box()
+            self.box_with_skew_padding[leaf] = Box()
+            if leaf%2==0:
+                self.hand_side[leaf] = 'LEFT'
+            else:                
+                self.hand_side[leaf] = 'RIGHT'
+                
         if xml_file:
             self.xml_io(xml_file, 'import')
 
@@ -84,9 +89,9 @@ class Crop:
                             self.box[leaf].set_dimension(dimension, int(p.text))
                         else:
                             self.box[leaf].set_dimension(dimension, None)
-                    handside = page.find('handSide')
-                    if handside is not None:
-                        self.box[leaf].hand_side = handside.text
+                    #handside = page.find('handSide')
+                    #if handside is not None:
+                    #    self.box[leaf].hand_side = handside.text
                     pagetype = page.find('pageType')
                     if pagetype is not None:
                         self.page_type[leaf] = pagetype.text
@@ -292,7 +297,6 @@ class Box:
     def __init__(self):
         
         self.name = None
-
         self.size = None
                
         self.x = None

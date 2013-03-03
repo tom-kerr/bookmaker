@@ -1,5 +1,5 @@
 import sys, os, re, math, time
-from copy import copy
+from copy import copy, deepcopy
 import StringIO
 import Image
 from lxml import etree
@@ -34,7 +34,7 @@ class Editor:
         
     
     def quit(self, widget, data):                
-        if (self.ImageEditor.save_needed['l'] or self.ImageEditor.save_needed['r'] or 
+        if (self.ImageEditor.save_needed['l'][0] or self.ImageEditor.save_needed['r'][0] or 
             (self.ExportHandler.ProcessHandler.processes != 0)):
             if Common.dialog(None, gtk.MESSAGE_QUESTION,
                              'There are unsaved changes/running processes, are you sure you want to quit?',
@@ -195,7 +195,8 @@ class ImageEditor:
 
     def init_history(self):
         self.history = History(self.book)
-        self.save_needed = {'l': False, 'r': False}
+        self.save_needed = {'l': (False, None), 
+                            'r': (False, None)}
 
     
     def build_controls(self):
@@ -411,9 +412,9 @@ class ImageEditor:
         self.apply_forward_button = Common.new_widget('Button',
                                                       {'size_request': (150, -1),
                                                        'set_child_visible': False,
-                                                       'is_sensitive': False,
+                                                       'is_sensitive': True,
                                                        'show': True})
-        #self.apply_forward_button.connect('button-press-event', self.copy_crop_from_opposite)
+        self.apply_forward_button.connect('button-press-event', self.apply_crop_forward)
 
 
     def init_save_undo_buttons(self):
@@ -719,6 +720,29 @@ class ImageEditor:
         self.set_save_needed(self.selected)
         
 
+    def apply_crop_forward(self, widget, data):
+        if not self.selected:
+            return
+        new_box = {}
+        new_box_with_skew_padding = {}
+        affected = []
+        for leaf, box in self.book.crops[self.active_crop].box.items():
+            if (leaf > self.selected and 
+                self.book.crops[self.active_crop].hand_side[leaf] == 
+                self.book.crops[self.active_crop].hand_side[self.selected]):
+                new_box[leaf] = copy(self.book.crops[self.active_crop].box[self.selected])
+                new_box_with_skew_padding[leaf] = copy(self.book.crops[self.active_crop].box_with_skew_padding[self.selected])
+                affected.append(leaf)
+            else:
+                new_box[leaf] = copy(box)
+                new_box_with_skew_padding[leaf] = copy(self.book.crops[self.active_crop].box_with_skew_padding[leaf])
+        self.book.crops[self.active_crop].box = copy(new_box)
+        self.book.crops[self.active_crop].box_with_skew_padding = copy(new_box_with_skew_padding)
+        self.update_canvas(self.selected)
+        self.update_scandata()
+        self.set_save_needed(self.selected, affected)
+        
+
     def adjust_skew(self, widget):
         new_skew_value = widget.get_value() 
         if new_skew_value != self.book.crops[self.active_crop].skew_angle[self.selected]:      
@@ -998,10 +1022,14 @@ class ImageEditor:
         leaf = self.selected
         crop = self.active_crop
         if self.active_zone == 'top_left':
-            self.book.crops[crop].box_with_skew_padding[leaf].set_dimension('x', self.book.crops[crop].box_with_skew_padding[leaf].x +(x_delta * 4))
-            self.book.crops[crop].box_with_skew_padding[leaf].set_dimension('y', self.book.crops[crop].box_with_skew_padding[leaf].y +(y_delta * 4))
-            self.book.crops[crop].box_with_skew_padding[leaf].set_dimension('w', self.book.crops[crop].box_with_skew_padding[leaf].w -(x_delta * 4))
-            self.book.crops[crop].box_with_skew_padding[leaf].set_dimension('h', self.book.crops[crop].box_with_skew_padding[leaf].h -(y_delta * 4))
+            self.book.crops[crop].box_with_skew_padding[leaf].set_dimension(
+                'x', self.book.crops[crop].box_with_skew_padding[leaf].x +(x_delta * 4))
+            self.book.crops[crop].box_with_skew_padding[leaf].set_dimension(
+                'y', self.book.crops[crop].box_with_skew_padding[leaf].y +(y_delta * 4))
+            self.book.crops[crop].box_with_skew_padding[leaf].set_dimension(
+                'w', self.book.crops[crop].box_with_skew_padding[leaf].w -(x_delta * 4))
+            self.book.crops[crop].box_with_skew_padding[leaf].set_dimension(
+                'h', self.book.crops[crop].box_with_skew_padding[leaf].h -(y_delta * 4))
 
             self.book.crops[crop].box[leaf].set_dimension('x', self.book.crops[crop].box[leaf].x + (x_delta * 4))
             self.book.crops[crop].box[leaf].set_dimension('y', self.book.crops[crop].box[leaf].y + (y_delta * 4))
@@ -1009,26 +1037,34 @@ class ImageEditor:
             self.book.crops[crop].box[leaf].set_dimension('h', self.book.crops[crop].box[leaf].h - (y_delta * 4))
                             
         if self.active_zone == 'top_right':
-            self.book.crops[crop].box_with_skew_padding[leaf].set_dimension('y', self.book.crops[crop].box_with_skew_padding[leaf].y +(y_delta * 4))
-            self.book.crops[crop].box_with_skew_padding[leaf].set_dimension('w', self.book.crops[crop].box_with_skew_padding[leaf].w +(x_delta * 4))
-            self.book.crops[crop].box_with_skew_padding[leaf].set_dimension('h', self.book.crops[crop].box_with_skew_padding[leaf].h -(y_delta * 4))
+            self.book.crops[crop].box_with_skew_padding[leaf].set_dimension(
+                'y', self.book.crops[crop].box_with_skew_padding[leaf].y +(y_delta * 4))
+            self.book.crops[crop].box_with_skew_padding[leaf].set_dimension(
+                'w', self.book.crops[crop].box_with_skew_padding[leaf].w +(x_delta * 4))
+            self.book.crops[crop].box_with_skew_padding[leaf].set_dimension(
+                'h', self.book.crops[crop].box_with_skew_padding[leaf].h -(y_delta * 4))
 
             self.book.crops[crop].box[leaf].set_dimension('y', self.book.crops[crop].box[leaf].y + (y_delta * 4))
             self.book.crops[crop].box[leaf].set_dimension('w', self.book.crops[crop].box[leaf].w + (x_delta * 4))
             self.book.crops[crop].box[leaf].set_dimension('h', self.book.crops[crop].box[leaf].h - (y_delta * 4))
 
         if self.active_zone == 'bottom_left':
-            self.book.crops[crop].box_with_skew_padding[leaf].set_dimension('x', self.book.crops[crop].box_with_skew_padding[leaf].x +(x_delta * 4))
-            self.book.crops[crop].box_with_skew_padding[leaf].set_dimension('w', self.book.crops[crop].box_with_skew_padding[leaf].w -(x_delta * 4))
-            self.book.crops[crop].box_with_skew_padding[leaf].set_dimension('h', self.book.crops[crop].box_with_skew_padding[leaf].h +(y_delta * 4))
+            self.book.crops[crop].box_with_skew_padding[leaf].set_dimension(
+                'x', self.book.crops[crop].box_with_skew_padding[leaf].x +(x_delta * 4))
+            self.book.crops[crop].box_with_skew_padding[leaf].set_dimension(
+                'w', self.book.crops[crop].box_with_skew_padding[leaf].w -(x_delta * 4))
+            self.book.crops[crop].box_with_skew_padding[leaf].set_dimension(
+                'h', self.book.crops[crop].box_with_skew_padding[leaf].h +(y_delta * 4))
             
             self.book.crops[crop].box[leaf].set_dimension('x', self.book.crops[crop].box[leaf].x + (x_delta * 4))
             self.book.crops[crop].box[leaf].set_dimension('w', self.book.crops[crop].box[leaf].w - (x_delta * 4))
             self.book.crops[crop].box[leaf].set_dimension('h', self.book.crops[crop].box[leaf].h + (y_delta * 4))
             
         if self.active_zone == 'bottom_right':
-            self.book.crops[crop].box_with_skew_padding[leaf].set_dimension('w', self.book.crops[crop].box_with_skew_padding[leaf].w +(x_delta * 4))
-            self.book.crops[crop].box_with_skew_padding[leaf].set_dimension('h', self.book.crops[crop].box_with_skew_padding[leaf].h +(y_delta * 4))
+            self.book.crops[crop].box_with_skew_padding[leaf].set_dimension(
+                'w', self.book.crops[crop].box_with_skew_padding[leaf].w +(x_delta * 4))
+            self.book.crops[crop].box_with_skew_padding[leaf].set_dimension(
+                'h', self.book.crops[crop].box_with_skew_padding[leaf].h +(y_delta * 4))
             
             self.book.crops[crop].box[leaf].set_dimension('w', self.book.crops[crop].box[leaf].w + (x_delta * 4))
             self.book.crops[crop].box[leaf].set_dimension('h', self.book.crops[crop].box[leaf].h + (y_delta * 4))
@@ -1038,8 +1074,10 @@ class ImageEditor:
     def adjust_crop_position(self, x_delta, y_delta):
         leaf = self.selected
         crop = self.active_crop
-        self.book.crops[crop].box_with_skew_padding[leaf].set_dimension('x', self.book.crops[crop].box_with_skew_padding[leaf].x + (x_delta * 4))
-        self.book.crops[crop].box_with_skew_padding[leaf].set_dimension('y', self.book.crops[crop].box_with_skew_padding[leaf].y + (y_delta * 4))
+        self.book.crops[crop].box_with_skew_padding[leaf].set_dimension(
+            'x', self.book.crops[crop].box_with_skew_padding[leaf].x + (x_delta * 4))
+        self.book.crops[crop].box_with_skew_padding[leaf].set_dimension(
+            'y', self.book.crops[crop].box_with_skew_padding[leaf].y + (y_delta * 4))
 
         self.book.crops[crop].box[leaf].set_dimension('x', self.book.crops[crop].box[leaf].x + (x_delta * 4))
         self.book.crops[crop].box[leaf].set_dimension('y', self.book.crops[crop].box[leaf].y + (y_delta * 4))
@@ -1612,11 +1650,12 @@ class ImageEditor:
         return image_rotated_scaled
 
 
-    def set_save_needed(self, leaf):        
+    def set_save_needed(self, leaf, affected=None): 
+        if affected is None: affected = [leaf]
         if leaf%2==0:
-            self.save_needed['l'] = leaf
+            self.save_needed['l'] = leaf, affected
         else:
-            self.save_needed['r'] = leaf
+            self.save_needed['r'] = leaf, affected
         self.save_button.set_sensitive(True)
         #if self.history.has_history(self.selected):
         self.undo_button.set_sensitive(True)
@@ -1626,18 +1665,24 @@ class ImageEditor:
 
     def save_changes(self, widget=None, data=None):
         left_data = None
-        right_data = None        
-        if self.save_needed['l'] is not None:
-            leaf = self.save_needed['l']
-            left_data = self.get_current_state(leaf)
-        if self.save_needed['r'] is not None:
-            leaf = self.save_needed['r']
-            right_data = self.get_current_state(leaf)
+        right_data = None
+        if self.save_needed['l'][0]:
+            leaf = self.save_needed['l'][0]
+            left_data = {'leaf': leaf,
+                         'affected': {leaf: self.get_current_state(leaf)}}
+            for affected_leaf in self.save_needed['l'][1]:
+                left_data['affected'][affected_leaf] = self.get_current_state(leaf)
+        if self.save_needed['r'][0]:
+            leaf = self.save_needed['r'][0]
+            right_data = {'leaf': leaf,
+                          'affected': {leaf: self.get_current_state(leaf)}}
+            for affected_leaf in self.save_needed['r'][1]:
+                right_data['affected'][affected_leaf] = self.get_current_state(leaf)
         data = (left_data, right_data)
         if data[0] is not None or data[1] is not None:
             self.history.record_change(data)
             self.update_scandata()
-        self.save_needed['l'], self.save_needed['r'] = False, False
+        self.save_needed['l'], self.save_needed['r'] = (False, None), (False, None)
         self.save_button.set_sensitive(False)
         self.released = True
         if self.history.has_history(self.selected):
@@ -1651,38 +1696,39 @@ class ImageEditor:
             return
         self.released = True
         leaf = self.selected 
-        prev = self.history.state[leaf]['current']-1
-        if prev < 0 : prev = 0
-        undo_data = self.history.state[leaf]['history'][prev]
-        for crop in ('pageCrop', 'cropBox', 'contentCrop'):
-            if crop in undo_data:
-                self.book.crops[crop].box[leaf] = copy(undo_data[crop]['box'])
-                self.book.crops[crop].box_with_skew_padding[leaf] = copy(undo_data[crop]['box_with_skew_padding'])
-                self.book.crops[crop].page_type[leaf] = copy(undo_data[crop]['page_type'])
-                self.book.crops[crop].add_to_access_formats[leaf] = copy(undo_data[crop]['add_to_access_formats'])
-                self.book.crops[crop].rotate_degree[leaf] = copy(undo_data[crop]['rotate_degree'])
-                self.book.crops[crop].skew_angle[leaf] = copy(undo_data[crop]['skew_angle'])
-                self.book.crops[crop].skew_conf[leaf] = copy(undo_data[crop]['skew_conf'])
-                self.book.crops[crop].skew_active[leaf] = copy(undo_data[crop]['skew_active'])
-
-        self.history.state[leaf]['current'] = prev
+        current = self.history.state[leaf]['current']
+        current_state = self.history.state[leaf]['history'][current]        
+        for leaf, current_data in current_state.items():
+            current = self.history.state[leaf]['current']
+            prev = current - 1
+            if prev < 0 : prev = 0
+            undo_data = self.history.state[leaf]['history'][prev]
+            for u_leaf, data in undo_data.items():
+                for crop in ('pageCrop', 'cropBox', 'contentCrop'):
+                    if crop in data:                
+                        self.book.crops[crop].box[leaf] = copy(data[crop]['box'])
+                        self.book.crops[crop].box_with_skew_padding[leaf] = copy(data[crop]['box_with_skew_padding'])
+                        self.book.crops[crop].page_type[leaf] = copy(data[crop]['page_type'])
+                        self.book.crops[crop].add_to_access_formats[leaf] = copy(data[crop]['add_to_access_formats'])
+                        self.book.crops[crop].rotate_degree[leaf] = copy(data[crop]['rotate_degree'])
+                        self.book.crops[crop].skew_angle[leaf] = copy(data[crop]['skew_angle'])
+                        self.book.crops[crop].skew_conf[leaf] = copy(data[crop]['skew_conf'])
+                        self.book.crops[crop].skew_active[leaf] = copy(data[crop]['skew_active'])
+                        self.history.state[leaf]['current'] = prev
         self.update_horizontal_control_widgets()
-        #self.update_canvas(leaf)
-        self.draw_leaf(leaf)
+        self.draw_leaf(self.selected)
         self.update_scandata()
         self.save_button.set_sensitive(False)
         if self.history.has_history(self.selected):
             self.undo_button.set_sensitive(True)
         else:
             self.undo_button.set_sensitive(False)
-
+            
 
     def get_current_state(self, leaf):
-        return {'leaf': leaf,
-                'cropBox': self.book.cropBox.return_page_data_copy(leaf),
+        return {'cropBox': self.book.cropBox.return_page_data_copy(leaf),
                 'pageCrop': self.book.pageCrop.return_page_data_copy(leaf),
-                'contentCrop': self.book.contentCrop.return_page_data_copy(leaf),
-                }
+                'contentCrop': self.book.contentCrop.return_page_data_copy(leaf)}
 
 
     def update_scandata(self):
