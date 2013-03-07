@@ -20,7 +20,7 @@ class StandardCrop:
 
 
     def make_standard_crop(self):
-        #self.book.cropBox = Crop('cropBox', 0, self.book.page_count,
+        #self.book.standardCrop = Crop('standardCrop', 0, self.book.page_count,
         #                         self.book.raw_image_dimensions[0][1], 
         #                         self.book.raw_image_dimensions[0][0])
         self.book.contentCropScaled.get_box_metadata()
@@ -31,11 +31,11 @@ class StandardCrop:
         self.align_crops(ratios)
 
         #self.pipeline()
-        self.book.cropBox.xml_io(self.book.scandata_file, 'export')
-
+        self.book.standardCrop.xml_io(self.book.scandata_file, 'export')
+        self.book.standardCrop.set_as_default_cropbox(self.book.scandata_file)
 
     def set_crop_size(self, ratios):
-        for leaf, box in self.book.cropBox.box.items():
+        for leaf, box in self.book.standardCrop.box.items():
 
             if ratios['height'] < StandardCrop.height_ratio_max:
                 height = self.book.contentCropScaled.meta['h']['stats']['mean'] * StandardCrop.height_target
@@ -49,7 +49,7 @@ class StandardCrop:
 
             box.set_dimension('w', int(width))
             box.set_dimension('h', int(height))
-            self.book.cropBox.skew_angle[leaf] = self.book.pageCropScaled.skew_angle[leaf]
+            self.book.standardCrop.skew_angle[leaf] = self.book.pageCropScaled.skew_angle[leaf]
             self.buffer =  self.book.contentCropScaled.meta['h']['stats']['mean'] * .05
         
         
@@ -57,7 +57,7 @@ class StandardCrop:
         #print self.book.contentCropScaled.meta['h']['stats']
         #print self.book.contentCropScaled.meta['h']['stats_hist']
 
-        for leaf, box in self.book.cropBox.box.items():
+        for leaf, box in self.book.standardCrop.box.items():
             if not self.book.pageCropScaled.box[leaf].is_valid():
                 continue
 
@@ -81,13 +81,13 @@ class StandardCrop:
                     h = None
                     f = None
                 box.position_around(self.book.contentCropScaled.box[leaf], head=h, floor=f)
-                #self.book.cropBox.skew_translation(self.book.thumb_rotation_point['x'],
+                #self.book.standardCrop.skew_translation(self.book.thumb_rotation_point['x'],
                 #                                        self.book.thumb_rotation_point['y'],
                 #                                        leaf, factor=2, deskew=True)
                 
                 box.fit_within(self.book.pageCropScaled.box[leaf])
                 
-            self.book.cropBox.box[leaf] = self.book.cropBox.scale_box(leaf, 0.25)
+            self.book.standardCrop.box[leaf] = self.book.standardCrop.scale_box(leaf, 0.25)
 
 
     def get_content_to_page_ratios(self):

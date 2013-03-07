@@ -12,21 +12,36 @@ class Common:
 
 
     @staticmethod
-    def dialog(parent=None, d_type=gtk.MESSAGE_INFO, message='Error.', Buttons={gtk.STOCK_OK: gtk.RESPONSE_OK}):
+    def dialog(parent=None, d_type=gtk.MESSAGE_INFO, message='Error.', 
+               Buttons={gtk.STOCK_OK: gtk.RESPONSE_OK},
+               get_input=False):
         d = gtk.MessageDialog(parent, gtk.DIALOG_DESTROY_WITH_PARENT,  
                               d_type, message_format=message)
+        if get_input:
+            entry = gtk.Entry()
+            d.vbox.pack_start(entry)
+            entry.show()
+
         for text, response_id in Buttons.items():
             d.add_button(text, response_id)
         response = d.run()
+
+        if get_input:
+            user_input = entry.get_text()
         d.destroy()
         if response in (gtk.RESPONSE_YES, gtk.RESPONSE_ACCEPT, 
                         gtk.RESPONSE_OK, gtk.RESPONSE_APPLY):
-            return True
+            if get_input:
+                return user_input
+            else:
+                return True
         elif response in (gtk.RESPONSE_NO, gtk.RESPONSE_REJECT,
                           gtk.RESPONSE_CANCEL, gtk.RESPONSE_CLOSE):
             return False        
-        
+        else:
+            return response
     
+
     @staticmethod
     def get_user_selection():
         file_chooser = gtk.FileChooserDialog(title='Select Book Directory',
@@ -190,15 +205,15 @@ class Common:
         pageCrop_selector = Common.new_widget('RadioButton',
                                               {'label': 'pageCrop',
                                                'show': True})
-        cropBox_selector = Common.new_widget('RadioButton',
-                                             {'label': 'cropBox',
+        standardCrop_selector = Common.new_widget('RadioButton',
+                                             {'label': 'standardCrop',
                                               'group': pageCrop_selector,
                                               'show': True})
         contentCrop_selector = Common.new_widget('RadioButton',
                                                  {'label': 'contentCrop',
                                                   'group': pageCrop_selector,
                                                   'show': True}) 
-        return (pageCrop_selector, cropBox_selector, contentCrop_selector)
+        return (pageCrop_selector, standardCrop_selector, contentCrop_selector)
 
 
     @staticmethod

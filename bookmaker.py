@@ -52,7 +52,7 @@ if __name__ == "__main__":
     ocr.add_argument('--language', nargs='?', default='English')
 
     derive = parser.add_argument_group('Derivation')
-    derive.add_argument('--active-crop', nargs='?', default='cropBox')
+    derive.add_argument('--active-crop', nargs='?', default='standardCrop')
     derive.add_argument('--derive', nargs='+', help='Formats: djvu, pdf, epub, text')
     derive.add_argument('--derive-all', action='store_true', help='Derive all formats')
 

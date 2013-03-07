@@ -259,7 +259,7 @@ class Environment:
             orig_width.text = str(book.raw_image_dimensions[leaf][0])
             orig_height = etree.SubElement(page, 'origHeight')
             orig_height.text = str(book.raw_image_dimensions[leaf][1])
-            crop_box = Crop.new_xml(page, 'cropBox')
+            crop_box = Crop.new_crop_element(page, 'cropBox')
             page_number = etree.SubElement(page, 'pageNumber')
         doc = etree.ElementTree(root)
         try:
@@ -339,7 +339,7 @@ class BookData:
                              self.raw_image_dimensions[0][1], 
                              self.raw_image_dimensions[0][0], 
                              xml_file)
-        self.cropBox = Crop('cropBox', 0, self.page_count,
+        self.standardCrop = Crop('standardCrop', 0, self.page_count,
                             self.raw_image_dimensions[0][1],
                             self.raw_image_dimensions[0][0],
                             xml_file)
@@ -347,7 +347,7 @@ class BookData:
                                 self.raw_image_dimensions[0][1],
                                 self.raw_image_dimensions[0][0])
         self.crops = {'pageCrop': self.pageCrop,
-                      'cropBox': self.cropBox,
+                      'standardCrop': self.standardCrop,
                       'contentCrop': self.contentCrop}
 
 
@@ -356,7 +356,7 @@ class BookData:
                              self.raw_image_dimensions[0][1], 
                              self.raw_image_dimensions[0][0], 
                              self.scandata_file)
-        self.cropBox = Crop('cropBox', 0, self.page_count,
+        self.standardCrop = Crop('standardCrop', 0, self.page_count,
                             self.raw_image_dimensions[0][1],
                             self.raw_image_dimensions[0][0],
                             self.scandata_file)
@@ -365,7 +365,7 @@ class BookData:
                                 self.raw_image_dimensions[0][0],
                                 self.scandata_file)
         self.crops = {'pageCrop': self.pageCrop,
-                      'cropBox': self.cropBox,
+                      'standardCrop': self.standardCrop,
                       'contentCrop': self.contentCrop}
 
 
@@ -378,7 +378,7 @@ class Logger:
         if message is None:
             return        
         timestamp = datetime.datetime.now()
-        if type(log) == type(()):
+        if type(log) == tuple:
             for l in log:
                 self.logs[l].write(str(timestamp) + ':  '+ message + "\n")
         else:

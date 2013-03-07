@@ -113,7 +113,7 @@ class ImageOps:
         else:
             raise Exception('invalid image operation')                
         for arg, value in args.iteritems():
-            if type(value) == type(list()):
+            if type(value) == list:
                 value = ''.join([str(v) + '^' for v in value if value not in (None, '', ' ')])
             elif value not in (None, '', ' '):
                 value = str(value) + '^'

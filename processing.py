@@ -61,7 +61,7 @@ class ProcessHandling:
             pids.append(pid)
             func, args, logger, callback = data            
             if mode == 'sync':
-                if type(args) != type(tuple()):
+                if type(args) != tuple:
                     args = tuple((args,)) if args is not None else ()
                 try:
                     func(*args)
@@ -105,7 +105,7 @@ class ProcessHandling:
             self.wait(func, pid, args)
             return False
         else:
-            if type(args) != type(tuple()):
+            if type(args) != tuple:
                 args = tuple((args,)) if args is not None else ()
             new_thread = threading.Thread(None, func, pid, args)
             new_thread.func = func.__name__

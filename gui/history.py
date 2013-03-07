@@ -10,7 +10,7 @@ class History:
             self.state[leaf] = {}
             self.state[leaf]['current'] = 0
             self.state[leaf]['history'] = {}
-            self.state[leaf]['history'][0] = {leaf: {'cropBox': book.cropBox.return_page_data_copy(leaf),
+            self.state[leaf]['history'][0] = {leaf: {'standardCrop': book.standardCrop.return_page_data_copy(leaf),
                                                      'pageCrop': book.pageCrop.return_page_data_copy(leaf),
                                                      'contentCrop': book.contentCrop.return_page_data_copy(leaf)}}
 

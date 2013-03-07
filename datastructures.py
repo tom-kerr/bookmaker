@@ -22,8 +22,8 @@ class Crop:
         self.meta ={}
         self.box = {}
         self.box_with_skew_padding = {}
-
         self.hand_side = {}
+        self.pagination = dict.fromkeys(range(start, end), None)
         self.classification = dict.fromkeys(range(start, end), 'Normal')                
         self.page_type = dict.fromkeys(range(start, end), 'Normal')        
         self.add_to_access_formats = dict.fromkeys(range(start, end), None)
@@ -42,6 +42,7 @@ class Crop:
                 
         if xml_file:
             self.xml_io(xml_file, 'import')
+            self.update_pagination(xml_file)
 
 
     def return_page_data_copy(self, leaf):
@@ -68,6 +69,25 @@ class Crop:
                 self.meta[dimension]['stats_hist'] = Util.stats_hist(p, self.meta[dimension]['stats'])
 
 
+    def set_as_default_cropbox(self, xml_file):
+        try:
+            parser = etree.XMLParser(remove_blank_text=True)
+            xml = etree.parse(xml_file, parser)
+        except IOError:
+            Util.bail('could not open ' + xml_file)
+        page_data = xml.find('pageData')
+        pages = page_data.findall('page')
+        for leaf, page in enumerate(pages): 
+            if leaf in range(self.start, self.end):
+                xmlcrop = page.find('cropBox')
+                if xmlcrop is None:
+                    raise Exception('Missing essential item \'cropBox\' in scandata')
+                for dimension, value in self.box[leaf].dimensions.items():
+                    if value is not None:
+                        xmlcrop.find(dimension).text = str(int(value))                    
+        Crop.write_to_scandata(xml_file, xml)
+
+
     def xml_io(self, xml_file, mode):
         try:
             parser = etree.XMLParser(remove_blank_text=True)
@@ -89,9 +109,6 @@ class Crop:
                             self.box[leaf].set_dimension(dimension, int(p.text))
                         else:
                             self.box[leaf].set_dimension(dimension, None)
-                    #handside = page.find('handSide')
-                    #if handside is not None:
-                    #    self.box[leaf].hand_side = handside.text
                     pagetype = page.find('pageType')
                     if pagetype is not None:
                         self.page_type[leaf] = pagetype.text
@@ -128,7 +145,7 @@ class Crop:
                 elif mode is 'export':
                     xmlcrop = page.find(self.name)
                     if xmlcrop is None:
-                        xmlcrop = Crop.new_xml(page, self.name)               
+                        xmlcrop = Crop.new_crop_element(page, self.name)               
                     for dimension, value in self.box[leaf].dimensions.items():
                         if value is not None:
                             xmlcrop.find(dimension).text = str(int(value))                    
@@ -155,13 +172,108 @@ class Crop:
                     if skewconf is not None and self.skew_conf[leaf] is not None:
                         skewconf.text = str(self.skew_conf[leaf])    
         if mode is 'export':
-            scandata = open(xml_file, "w")
-            xml.write(scandata, pretty_print=True)
-            scandata.close()
+            Crop.write_to_scandata(xml_file, xml)
+
+
+    def delete_assertion(self, xml_file, leaf):
+        try:
+            parser = etree.XMLParser(remove_blank_text=True)
+            xml = etree.parse(xml_file, parser)
+        except IOError:
+            Util.bail('could not open ' + xml_file)
+        bookdata = xml.find('bookData')
+        page_num_data = bookdata.find('pageNumData')
+        if page_num_data is None:
+            return
+        remove = None
+        assertions = page_num_data.findall('assertion')
+        if assertions:
+            for num, element in enumerate(assertions):
+                entry = element.find('leafNum')
+                if entry.text == str(leaf):
+                    print num
+                    remove = num
+                    break
+        if remove:
+            assertions[num].getparent().remove(assertions[num])
+            Crop.write_to_scandata(xml_file, xml)
+            self.update_pagination(xml_file)
+
+
+    def assert_page_number(self, xml_file, leaf, number):
+        try:
+            parser = etree.XMLParser(remove_blank_text=True)
+            xml = etree.parse(xml_file, parser)
+        except IOError:
+            Util.bail('could not open ' + xml_file)
+        bookdata = xml.find('bookData')
+        page_num_data = bookdata.find('pageNumData')
+        if page_num_data is None:
+            page_num_data = etree.SubElement(bookdata, 'pageNumData')
+        assertions = page_num_data.findall('assertion')
+        for element in assertions:
+            entry = element.find('leafNum')
+            if entry.text == str(leaf):
+                pagenum = element.find('pageNum')
+                pagenum.text = str(number)
+                Crop.write_to_scandata(xml_file, xml)
+                self.update_pagination(xml_file)
+                return
+        assertion = etree.SubElement(page_num_data, 'assertion')
+        leafnum = etree.SubElement(assertion, 'leafNum')
+        leafnum.text = str(leaf)
+        pagenum = etree.SubElement(assertion, 'pageNum')
+        pagenum.text = str(number)
+        Crop.write_to_scandata(xml_file, xml)
+        self.update_pagination(xml_file)
+
+
+    def update_pagination(self, xml_file):
+        try:
+            parser = etree.XMLParser(remove_blank_text=True)
+            xml = etree.parse(xml_file, parser)
+        except IOError:
+            Util.bail('could not open ' + xml_file)
+        bookdata = xml.find('bookData')
+        page_num_data = bookdata.find('pageNumData')
+        if page_num_data is None:
+            return
+        assertions = page_num_data.findall('assertion')
+        num_asserts = len(assertions)
+        ranges = {}
+        for num in range(0, num_asserts):
+            start_leaf = int(assertions[num].find('leafNum').text)
+            start_pagenum = int(assertions[num].find('pageNum').text)
+            next_num = num + 1
+            try:
+                end_leaf = int(assertions[next_num].find('leafNum').text)
+                end_pagenum = int(assertions[next_num].find('pageNum').text)
+            except:
+                end_leaf = self.end
+                end_pagenum = start_pagenum + (end_leaf - start_leaf)
+            ranges[num] = (start_leaf, end_leaf)
+            for num, leaf in enumerate(range(start_leaf, end_leaf+1)):
+                if leaf == start_leaf:
+                    self.pagination[leaf] = str(start_pagenum) + '!'
+                elif leaf == end_leaf:
+                    self.pagination[leaf] = str(end_pagenum) + '!'
+                else:
+                    if (end_leaf - start_leaf) == (end_pagenum - start_pagenum):
+                        self.pagination[leaf] = str(start_pagenum + num)
+                    else:
+                        self.pagination[leaf] = str(start_pagenum + num) + '?'
+                #print leaf, self.pagination[leaf]
+                        
+
+    @staticmethod
+    def write_to_scandata(scandata_file, xml_data):        
+        scandata = open(scandata_file, 'w')
+        xml_data.write(scandata, pretty_print=True)
+        scandata.close()
 
 
     @staticmethod
-    def new_xml(root, name):
+    def new_crop_element(root, name):
         crop_box = etree.SubElement(root, name)
         for dimension in Box.dimensions:
             etree.SubElement(crop_box, dimension)
