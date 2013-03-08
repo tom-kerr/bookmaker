@@ -10,19 +10,20 @@ class Crop:
 
     def __init__(self, name, start, end, 
                  image_width=None, image_height=None, 
-                 xml_file=None):
+                 scandata=None, import_scandata=False):
 
         self.name = name
         self.start = start
         self.end = end
-
         self.image_height = image_height
         self.image_width = image_width
-        
+        self.scandata = scandata
+
         self.meta ={}
         self.box = {}
         self.box_with_skew_padding = {}
         self.hand_side = {}
+
         self.pagination = dict.fromkeys(range(start, end), None)
         self.classification = dict.fromkeys(range(start, end), 'Normal')                
         self.page_type = dict.fromkeys(range(start, end), 'Normal')        
@@ -40,9 +41,9 @@ class Crop:
             else:                
                 self.hand_side[leaf] = 'RIGHT'
                 
-        if xml_file:
-            self.xml_io(xml_file, 'import')
-            self.update_pagination(xml_file)
+        if import_scandata:
+            self.xml_io('import')
+            self.update_pagination()
 
 
     def return_page_data_copy(self, leaf):
@@ -69,13 +70,8 @@ class Crop:
                 self.meta[dimension]['stats_hist'] = Util.stats_hist(p, self.meta[dimension]['stats'])
 
 
-    def set_as_default_cropbox(self, xml_file):
-        try:
-            parser = etree.XMLParser(remove_blank_text=True)
-            xml = etree.parse(xml_file, parser)
-        except IOError:
-            Util.bail('could not open ' + xml_file)
-        page_data = xml.find('pageData')
+    def set_as_default_cropbox(self):
+        page_data = self.scandata.tree.find('pageData')
         pages = page_data.findall('page')
         for leaf, page in enumerate(pages): 
             if leaf in range(self.start, self.end):
@@ -85,16 +81,11 @@ class Crop:
                 for dimension, value in self.box[leaf].dimensions.items():
                     if value is not None:
                         xmlcrop.find(dimension).text = str(int(value))                    
-        Crop.write_to_scandata(xml_file, xml)
+        self.write_scandata()
 
 
-    def xml_io(self, xml_file, mode):
-        try:
-            parser = etree.XMLParser(remove_blank_text=True)
-            xml = etree.parse(xml_file, parser)
-        except IOError:
-            Util.bail('could not open ' + xml_file)
-        page_data = xml.find('pageData')
+    def xml_io(self, mode):
+        page_data = self.scandata.tree.find('pageData')
         pages = page_data.findall('page')
         for leaf, page in enumerate(pages): 
             if leaf in range(self.start, self.end):
@@ -172,16 +163,11 @@ class Crop:
                     if skewconf is not None and self.skew_conf[leaf] is not None:
                         skewconf.text = str(self.skew_conf[leaf])    
         if mode is 'export':
-            Crop.write_to_scandata(xml_file, xml)
+            self.write_scandata()
 
 
     def delete_assertion(self, xml_file, leaf):
-        try:
-            parser = etree.XMLParser(remove_blank_text=True)
-            xml = etree.parse(xml_file, parser)
-        except IOError:
-            Util.bail('could not open ' + xml_file)
-        bookdata = xml.find('bookData')
+        bookdata = self.scandata.tree.find('bookData')
         page_num_data = bookdata.find('pageNumData')
         if page_num_data is None:
             return
@@ -196,17 +182,12 @@ class Crop:
                     break
         if remove:
             assertions[num].getparent().remove(assertions[num])
-            Crop.write_to_scandata(xml_file, xml)
-            self.update_pagination(xml_file)
+            self.write_scandata()
+            self.update_pagination()
 
 
     def assert_page_number(self, xml_file, leaf, number):
-        try:
-            parser = etree.XMLParser(remove_blank_text=True)
-            xml = etree.parse(xml_file, parser)
-        except IOError:
-            Util.bail('could not open ' + xml_file)
-        bookdata = xml.find('bookData')
+        bookdata = self.scandata.tree.find('bookData')
         page_num_data = bookdata.find('pageNumData')
         if page_num_data is None:
             page_num_data = etree.SubElement(bookdata, 'pageNumData')
@@ -216,25 +197,20 @@ class Crop:
             if entry.text == str(leaf):
                 pagenum = element.find('pageNum')
                 pagenum.text = str(number)
-                Crop.write_to_scandata(xml_file, xml)
-                self.update_pagination(xml_file)
+                self.write_scandata()
+                self.update_pagination()
                 return
         assertion = etree.SubElement(page_num_data, 'assertion')
         leafnum = etree.SubElement(assertion, 'leafNum')
         leafnum.text = str(leaf)
         pagenum = etree.SubElement(assertion, 'pageNum')
         pagenum.text = str(number)
-        Crop.write_to_scandata(xml_file, xml)
-        self.update_pagination(xml_file)
+        self.write_scandata()
+        self.update_pagination()
 
 
-    def update_pagination(self, xml_file):
-        try:
-            parser = etree.XMLParser(remove_blank_text=True)
-            xml = etree.parse(xml_file, parser)
-        except IOError:
-            Util.bail('could not open ' + xml_file)
-        bookdata = xml.find('bookData')
+    def update_pagination(self):
+        bookdata = self.scandata.tree.find('bookData')
         page_num_data = bookdata.find('pageNumData')
         if page_num_data is None:
             return
@@ -265,11 +241,13 @@ class Crop:
                 #print leaf, self.pagination[leaf]
                         
 
-    @staticmethod
-    def write_to_scandata(scandata_file, xml_data):        
-        scandata = open(scandata_file, 'w')
-        xml_data.write(scandata, pretty_print=True)
-        scandata.close()
+    def write_scandata(self):        
+        try:
+            f = open(self.scandata.file, 'w')
+        except:
+            Util.bail('failed to open ' + self.scandata.file + ' for writing')
+        self.scandata.tree.write(f, pretty_print=True)
+        f.close()
 
 
     @staticmethod
@@ -755,15 +733,7 @@ class Clusters:
             return False
         else:
             return results
-            
-
-
-
-
-
-
-
-
+    
     
     def find_by_orientation(self, container):
         self.top_left = None

@@ -52,8 +52,8 @@ class FeatureDetection:
         #self.book.logger.message('total executable time: ' + 
         #                         str(FeatureDetection.exec_time/60) +' minutes')
         if self.book.settings['respawn']:
-            self.book.pageCrop.xml_io(self.book.scandata_file, 'export')
-        self.book.contentCrop.xml_io(self.book.scandata_file, 'export')
+            self.book.pageCrop.xml_io('export')
+        self.book.contentCrop.xml_io('export')
         
 
     def check_exec_times(self, leaf):

@@ -61,7 +61,7 @@ class Editor:
             for crop in ('pageCrop', 'standardCrop', 'contentCrop'):
                 if self.book.crops[crop].box[leaf].is_valid():
                     self.book.crops[crop].calculate_box_with_skew_padding(leaf)
-        self.book.crops['standardCrop'].update_pagination(self.book.scandata_file)
+        self.book.crops['standardCrop'].update_pagination()
             
 
     def key_press(self, widget, data):
@@ -366,17 +366,14 @@ class ImageEditor:
         self.skew_toggle_x_left = self.left_canvas.w/2 - self.skew_toggle.width/2
         self.skew_toggle_x_right = self.left_canvas.w + (self.right_canvas.w/2 - self.skew_toggle.width/2)
                     
-
-        x = self.left_canvas.w/2 - (self.left_page_type_menu.width/2)#+ self.left_pagination_entry.width)
+        x = self.left_canvas.w/2 - (self.left_page_type_menu.width/2)
         y = 40
         self.horizontal_controls.put(self.left_page_type_menu, x, y)        
         w,h = self.left_page_type_menu.get_size_request()
-        #self.horizontal_controls.put(self.left_pagination_entry, x+w, y) 
         self.horizontal_controls.put(self.skew_slider, x, 60)
         
-        x = self.left_canvas.w + (self.right_canvas.w/2 - (self.right_page_type_menu.width/2))# + self.right_pagination_entry.width))
+        x = self.left_canvas.w + (self.right_canvas.w/2 - (self.right_page_type_menu.width/2))
         self.horizontal_controls.put(self.right_page_type_menu, x, y)        
-        #self.horizontal_controls.put(self.right_pagination_entry, x+w, y)
 
         x = self.left_canvas.w - self.left_page_type_menu.width/2
         self.horizontal_controls.put(self.copy_from_button, x, 40)
@@ -440,7 +437,6 @@ class ImageEditor:
         self.right_page_type_menu.show()
         gtk.rc_parse_string("""style "menulist" { GtkComboBox::appears-as-list = 1 } class "GtkComboBox" style "menulist" """)
         self.init_page_type_menu()
-        #self.init_pagination_entry()
         
 
     def init_page_type_menu(self):        
@@ -458,24 +454,6 @@ class ImageEditor:
         self.left_page_type_menu.connect('changed', self.set_page_type)
         self.right_page_type_menu.connect('changed', self.set_page_type)    
 
-    """
-    def init_pagination_entry(self):
-        self.left_pagination_entry = gtk.Entry()
-        self.left_pagination_entry.set_size_request(40, 25)
-        self.left_pagination_entry.width = 40
-        self.left_pagination_entry.width = 25
-        self.left_pagination_entry.hand_side = 'left'
-        #self.left_pagination_entry.connect('focus-out-event', self.assert_pagination)
-        self.left_pagination_entry.show()
-
-        self.right_pagination_entry = gtk.Entry()
-        self.right_pagination_entry.set_size_request(40, 25)
-        self.right_pagination_entry.width = 40
-        self.right_pagination_entry.width = 25
-        self.right_pagination_entry.hand_side = 'right'
-        #self.right_pagination_entry.connect('focus-out-event', self.assert_pagination)
-        self.right_pagination_entry.show()
-        """
 
     def init_skew_slider(self):
         self.skew_slider = Common.new_widget('HScale',
@@ -671,14 +649,13 @@ class ImageEditor:
         if not response:
             return
         elif response is gtk.RESPONSE_DELETE_EVENT:
-            self.book.crops[self.active_crop].delete_assertion(self.book.scandata_file, self.selected)
+            self.book.crops[self.active_crop].delete_assertion(self.selected)
             self.draw_spread(self.current_spread)
             return
         rawinput = re.search('[0-9]+', response)
         if rawinput:
             number = rawinput.group(0)
-            self.book.crops[self.active_crop].assert_page_number(self.book.scandata_file,
-                                                                 self.selected, number)
+            self.book.crops[self.active_crop].assert_page_number(self.selected, number)
             self.draw_spread(self.current_spread)
             
 
@@ -1794,7 +1771,7 @@ class ImageEditor:
 
     def update_scandata(self):
         for crop in ('pageCrop', 'standardCrop', 'contentCrop'):
-            self.book.crops[crop].xml_io(self.book.scandata_file, 'export')
+            self.book.crops[crop].xml_io('export')
 
 
 

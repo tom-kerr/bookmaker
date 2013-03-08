@@ -280,6 +280,7 @@ class BookData:
         self.raw_images = raw_data['images']
         self.raw_image_dimensions = raw_data['dimensions']
         self.scandata_file = self.root_dir + '/' + self.identifier + '_scandata.xml'
+        self.scandata = Scandata(self.scandata_file)
         self.thumb_rotation_point = {'x': (self.raw_image_dimensions[0][1]/Environment.scale_factor)/2,
                                      'y': (self.raw_image_dimensions[0][0]/Environment.scale_factor)/2}
         self.dirs = {
@@ -332,20 +333,20 @@ class BookData:
             }
 
 
-
     def init_crops(self):
-        xml_file = self.scandata_file if self.settings['respawn'] is False else None        
+        import_scandata = True if not self.settings['respawn'] else False
         self.pageCrop = Crop('pageCrop', 0, self.page_count, 
                              self.raw_image_dimensions[0][1], 
                              self.raw_image_dimensions[0][0], 
-                             xml_file)
+                             self.scandata, import_scandata)
         self.standardCrop = Crop('standardCrop', 0, self.page_count,
-                            self.raw_image_dimensions[0][1],
-                            self.raw_image_dimensions[0][0],
-                            xml_file)
+                                 self.raw_image_dimensions[0][1],
+                                 self.raw_image_dimensions[0][0],
+                                 self.scandata, import_scandata)
         self.contentCrop = Crop('contentCrop', 0, self.page_count,
                                 self.raw_image_dimensions[0][1],
-                                self.raw_image_dimensions[0][0])
+                                self.raw_image_dimensions[0][0],
+                                self.scandata)
         self.crops = {'pageCrop': self.pageCrop,
                       'standardCrop': self.standardCrop,
                       'contentCrop': self.contentCrop}
@@ -355,18 +356,32 @@ class BookData:
         self.pageCrop = Crop('pageCrop', 0, self.page_count, 
                              self.raw_image_dimensions[0][1], 
                              self.raw_image_dimensions[0][0], 
-                             self.scandata_file)
+                             self.scandata, True)
         self.standardCrop = Crop('standardCrop', 0, self.page_count,
-                            self.raw_image_dimensions[0][1],
-                            self.raw_image_dimensions[0][0],
-                            self.scandata_file)
+                                 self.raw_image_dimensions[0][1],
+                                 self.raw_image_dimensions[0][0],
+                                 self.scandata, True)
         self.contentCrop = Crop('contentCrop', 0, self.page_count,
                                 self.raw_image_dimensions[0][1],
                                 self.raw_image_dimensions[0][0],
-                                self.scandata_file)
+                                self.scandata, True)
         self.crops = {'pageCrop': self.pageCrop,
                       'standardCrop': self.standardCrop,
                       'contentCrop': self.contentCrop}
+
+
+
+class Scandata:
+
+    def __init__(self, xml_file):
+        self.file = xml_file
+        self.tree = None
+        try:
+            parser = etree.XMLParser(remove_blank_text=True)
+            self.tree = etree.parse(self.file, parser)
+        except IOError:
+            Util.bail('could not parse ' + self.file)        
+
 
 
 class Logger:
