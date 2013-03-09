@@ -31,8 +31,9 @@ class StandardCrop:
         self.align_crops(ratios)
 
         #self.pipeline()
+        self.book.standardCrop.set_all_active()
         self.book.standardCrop.xml_io('export')
-        self.book.standardCrop.set_as_default_cropbox()
+        
 
     def set_crop_size(self, ratios):
         for leaf, box in self.book.standardCrop.box.items():

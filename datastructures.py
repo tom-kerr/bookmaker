@@ -23,7 +23,7 @@ class Crop:
         self.box = {}
         self.box_with_skew_padding = {}
         self.hand_side = {}
-
+        self.active = dict.fromkeys(range(start, end), False)
         self.pagination = dict.fromkeys(range(start, end), None)
         self.classification = dict.fromkeys(range(start, end), 'Normal')                
         self.page_type = dict.fromkeys(range(start, end), 'Normal')        
@@ -46,16 +46,17 @@ class Crop:
             self.update_pagination()
 
 
-    def return_page_data_copy(self, leaf):
-        page_data = {'box': copy(self.box[leaf]), 
-                     'box_with_skew_padding': copy(self.box_with_skew_padding[leaf]),
-                     'page_type': copy(self.page_type[leaf]),
-                     'add_to_access_formats': copy(self.add_to_access_formats[leaf]),
-                     'rotate_degree': copy(self.rotate_degree[leaf]),
-                     'skew_angle': copy(self.skew_angle[leaf]),
-                     'skew_conf': copy(self.skew_conf[leaf]),
-                     'skew_active': copy(self.skew_active[leaf])}
-        return page_data
+    def return_state(self, leaf):
+        state = {'box': copy(self.box[leaf]), 
+                 'box_with_skew_padding': copy(self.box_with_skew_padding[leaf]),
+                 'active': self.active[leaf],
+                 'page_type': copy(self.page_type[leaf]),
+                 'add_to_access_formats': copy(self.add_to_access_formats[leaf]),
+                 'rotate_degree': copy(self.rotate_degree[leaf]),
+                 'skew_angle': copy(self.skew_angle[leaf]),
+                 'skew_conf': copy(self.skew_conf[leaf]),
+                 'skew_active': copy(self.skew_active[leaf])}
+        return state
                                                 
 
     def get_box_metadata(self):
@@ -70,18 +71,19 @@ class Crop:
                 self.meta[dimension]['stats_hist'] = Util.stats_hist(p, self.meta[dimension]['stats'])
 
 
-    def set_as_default_cropbox(self):
+    def set_all_active(self):
         page_data = self.scandata.tree.find('pageData')
         pages = page_data.findall('page')
         for leaf, page in enumerate(pages): 
             if leaf in range(self.start, self.end):
-                xmlcrop = page.find('cropBox')
-                if xmlcrop is None:
+                cropBox = page.find('cropBox')
+                if cropBox is None:
                     raise Exception('Missing essential item \'cropBox\' in scandata')
                 for dimension, value in self.box[leaf].dimensions.items():
                     if value is not None:
-                        xmlcrop.find(dimension).text = str(int(value))                    
-        self.write_scandata()
+                        cropBox.find(dimension).text = str(int(value))                    
+                self.active[leaf] = True
+        #self.write_scandata()
 
 
     def xml_io(self, mode):
@@ -94,6 +96,14 @@ class Crop:
                     xmlcrop = page.find(self.name)
                     if xmlcrop is None:
                         raise Exception('Missing essential item \'' + self.name  + '\' in scandata')
+                    try:
+                        active = xmlcrop.get('active')
+                        if active=='True':
+                            self.active[leaf] = True
+                        elif active=='False':
+                            self.active[leaf] = False
+                    except:
+                        pass
                     for dimension, value in self.box[leaf].dimensions.items():
                         p = xmlcrop.find(dimension)
                         if p is not None and p.text is not None:
@@ -137,6 +147,7 @@ class Crop:
                     xmlcrop = page.find(self.name)
                     if xmlcrop is None:
                         xmlcrop = Crop.new_crop_element(page, self.name)               
+                    xmlcrop.set('active', str(self.active[leaf]))
                     for dimension, value in self.box[leaf].dimensions.items():
                         if value is not None:
                             xmlcrop.find(dimension).text = str(int(value))                    
@@ -166,7 +177,7 @@ class Crop:
             self.write_scandata()
 
 
-    def delete_assertion(self, xml_file, leaf):
+    def delete_assertion(self, leaf):
         bookdata = self.scandata.tree.find('bookData')
         page_num_data = bookdata.find('pageNumData')
         if page_num_data is None:
@@ -177,16 +188,16 @@ class Crop:
             for num, element in enumerate(assertions):
                 entry = element.find('leafNum')
                 if entry.text == str(leaf):
-                    print num
                     remove = num
                     break
-        if remove:
-            assertions[num].getparent().remove(assertions[num])
+        if remove is not None:
+            #self.pagination[leaf] = None
+            assertions[remove].getparent().remove(assertions[remove])
             self.write_scandata()
             self.update_pagination()
 
 
-    def assert_page_number(self, xml_file, leaf, number):
+    def assert_page_number(self, leaf, number):
         bookdata = self.scandata.tree.find('bookData')
         page_num_data = bookdata.find('pageNumData')
         if page_num_data is None:
@@ -200,7 +211,17 @@ class Crop:
                 self.write_scandata()
                 self.update_pagination()
                 return
-        assertion = etree.SubElement(page_num_data, 'assertion')
+        insert_point = None
+        for num, element in enumerate(assertions):
+            entry = element.find('leafNum')
+            if leaf < int(entry.text):
+                insert_point = num
+                break
+        if insert_point is not None:
+            assertion = etree.Element('assertion')
+            page_num_data.insert(num, assertion)
+        else:
+            assertion = etree.SubElement(page_num_data, 'assertion')
         leafnum = etree.SubElement(assertion, 'leafNum')
         leafnum.text = str(leaf)
         pagenum = etree.SubElement(assertion, 'pageNum')
@@ -221,6 +242,9 @@ class Crop:
             start_leaf = int(assertions[num].find('leafNum').text)
             start_pagenum = int(assertions[num].find('pageNum').text)
             next_num = num + 1
+            if num==0:
+                for leaf in range(0, start_leaf):
+                    self.pagination[leaf]=None
             try:
                 end_leaf = int(assertions[next_num].find('leafNum').text)
                 end_pagenum = int(assertions[next_num].find('pageNum').text)
@@ -253,6 +277,7 @@ class Crop:
     @staticmethod
     def new_crop_element(root, name):
         crop_box = etree.SubElement(root, name)
+        crop_box.set('active', 'false')
         for dimension in Box.dimensions:
             etree.SubElement(crop_box, dimension)
         return crop_box

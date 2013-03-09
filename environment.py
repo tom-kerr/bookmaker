@@ -353,6 +353,10 @@ class BookData:
 
 
     def import_crops(self):
+        self.cropBox = Crop('cropBox', 0, self.page_count, 
+                             self.raw_image_dimensions[0][1], 
+                             self.raw_image_dimensions[0][0], 
+                             self.scandata, True)
         self.pageCrop = Crop('pageCrop', 0, self.page_count, 
                              self.raw_image_dimensions[0][1], 
                              self.raw_image_dimensions[0][0], 
@@ -365,7 +369,8 @@ class BookData:
                                 self.raw_image_dimensions[0][1],
                                 self.raw_image_dimensions[0][0],
                                 self.scandata, True)
-        self.crops = {'pageCrop': self.pageCrop,
+        self.crops = {'cropBox': self.cropBox,
+                      'pageCrop': self.pageCrop,
                       'standardCrop': self.standardCrop,
                       'contentCrop': self.contentCrop}
 
