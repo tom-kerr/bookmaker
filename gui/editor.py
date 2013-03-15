@@ -62,7 +62,6 @@ class Editor:
             for crop in ('cropBox', 'pageCrop', 'standardCrop', 'contentCrop'):
                 if self.book.crops[crop].box[leaf].is_valid():
                     self.book.crops[crop].calculate_box_with_skew_padding(leaf)
-        #for crop in ('pageCrop', 'standardCrop', 'contentCrop'):
         self.book.cropBox.update_pagination()
             
 
@@ -92,6 +91,7 @@ class Editor:
             self.ImageEditor.rotate_selected(rot_dir)
         elif key is 97:
             self.ImageEditor.assert_pagination()
+
 
     def init_meta_window(self):
         self.MetaEditor = MetaEditor(self)
@@ -325,7 +325,7 @@ class ImageEditor:
                 self.set_save_needed(leaf)
                 self.save_changes(update_scandata=False)
             self.update_scandata()
-            self.draw_spread(self.current_spread)
+            self.update_state()
 
             
     def init_draw_options(self):                
@@ -687,7 +687,6 @@ class ImageEditor:
             leaf = (self.current_spread * 2) + 1
         selection = widget.get_active()
         page_type = Metadata.book_structure[selection]
-        #for crop in ('pageCrop', 'standardCrop', 'contentCrop'):
         self.book.cropBox.page_type[leaf] = page_type
         if page_type in ('Delete', 'ColorCard', 'Tissue'):
             self.book.cropBox.add_to_access_formats[leaf] = False    
@@ -808,7 +807,6 @@ class ImageEditor:
     def adjust_skew(self, widget):
         new_skew_value = widget.get_value() 
         if new_skew_value != self.book.cropBox.skew_angle[self.selected]:      
-            #for crop in ('pageCrop', 'standardCrop', 'contentCrop'):
             self.book.cropBox.skew_angle[self.selected] = widget.get_value()
             if self.book.cropBox.box[self.selected].is_valid():
                 self.book.cropBox.calculate_box_with_skew_padding(self.selected)
@@ -975,7 +973,7 @@ class ImageEditor:
         self.active_zone = None
         self.editor.window.window.set_cursor(None)
         self.cursor = None
-        pass
+        #pass
         #return False
 
             
@@ -1071,7 +1069,6 @@ class ImageEditor:
     def adjust_crop_size(self, x_delta, y_delta):
         self.destroy_zoom()
         leaf = self.selected
-        #crop = self.active_crop[leaf]
         scale_factor = 7
         if self.active_zone == 'top_left':
             self.book.cropBox.box_with_skew_padding[leaf].set_dimension(
@@ -1125,7 +1122,6 @@ class ImageEditor:
 
     def adjust_crop_position(self, x_delta, y_delta):
         leaf = self.selected
-        #crop = self.active_crop[leaf]
         self.book.cropBox.box_with_skew_padding[leaf].set_dimension(
             'x', self.book.cropBox.box_with_skew_padding[leaf].x + (x_delta * 4))
         self.book.cropBox.box_with_skew_padding[leaf].set_dimension(
@@ -1143,7 +1139,6 @@ class ImageEditor:
             self.book.cropBox.box[leaf].set_dimension('x', 0)
         if self.book.cropBox.box[leaf].y < 0:
             self.book.cropBox.box[leaf].set_dimension('y', 0)
-        #self.set_save_needed(leaf)
         
 
     def get_crop_event_box(self, image, leaf):        
@@ -1170,7 +1165,6 @@ class ImageEditor:
                 event_box.set_dimension('h', int((self.book.cropBox.box[leaf].h/4)/scale_factor))
             event_box.image.set_size_request(event_box.w, event_box.h)                                   
         event_box.leaf = leaf
-        #event_box.crop = crop
         return event_box
 
 
@@ -1264,7 +1258,6 @@ class ImageEditor:
     def draw_delete_overlay(self, leaf):
         if leaf is None:
             return
-        
         overlay = self.create_delete_overlay(leaf)
         if leaf%2==0:
             x, y = 0,0
@@ -1434,10 +1427,7 @@ class ImageEditor:
                     self.book.crops[crop].image_width = orig_h
                     self.book.crops[crop].image_height = orig_w
         self.set_save_needed(self.selected)
-
         self.draw_leaf(self.selected)
-        #self.draw_spread(self.current_spread)
-        #self.update_canvas(self.selected)
 
 
     def get_subsection(self, image, leaf):        
@@ -1496,10 +1486,12 @@ class ImageEditor:
         try:
             self.main_layout.remove(canvas.image)
             canvas.image.destroy()
-            #self.main_layout.remove(canvas.image)
+        except:
+            pass
+                        
+        try:
             self.main_layout.remove(canvas.page_number_box)
-        except Exception as e:
-            #print str(e)
+        except:
             pass
 
         width = image.get_width()
@@ -1568,13 +1560,14 @@ class ImageEditor:
             self.main_layout.put(canvas.page_number_box, canvas.x, canvas.y)
 
 
-
     def set_event_box(self, leaf, image, canvas, event_box, zones):
+
         try:
+            self.main_layout.remove(event_box.image)
             event_box.image.destroy()
         except:
             pass
-                
+
         width = image.get_width()
         height = image.get_height()
                     
@@ -1832,7 +1825,6 @@ class ImageEditor:
 
 
     def update_scandata(self):
-        print 'updating'
         for crop in ('pageCrop', 'standardCrop', 'contentCrop', 'cropBox'):
             self.book.crops[crop].xml_io('export')
 
@@ -1900,7 +1892,6 @@ class ExportHandler:
                                                        'set_shadow_type': gtk.SHADOW_NONE,
                                                        #'set_label_align': (0.5,0.5),
                                                        'show': True})        
-        self.active_crop = 'standardCrop'
 
         self.init_cropping()
         self.init_ocr()
@@ -1913,9 +1904,6 @@ class ExportHandler:
         self.toggle_pdf(mode=False)
         self.toggle_djvu(mode=False)
         Common.set_all_sensitive((self.init_crop_button,
-                                  self.pageCrop_selector,
-                                  self.standardCrop_selector,
-                                  self.contentCrop_selector,
                                   self.grayscale_option,
                                   self.normalize_option,
                                   self.invert_option,                                  
@@ -1930,9 +1918,6 @@ class ExportHandler:
         self.toggle_djvu()
         self.toggle_derive()
         Common.set_all_sensitive((self.init_crop_button,
-                                  self.pageCrop_selector,
-                                  self.standardCrop_selector,
-                                  self.contentCrop_selector,
                                   self.grayscale_option,
                                   self.normalize_option,
                                   self.invert_option,                                  
@@ -1944,7 +1929,7 @@ class ExportHandler:
     def init_cropping(self):        
         self.cropping_frame = Common.new_widget('Frame',
                                                 {'label': 'Cropping',
-                                                 'size_request': (self.editor.window.width/4, 150),
+                                                 'size_request': (self.editor.window.width/3, 100),
                                                  'set_shadow_type': gtk.SHADOW_OUT,
                                                  'set_label_align': (0.5,0.5),
                                                  'show': True})
@@ -1956,7 +1941,6 @@ class ExportHandler:
         self.controls_hbox = Common.new_widget('HBox',
                                                {'size_request': (-1, -1),
                                                 'show':True})
-        self.init_crops()
         self.init_proc_options()
         
         self.cropping_progress = gtk.ProgressBar()
@@ -1974,34 +1958,11 @@ class ExportHandler:
         self.cropping_vbox.pack_start(self.cropping_progress, expand=True, fill=True)
         self.cropping_frame.add(self.cropping_vbox)
         self.stack_controls.put(self.cropping_frame, 
-                                ((self.editor.window.width/4) - (self.editor.window.width/4)/2 ), 0)
-
-
-    def init_crops(self):        
-        self.crops_vbox = Common.new_widget('VBox',
-                                            {'size_request': (-1, -1),
-                                             'show':True})
-        self.pageCrop_selector, self.standardCrop_selector, self.contentCrop_selector = Common.get_crop_radio_selector()
-
-        if self.active_crop == 'pageCrop':
-            self.pageCrop_selector.set_active(True)        
-        elif self.active_crop == 'standardCrop':
-            self.standardCrop_selector.set_active(True)
-        elif self.active_crop == 'contentCrop':
-            self.contentCrop_selector.set_active(True)
-
-        self.pageCrop_selector.connect('toggled', self.toggle_active_crop)
-        self.standardCrop_selector.connect('toggled', self.toggle_active_crop)
-        self.contentCrop_selector.connect('toggled', self.toggle_active_crop)
-
-        self.crops_vbox.pack_start(self.pageCrop_selector, expand=True, fill=False)
-        self.crops_vbox.pack_start(self.standardCrop_selector, expand=True, fill=False)
-        self.crops_vbox.pack_start(self.contentCrop_selector, expand=True, fill=False)                
-        self.controls_hbox.pack_start(self.crops_vbox, expand=True, fill=False)
+                                ((self.editor.window.width/4) - (self.editor.window.width/3)/2 ), 0)
 
 
     def init_proc_options(self):
-        self.proc_options_vbox = Common.new_widget('VBox',
+        self.proc_options_hbox = Common.new_widget('HBox',
                                                    {'size_request': (-1, -1),
                                                     'show':True})
 
@@ -2017,10 +1978,10 @@ class ExportHandler:
                                                {'label': 'Invert B/W',
                                                 'show': True})
         
-        self.proc_options_vbox.pack_start(self.grayscale_option, expand=True, fill=False)
-        self.proc_options_vbox.pack_start(self.normalize_option, expand=True, fill=False)
-        self.proc_options_vbox.pack_start(self.invert_option, expand=True, fill=False)
-        self.controls_hbox.pack_start(self.proc_options_vbox, expand=True, fill=False)
+        self.proc_options_hbox.pack_start(self.grayscale_option, expand=True, fill=False)
+        self.proc_options_hbox.pack_start(self.normalize_option, expand=True, fill=False)
+        self.proc_options_hbox.pack_start(self.invert_option, expand=True, fill=False)
+        self.controls_hbox.pack_start(self.proc_options_hbox, expand=True, fill=False)
 
 
     def toggle_active_crop(self, widget):
@@ -2501,7 +2462,7 @@ class ExportHandler:
         queue = self.ProcessHandler.new_queue()
         update = []
         queue[self.editor.book.identifier + '_run_cropper'] = (self.ProcessHandler.run_cropper,
-                                                               (self.editor.book, self.active_crop, 
+                                                               (self.editor.book, 'cropBox', 
                                                                 self.grayscale_option.get_active(), 
                                                                 self.normalize_option.get_active(), 
                                                                 self.invert_option.get_active()), 

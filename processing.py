@@ -223,6 +223,14 @@ class ProcessHandling:
             self.destroy_thread(pid)
             raise Exception(msg)
 
+
+    def run_test(self, book):
+        self.FeatureDetection = FeatureDetection(self, book)
+        queue = self.new_queue()
+        queue['blah'] =self.FeatureDetection.pipeline, None, book.logger, None
+        self.drain_queue(queue, 'async')
+        
+
                 
     def run_main(self, book):
         #yappi.start()

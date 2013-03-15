@@ -318,12 +318,13 @@ class FeatureDetection:
         elif cmd is 'optics':
             pass
         try:
-            self.ImageOps.execute(leaf, cmd, args, self.book.logger, log, return_output = False)
+            self.ImageOps.execute(leaf, cmd, args, self.book.logger, log)
         except Exception as e:
             self.ProcessHandler.ThreadQueue.put((self.book.identifier + '_featuredetection',
                                                  str(e), self.book.logger))
             self.ProcessHandler.ThreadQueue.join()
-            
+                
+        
  
     @staticmethod
     def get_cluster_data(cluster_file):

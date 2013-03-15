@@ -52,14 +52,14 @@ class Util:
                 p = subprocess.Popen(cmd, cwd=current_wd, stdout=sout, stdin=sin)
             else:
                 p = subprocess.Popen(cmd, stdout=sout, stdin=sin)
-
-            Util.active_procs.append(p)
+            #Util.active_procs.append(p)
+            p.wait()
             output = p.communicate()
             end = Util.microseconds()
-            Util.active_procs.remove(p)
-
+            #Util.active_procs.remove(p)
+            
         except Exception as e:
-            Util.active_pids.append(p.pid)
+            #Util.active_pids.append(p.pid)
             fname, lineno = Util.exception_info()
             raise Exception(str(e) + ' (' + fname + ', line ' + str(lineno) + ')')
 
@@ -74,7 +74,6 @@ class Util:
             return {'exec_time': end - start,
                     'pid': p.pid}
 
-
     
     @staticmethod
     def end_active_processes():
@@ -83,8 +82,6 @@ class Util:
                 p.terminate()
             except:
                 pass
-
-        
 
 
     @staticmethod

@@ -201,22 +201,6 @@ class Common:
 
 
     @staticmethod
-    def get_crop_radio_selector():
-        pageCrop_selector = Common.new_widget('RadioButton',
-                                              {'label': 'pageCrop',
-                                               'show': True})
-        standardCrop_selector = Common.new_widget('RadioButton',
-                                             {'label': 'standardCrop',
-                                              'group': pageCrop_selector,
-                                              'show': True})
-        contentCrop_selector = Common.new_widget('RadioButton',
-                                                 {'label': 'contentCrop',
-                                                  'group': pageCrop_selector,
-                                                  'show': True}) 
-        return (pageCrop_selector, standardCrop_selector, contentCrop_selector)
-
-
-    @staticmethod
     def run_in_background(func, milliseconds=100, args=None):
         if args:
             gobject.timeout_add(milliseconds, func, args)
