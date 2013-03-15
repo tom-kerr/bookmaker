@@ -1,9 +1,0 @@
-#ifndef _GETCORNERSFROMFILE_H_
-#define _GETCORNERSFROMFILE_H_
-
-struct corners* getCornersFromFile(char *file, 
-				   unsigned short int mx,
-				   unsigned short int my,
-				   float skewAngle);
-
-#endif
