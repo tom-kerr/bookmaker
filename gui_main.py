@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 from gui.bookmaker import Bookmaker
 
 def init_session():

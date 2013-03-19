@@ -1,0 +1,164 @@
+root:
+  openlibrary
+typelist: &types
+  #about:
+  author:
+    [name,
+    eastern_order,
+    personal_name,
+    enumeration,
+    title,
+    alternate_names,
+    uris,
+    bio,
+    location,
+    birth_date,
+    death_date,
+    date,
+    wikipedia,
+    links]
+  #author/books:
+  #author_role:
+  #backreference:
+  #boolean:
+  #collection:
+  #collection/edition:
+  #content:
+  #contribution:
+  #datetime:
+  #delete:
+  #doc:
+  edition:
+    [title, 
+    title_prefix,
+    subtitle, 
+    other_titles,
+    authors,
+    by_statement,
+    publish_date, 
+    copyright_date, 
+    edition_name, 
+    languages, 
+    description, 
+    notes, 
+    genres, 
+    table_of_contents,
+    work_titles,
+    series,
+    physical_dimensions,
+    physical_format,
+    number_of_pages,
+    subjects,
+    pagination, 
+    lccn,
+    ocaid, 
+    oclc_numbers,
+    isbn_10,
+    isbn_13,
+    dewey_decimal_class,
+    lc_classifications,
+    contributions,
+    publish_places, 
+    publish_country, 
+    publishers,
+    distributors,
+    first_sentence,
+    weight,
+    location,
+    scan_on_demand,
+    collections,
+    uris,
+    uri_descriptions,
+    translation_of,
+    works,
+    source_records,
+    translated_from, 
+    scan_records,
+    volumes,
+    accompanying_material]
+  #edition/scan_records:
+  #edition/sscan_records:
+  #edition/volumes:
+  #float:
+  #home:
+  #i18n:
+  #i18n_page:
+  #int:
+  #key:
+  #language:
+  #library:
+  #library_address:
+  #link:
+  #list:
+  #macro:
+  #object:
+  #page:
+  #permission:
+  #permission/controls:
+  #place:
+  #property:
+  #rawtext:
+  #redirect:
+  #scan_location:
+  #scan_location/available_locations:
+  #scan_record:
+  #series:
+  #string:
+  #subject:
+  #template:
+  #text:
+  #toc_item:
+  #translated_string:
+  #type:
+  #uri:
+  #user:
+  #usergroup:
+  #volume:
+  work:
+    [title,
+    subtitle,
+    authors: {author: {key: value}},
+    translated_titles,
+    subjects: {subjects: {key: value}},
+    subject_places,
+    subject_times,
+    subject_people,
+    description,
+    dewey_number,
+    lc_classifications,
+    first_sentence,
+    original_languages,
+    other_titles,
+    first_publish_date,
+    links,
+    notes,
+    cover_edition,
+    covers]
+default: True
+url: http://openlibrary.org
+api: 
+  books: &bks
+    path: /api/books?bibkeys=
+    input: 
+      type: key_value
+      params: [ISBN, LCCN, OCLC, OLID]
+      param_bind_chain: [':', ',']
+      options: [format, callback, jscmd]
+      option_bind_chain: ['=', '&']
+  things: &thngs
+    path: /api/things?query=
+    input:
+      type: json
+      params: *types
+  query: &qry
+    path: /query.json?query=
+    input:
+      type: json
+      params: *types      
+  search: &srch
+    path: /search.json?
+    input: 
+      type: lazy
+      param_bind_chain: ["q=", "&"]
+      option_bind_chain: ["=", "&"]
+  default: *srch

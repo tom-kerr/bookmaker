@@ -16,7 +16,7 @@ from ocr import OCR
 from history import History
 from metadata import Metadata
 from common import Common
-
+from search import Biblio
 
 class Editor:
 
@@ -1837,9 +1837,76 @@ class MetaEditor:
         self.main_layout = Common.new_widget('Layout',
                                              {'size': (self.editor.window.width, 
                                                        self.editor.window.height),
-                                              'color': 'white',
+                                              'color': 'gray',
+                                              'show': True})
+        self.init_main_menu()
+
+
+    def init_main_menu(self):
+        self.main_menu_frame = Common.new_widget('Frame',
+                                                 {'size_request': (self.editor.window.width/4, 50),
+                                                  'set_shadow_type': gtk.SHADOW_OUT,
+                                                  'show': True})
+
+        self.main_menu_hbox = Common.new_widget('HBox',
+                                                {'size_request': (-1, -1),
+                                                 'show': True})
+
+        self.meta_custom = Common.new_widget('Button',
+                                             {'label': 'Custom',
+                                              'show': True})
+        self.meta_custom.connect('clicked', self.init_custom)
+
+        self.meta_search = Common.new_widget('Button',
+                                             {'label': 'Search',
+                                              'show': True})
+        self.meta_search.connect('clicked', self.init_search)
+
+        self.main_menu_hbox.pack_start(self.meta_custom, expand=True, fill=True)
+        self.main_menu_hbox.pack_start(self.meta_search, expand=True, fill=True)
+        self.main_menu_frame.add(self.main_menu_hbox)
+        self.main_layout.put(self.main_menu_frame, 
+                             (self.editor.window.width/2) - (self.editor.window.width/4)/2,
+                             (self.editor.window.height/2) - (self.editor.window.height/4)/2)
+                             
+    def init_custom(self, data):
+        pass
+
+
+    def init_search(self, data):
+        self.Biblio = Biblio()
+        self.main_menu_frame.hide()
+        
+        self.search_hbox = Common.new_widget('HBox',
+                                             {'size_request': (-1, -1),
                                               'show': True})
 
+        self.search_bar = Common.new_widget('Entry', 
+                                            {'size_request': (self.editor.window.width/2, 50),
+                                             'show': True})
+        gtk.rc_parse_string("""style "search-bar-font" { font_name="Sans 20" } class "GtkEntry"  style "search-bar-font" """)
+
+        self.search_button = Common.new_widget('Button',
+                                               {'label':'Search',
+                                                'size_request': (-1, -1),
+                                                'show': True})
+        self.search_button.connect('clicked', self.submit_query)
+
+        self.search_source = gtk.combo_box_new_text()
+        self.search_source.insert_text(0, 'Open Library')
+        self.search_source.set_active(0)
+        self.search_source.show()
+
+        self.search_hbox.pack_start(self.search_bar, expand=True, fill=False)
+        self.search_hbox.pack_start(self.search_button, expand=True, fill=False)
+        self.search_hbox.pack_start(self.search_source, expand=True, fill=False)
+        self.main_layout.put(self.search_hbox, 0, 0)
+
+
+    def submit_query(self, widget):
+        query = self.search_bar.get_text()
+        #results = self.Biblio.search(query)
+        
 
 
 class ExportHandler:

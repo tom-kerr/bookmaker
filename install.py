@@ -29,7 +29,8 @@ py_dep = {'yaml': {'Ubuntu': 'python-yaml'},
           'pygtk': {}
           }
 
-sys_dep = { 'libtiff': {'Ubuntu': 'libtiff4-dev'},
+sys_dep = { 'make': {'Ubuntu': 'make'},
+            'libtiff': {'Ubuntu': 'libtiff4-dev'},
             'netpbm': {'Ubuntu': 'netpbm'},
             'djvulibre': { 'source': 'http://downloads.sourceforge.net/project/djvu/DjVuLibre/3.5.25/djvulibre-3.5.25.3.tar.gz',
                            'Ubuntu': 'djvulibre-bin'},
