@@ -1876,8 +1876,23 @@ class MetaEditor:
     def init_search(self, data):
         self.Biblio = Biblio()
         self.main_menu_frame.hide()
+        self.build_view_boxes()
+        self.build_search_box()
         
-        self.search_hbox = Common.new_widget('HBox',
+
+    def build_view_boxes(self):
+        self.search_vbox = Common.new_widget('VBox',
+                                             {'size_request': (int(3*(self.editor.window.width/2)),
+                                                               self.editor.window.height),
+                                              'show': True})
+        self.metadata_vbox = Common.new_widget('VBox',
+                                               {'size_request': (int(self.editor.window.width/3),
+                                                                 self.editor.window.height),
+                                                'show': True})
+
+
+    def build_search_box(self):
+        self.search_bar_box = Common.new_widget('HBox',
                                              {'size_request': (-1, -1),
                                               'show': True})
 
@@ -1893,20 +1908,59 @@ class MetaEditor:
         self.search_button.connect('clicked', self.submit_query)
 
         self.search_source = gtk.combo_box_new_text()
-        self.search_source.insert_text(0, 'Open Library')
-        self.search_source.set_active(0)
         self.search_source.show()
+        self.set_search_source()
 
-        self.search_hbox.pack_start(self.search_bar, expand=True, fill=False)
-        self.search_hbox.pack_start(self.search_button, expand=True, fill=False)
-        self.search_hbox.pack_start(self.search_source, expand=True, fill=False)
-        self.main_layout.put(self.search_hbox, 0, 0)
+        self.results_vbox = Common.new_widget('VBox',
+                                              {'size_request': (int(3*(self.editor.window.width/2)),-1),
+                                               'show': True})
 
-
-    def submit_query(self, widget):
-        query = self.search_bar.get_text()
-        #results = self.Biblio.search(query)
+        self.search_bar_box.pack_start(self.search_bar, expand=False, fill=False)
+        self.search_bar_box.pack_start(self.search_button, expand=False, fill=False)
+        self.search_bar_box.pack_start(self.search_source, expand=False, fill=False)
+        self.search_bar_box.pack_start(self.search_source_api, expand=False, fill=False)
+        self.search_vbox.pack_start(self.search_bar_box, expand=False, fill=False)
+        self.search_vbox.pack_start(self.results_vbox, expand=True, fill=False)
+        self.main_layout.put(self.search_vbox, 0, 0)
         
+
+    def set_search_source(self):
+        default_source_name, default_source = self.Biblio.get_source(None)
+        default_api = default_source['api']['default']['namespace']
+        self.search_source.insert_text(0, default_source_name)
+        self.search_source.set_active(0)
+        self.set_search_api(default_source, default_api)
+        for name in self.Biblio.sources.keys():
+            if name != default_source_name:
+                self.search_source.insert_text(1, name)
+        self.search_source.connect('changed', self.change_source)
+
+
+    def set_search_api(self, source, api):
+        self.search_source_api = gtk.combo_box_new_text()
+        self.search_source_api.show()
+        self.search_source_api.insert_text(0, api)
+        self.search_source_api.set_active(0)
+        for a in source['api'].values():
+            if a['namespace'] != api:
+                self.search_source_api.insert_text(1, a['namespace'])
+
+
+    def change_source(self):
+        active = self.search_source.get_active_text()
+        new_source = self.Biblio.sources[active]
+        new_api = new_source['api']['default']['namespace']
+        self.set_search_api(new_source, api)
+
+        
+    def submit_query(self, widget):
+        source = self.search_source.get_active_text()
+        api = self.search_source_api.get_active_text()
+        query = self.search_bar.get_text()
+        #print source, api
+        results = self.Biblio.search(query, source, api)
+        print results
+        #self.test_entry.set_text(str(results))
 
 
 class ExportHandler:

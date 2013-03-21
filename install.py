@@ -26,6 +26,7 @@ py_dep = {'yaml': {'Ubuntu': 'python-yaml'},
           'lxml': {'Ubuntu': 'python-lxml'},
           'psutil': {'Ubuntu': 'python-psutil'},
           'pypdf': {'Ubuntu': 'python-pypdf'},
+          'pil': {'Ubuntu' : 'python-imaging'},
           'pygtk': {}
           }
 
