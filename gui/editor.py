@@ -16,7 +16,7 @@ from ocr import OCR
 from history import History
 from metadata import Metadata
 from common import Common
-from search import Biblio
+from bibs.bibs import Bibs
 
 class Editor:
 
@@ -1874,7 +1874,7 @@ class MetaEditor:
 
 
     def init_search(self, data):
-        self.Biblio = Biblio()
+        self.bibs = Bibs()
         self.main_menu_frame.hide()
         self.build_view_boxes()
         self.build_search_box()
@@ -1925,12 +1925,13 @@ class MetaEditor:
         
 
     def set_search_source(self):
-        default_source_name, default_source = self.Biblio.get_source(None)
-        default_api = default_source['api']['default']['namespace']
+        default_source_name = 'openlibrary'
+        default_source = self.bibs.get_source(default_source_name)
+        default_api = default_source['api']['default']
         self.search_source.insert_text(0, default_source_name)
         self.search_source.set_active(0)
         self.set_search_api(default_source, default_api)
-        for name in self.Biblio.sources.keys():
+        for name in self.bibs.sources.keys():
             if name != default_source_name:
                 self.search_source.insert_text(1, name)
         self.search_source.connect('changed', self.change_source)
@@ -1948,7 +1949,7 @@ class MetaEditor:
 
     def change_source(self):
         active = self.search_source.get_active_text()
-        new_source = self.Biblio.sources[active]
+        new_source = self.bibs.sources[active]
         new_api = new_source['api']['default']['namespace']
         self.set_search_api(new_source, api)
 
@@ -1958,8 +1959,8 @@ class MetaEditor:
         api = self.search_source_api.get_active_text()
         query = self.search_bar.get_text()
         #print source, api
-        results = self.Biblio.search(query, source, api)
-        print results
+        #results = self.bibs.search(query, source, api)
+        #print results
         #self.test_entry.set_text(str(results))
 
 

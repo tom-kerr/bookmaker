@@ -8,10 +8,9 @@ import re
 from util import Util
 
 py_version = sys.version_info
-if py_version[0] < 2 or py_version[0] == 2 and py_version[1] < 7:
-    print "Python 2.7 or greater Required"
-    Util.bail('Python too small')
-
+if py_version[0] < 2 or py_version[0] == 2 and py_version[1] != 7:
+    Util.bail('Python 2.7 required')
+    
 plat = sys.platform
 if re.search('linux', plat):
     dist = platform.linux_distribution()[0]
@@ -22,43 +21,56 @@ if re.search('win', plat):
 
 print 'Environment: ' + dist, plat
 
-py_dep = {'yaml': {'Ubuntu': 'python-yaml'},
-          'lxml': {'Ubuntu': 'python-lxml'},
-          'psutil': {'Ubuntu': 'python-psutil'},
-          'pypdf': {'Ubuntu': 'python-pypdf'},
-          'pil': {'Ubuntu' : 'python-imaging'},
-          'pygtk': {}
+py_dep = {'yaml':   {'Ubuntu': {'method':'pkg-manager', 
+                                'pkg': 'python-yaml'}},
+          'lxml':   {'Ubuntu': {'method':'pkg-manager', 
+                                'pkg': 'python-lxml'}},
+          'psutil': {'Ubuntu': {'method':'pkg-manager', 
+                                'pkg': 'python-psutil'}},
+          'pypdf':  {'Ubuntu': {'method':'pkg-manager', 
+                                'pkg': 'python-pypdf'}},
+          'pil':    {'Ubuntu': {'method':'pkg-manager', 
+                                'pkg': 'python-imaging'}},
+          'pygtk':  {},
+          'xmltodict':    {'Ubuntu': {'method':'pkg-manager', 
+                                'pkg': 'xmltodict'}},
+          'dict2xml':    {'Ubuntu': {'method':'pkg-manager', 
+                                'pkg': 'dict2xml'}},
+          'bibs':   {dist: {'method':'distutils', 
+                            'url': 'https://github.com/reklaklislaw/bibs/archive/master.zip'}}
           }
 
-sys_dep = { 'make': {'Ubuntu': 'make'},
-            'libtiff': {'Ubuntu': 'libtiff4-dev'},
-            'netpbm': {'Ubuntu': 'netpbm'},
-            'djvulibre': { 'source': 'http://downloads.sourceforge.net/project/djvu/DjVuLibre/3.5.25/djvulibre-3.5.25.3.tar.gz',
-                           'Ubuntu': 'djvulibre-bin'},
-            'exactimage': {'source': 'http://dl.exactcode.de/oss/exact-image/exact-image-0.8.7.tar.bz2',
-                           'Ubuntu': 'exactimage'},
-            'fftw': {'source': 'http://www.fftw.org/fftw-3.3.3.tar.gz',
-                     'Ubuntu': 'libfftw3-3'},
-            'leptonica': {'source': 'http://www.leptonica.com/source/leptonica-1.69.tar.gz',
-                          'Ubuntu': 'libleptonica-dev'},
-            'tesseract': {'source': '',
-                          'Ubuntu': 'tesseract-ocr*'}
+sys_dep = { 'make':       {'Ubuntu': 'make'},
+            'libtiff':    {'Ubuntu': 'libtiff4-dev'},
+            'netpbm':     {'Ubuntu': 'netpbm'},
+            'djvulibre':  {'Ubuntu': 'djvulibre-bin'},
+            'exactimage': {'Ubuntu': 'exactimage'},
+            'fftw':       {'Ubuntu': 'libfftw3-3'},
+            'leptonica':  {'Ubuntu': 'libleptonica-dev'},
+            'tesseract':  {'Ubuntu': 'tesseract-ocr*'}
             }
             
 
 def check_py_dep():
     for module, dists in py_dep.items():
-        print 'checking for ' + module
+        print 'Checking for ' + module
         try:
             __import__(module)
         except ImportError:            
             if dist in dists:
-                install_with_package_manager(dists[dist])
+                method = dists[dist]['method']
+                if method == 'pkg-manager':
+                    if not install_with_package_manager(dists[dist]['pkg']):
+                        Util.bail('Failed to install ' + module)
+                elif method == 'distutils':
+                    source = dists[dist]['url']
+                    path = download_and_extract(source)
+                    if not install_with_distutils(path):
+                        Util.bail('Failed to install ' + module)
             else:
-                print 'Distrbution not supported by this script. Consult the README for other install options.'
-                Util.bail(module + ' not installed.')
+                Util.bail('Distribution ' + str(dist) + ' is not supported by this script')
         else:
-            print 'Installed.'
+            print 'Already Installed.'
 
 
 def install_with_package_manager(mod):
@@ -69,20 +81,24 @@ def install_with_package_manager(mod):
         return False
     else:
         return True
-    
+
+
+def install_with_distutils(path):
+    cmd = 'python^ setup.py^ install^'
+    retval = Util.cmd(cmd, current_wd=path, retval=True, print_output=True)
+    if retval != 0:
+        return False
+    else:
+        return True
+
 
 def check_sys_dep():
     for pkg, dists in sys_dep.items():
         if dist in dists:
             if not install_with_package_manager(dists[dist]):
-                if dists['source'] is not None:
-                    print 'failed...will try to compile from source...'
-                    source_dir = download_and_extract(dists['source'])
-                    install_from_source(source_dir)
+                Util.bail('Failed to install ' + pkg)
         else:
-            if dists['source'] is not None:
-                source_dir = download_and_extract(dists['source'])
-                install_from_source(source_dir)
+            Util.bail('Distribution ' + str(dist) + ' is not supported by this script')
 
 
 def download_and_extract(source):
@@ -106,10 +122,11 @@ def download_and_extract(source):
             ext = extension
             filename = basename.split(ext)[0]
             break    
+    
     try:
-        if ext == 'zip':
+        if ext == '.zip':
             archive = zipfile.ZipFile('packages/' + basename)
-            archive.extractall(path='packages/')        
+            archive.extractall(path='packages/'+filename)        
         elif ext in ('.tar', '.tar.gz', '.tar.bz2', '.tgz'):
             archive = tarfile.open('packages/' + basename)
             archive.extractall('packages/')    
@@ -117,27 +134,14 @@ def download_and_extract(source):
         print 'Error downloading and extracting ' + basename
         Util.bail(str(e))
         
-    match = glob.glob('packages/'+ filename.split('.')[0] + '*')
+    match = glob.glob('packages/'+filename+'/*')
+    path = None
     for m in match:
         if os.path.isdir(m):
-            filename = m.split('packages/')[1]    
-    return filename
+            path = m
+            break
 
-
-def install_from_source(source_dir):
-    print 'Entering ' + source_dir
-    try:
-        make_clean_cmd = 'make^ clean^'
-        Util.cmd(make_clean_cmd, current_wd='packages/' + source_dir, print_output=True)
-        configure_cmd = './configure'
-        Util.cmd(configure_cmd, current_wd='packages/' + source_dir, print_output=True)
-        make_cmd = 'make'
-        Util.cmd(make_cmd, current_wd='packages/' + source_dir, print_output=True)
-        make_install_cmd = 'make^ install^'
-        Util.cmd(make_install_cmd, current_wd='packages/' + source_dir, print_output=True)
-    except Exception as e:
-        print 'Error in ' + source_dir + '...'
-        Util.bail(str(e))
+    return path
 
 
 def build_bookmaker_executables():
