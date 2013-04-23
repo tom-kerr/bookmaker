@@ -552,19 +552,26 @@ class ImageEditor:
     def init_zoom(self, leaf):
         if leaf is None:
             return
-        raw = gtk.gdk.pixbuf_new_from_file(self.book.raw_images[leaf])
-        raw_width, raw_height = raw.get_width(), raw.get_height()
-        self.zoom_raw = gtk.gdk.Pixbuf(gtk.gdk.COLORSPACE_RGB, 
-                                       1,
-                                       8,
-                                       raw_width,
-                                       raw_height)
         
+        raw = Image.open(self.book.raw_images[leaf])
+        raw_width, raw_height = raw.size[0], raw.size[1]
         rot_const = Common.get_rotation_constant(self.book.cropBox.rotate_degree[leaf])
-        rotated = raw.rotate_simple(rot_const)
+        rotated = self.get_rotated(raw, leaf, 
+                                   rot_const + (0-self.book.cropBox.skew_angle[leaf]), 
+                                   output='pixbuf')
+        #raw = gtk.gdk.pixbuf_new_from_file(self.book.raw_images[leaf])
+        #raw_width, raw_height = raw.get_width(), raw.get_height()
+        #self.zoom_raw = gtk.gdk.Pixbuf(gtk.gdk.COLORSPACE_RGB, 
+        #                               1,
+        #                               8,
+        #                               raw_width,
+        #                               raw_height)
         
+        #rot_const = Common.get_rotation_constant(self.book.cropBox.rotate_degree[leaf])
+        #rotated = self.zoom_raw.rotate_simple(rot_const)
+    
         self.zoom_raw = self.render_image(rotated, raw_height, raw_width, leaf, 1, 1, output='pixbuf')
-
+        
         area = gtk.gdk.Pixbuf(gtk.gdk.COLORSPACE_RGB, 
                               1,
                               8,
@@ -1874,10 +1881,11 @@ class MetaEditor:
 
 
     def init_search(self, data):
-        self.bibs = Bibs()
-        self.main_menu_frame.hide()
-        self.build_view_boxes()
-        self.build_search_box()
+        pass
+        #self.bibs = Bibs()
+        #self.main_menu_frame.hide()
+        #self.build_view_boxes()
+        #self.build_search_box()
         
 
     def build_view_boxes(self):
@@ -1907,9 +1915,8 @@ class MetaEditor:
                                                 'show': True})
         self.search_button.connect('clicked', self.submit_query)
 
-        self.search_source = gtk.combo_box_new_text()
-        self.search_source.show()
-        self.set_search_source()
+        self.init_search_source()
+        self.init_search_api()
 
         self.results_vbox = Common.new_widget('VBox',
                                               {'size_request': (int(3*(self.editor.window.width/2)),-1),
@@ -1924,34 +1931,37 @@ class MetaEditor:
         self.main_layout.put(self.search_vbox, 0, 0)
         
 
-    def set_search_source(self):
-        default_source_name = 'openlibrary'
-        default_source = self.bibs.get_source(default_source_name)
-        default_api = default_source['api']['default']
-        self.search_source.insert_text(0, default_source_name)
-        self.search_source.set_active(0)
-        self.set_search_api(default_source, default_api)
-        for name in self.bibs.sources.keys():
-            if name != default_source_name:
-                self.search_source.insert_text(1, name)
+    def init_search_source(self):
+        self.search_source = gtk.combo_box_new_text()
+        self.search_source.show()
+        self.bibs.find_sources()
+        for filename in self.bibs.source_list:
+            name = os.path.basename(filename).split('.yaml')[0]
+            self.search_source.insert_text(1, name)
         self.search_source.connect('changed', self.change_source)
 
 
-    def set_search_api(self, source, api):
+    def init_search_api(self):
         self.search_source_api = gtk.combo_box_new_text()
         self.search_source_api.show()
+        
+
+    def change_source(self, data):
+        active = self.search_source.get_active_text()
+        new_source = self.bibs.get_source(active)
+        apis = new_source['api'].keys()
+        new_api = new_source['api']['default']['namespace']
+        self.set_search_api(new_source, new_api)
+
+
+    def set_search_api(self, source, api):
         self.search_source_api.insert_text(0, api)
         self.search_source_api.set_active(0)
-        for a in source['api'].values():
-            if a['namespace'] != api:
-                self.search_source_api.insert_text(1, a['namespace'])
+        for name, a in source['api'].items():
+            if name not in (api, 'default'):
+                self.search_source_api.insert_text(1, name)
 
 
-    def change_source(self):
-        active = self.search_source.get_active_text()
-        new_source = self.bibs.sources[active]
-        new_api = new_source['api']['default']['namespace']
-        self.set_search_api(new_source, api)
 
         
     def submit_query(self, widget):
