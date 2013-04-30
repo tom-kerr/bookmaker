@@ -1,5 +1,6 @@
 import os
 from pyPdf import PdfFileReader, PdfFileWriter
+from lxml import etree
 
 from util import Util
 from imageops import ImageOps
@@ -18,7 +19,38 @@ class Derive:
 
     def epub(self):
         self.book.logger.message('Creating EPUB...')
+        #self.write_mimetype()
+        #self.write_container()
         self.ImageOps.complete(self.book.identifier + '_epub') 
+
+
+    def write_container(self):
+        try:
+            os.mkdir(self.book.dirs['derived'] + '/META-INF', 0755)
+        except Exception as e:
+            print str(e)
+            self.ProcessHandler.ThreadQueue.put((self.book.identifier + '_epub_container',
+                                                 'Failed to create META-INF.',
+                                                 self.book.logger))
+            self.ProcessHandler.ThreadQueue.join()
+        container_file = self.book.dirs['derived'] + '/META-INF/container.xml'
+        root = etree.Element('container')
+        root.set('version', '1.0')
+        root.set('xmlns', 'urn:oasis:names:tc:opendocument:xmlns:container')
+        rootfiles = etree.SubElement(root, 'rootfiles')
+        rootfile = etree.SubElement(rootfiles, 'rootfile')
+        rootfile.set('media-type', 'application/oebps-package+xml')
+        rootfile.set('full-path', 'OEBPS/content.opf')
+        doc = etree.ElementTree(root)
+        try:
+            container = open(container_file, 'w')
+            doc.write(container, pretty_print=True)
+            container.close()
+        except:
+            self.ProcessHandler.ThreadQueue.put((self.book.identifier + '_epub_container',
+                                                 'Failed to write container.xml.',
+                                                 self.book.logger))
+            self.ProcessHandler.ThreadQueue.join()
 
 
 
@@ -30,8 +62,11 @@ class Derive:
             f.write(mimetype)
             f.close
         except:
-            Util.bail('Failed to create mimetype', self.book.logger)
-        
+            self.ProcessHandler.ThreadQueue.put((self.book.identifier + '_epub_mimetype',
+                                                 'Failed to create mimetype.',
+                                                 self.book.logger))
+            self.ProcessHandler.ThreadQueue.join()
+                        
 
 
 
