@@ -33,7 +33,7 @@ The minimum required to process a book is a project directory, for example, 'myb
 
 To initialize the processing of a book, one would call bookmaker.py like so:
 
-   ./bookmaker.py --root-dir /path/to/my/bookprojects/mybook_1
+    ./bookmaker.py --root-dir /path/to/my/bookprojects/mybook_1
 
 One can also pass more than one book at time, with a space between each entry, or alternatively pass an entire folder of project directories, like:
 
@@ -44,12 +44,12 @@ When processing multiple books, one book will be processed per core, and any boo
 
 If one does not care to edit the computer generated crop boxes, one can pass the following combination of arguments to derive the digital formats:
 
-   --language (for OCR)
-   --derive FORMAT (options are djvu, pdf, epub, text)
-   or
-   --derive-all
+    --language (for OCR)
+    --derive FORMAT (options are djvu, pdf, epub, text)
+    or
+    --derive-all
 
-<h2>GUI</h2> 
+<h3>GUI</h3> 
 
 The GUI can be started by calling gui_main.py, like:
 
