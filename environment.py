@@ -35,10 +35,7 @@ class Environment:
         Environment.check_system()
         self.books = []
         for root_dir in dir_list:
-            if self.find_valid_subdirs(root_dir):
-                Environment.proc_mode = 'Batch'
-            else:
-                Environment.proc_mode = 'Single'
+            if not self.find_valid_subdirs(root_dir):
                 raw_data = Environment.is_sane(root_dir)
                 if raw_data:
                     self.init_new_book(root_dir, raw_data)
@@ -132,11 +129,6 @@ class Environment:
                                  ": " + str(file))        
             else:
                 raw_dimensions[leaf] = Image.open(file).size
-                if leaf > 0:
-                    if (raw_dimensions[leaf][0] != raw_dimensions[leaf-1][0] or
-                        raw_dimensions[leaf][1] != raw_dimensions[leaf-1][1]):
-                        Util.bail('heterogenous raw image stack resolution in ' + 
-                                  str(raw_dir) + ' (leaf ' + str(leaf) + ')')
         raw_images.sort()
         return raw_images, raw_dimensions
 
@@ -293,7 +285,7 @@ class BookData:
             'cluster':      self.root_dir + '/' + self.identifier + '_clusters',
             'window':       self.root_dir + '/' + self.identifier + '_windows',
             'noise':        self.root_dir + '/' + self.identifier + '_noise',
-            'pagination':   self.root_dir + '/' + self.identifier + '_pagination',
+            #'pagination':   self.root_dir + '/' + self.identifier + '_pagination',
             'cropped':      self.root_dir + '/' + self.identifier + '_cropped',
             'ocr':          self.root_dir + '/' + self.identifier + '_ocr',
             'derived':      self.root_dir + '/' + self.identifier + '_derived'

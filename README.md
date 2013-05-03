@@ -2,7 +2,7 @@ bookmaker
 =========
 A tool for capturing, processing, editing, and deriving physical books into electronic media such as PDF, DjVu and Epub.
 
-(in development)
+This project has seen a lot of development and needs a heck of a lot more. The gui should be re-written flat-out (it was never finished anyway) and upgraded to PyGObject, not to mention the whole project should be upgraded to python 3+ (currently stuck at 2.7), and though they get the job done, the low-level page detection and content detection algorithms need some serious work (particularly the latter, as it will sometimes perform very slowly, depending on the data (recursion-hell + poor design = cache misses). 
 
 
 Installation
@@ -24,9 +24,9 @@ TODO
 
 <h2>Processing</h2>
 
-Processing will automatically detect the dimensions of all the pages and content as well as generate a clean crop box and record this in an Internet Archive style XML file.
+Processing will automatically detect the dimensions of all the pages and content as well as generate a clean crop box and record this in an Internet Archive-style 'scandata' XML file.
 
-The minimum required to process a book is a project directory, for example, 'mybook_1', and a subdirectory containing image files with '_raw_' or '_RAW_' in the filenames (currently limited to jpgs for now). 
+The minimum required to process a book is a project directory, for example, 'mybook_1', and a subdirectory of raw images (currently limited to jpgs for now). The raw image subdirectory should follow the naming convention NAME_raw_FILETYPE or NAME_RAW_FILETYPE. For example, 'mybook_1_RAW_jpg'.
 	
 
 <h3>Command line</h3>
@@ -42,9 +42,10 @@ One can also pass more than one book at time, with a space between each entry, o
 When processing multiple books, one book will be processed per core, and any books over that limit will wait until a slot opens up and begin processing automatically.
  
 
-If one does not care to edit the computer generated crop boxes, one can pass the following combination of arguments to derive the digital formats:
+If one does not care to edit the computer generated crop boxes, one can pass the following combination of arguments to derive the digital formats immediately after processing:
 
-    --language (for OCR)
+    --language (for OCR (default is English))
+    --active-crop (the crop box that will be used for cropping (options are standardCrop (default), pageCrop, contentCrop))
     --derive FORMAT (options are djvu, pdf, epub, text)
     or
     --derive-all
@@ -59,6 +60,31 @@ The first thing you will see is the main menu:
 
 ![Main Menu] (/imgs/main_menu.png)    
 
+Selecting 'process', will bring up the processing queue window:
+
+![Processing Queue] (/imgs/processing_queue.png)
+
+<h4>Add</h4>
+Opens a user selection window for adding project directories to the queue.
+
+<h4>Remove</h4>
+Removes the selected project directory(s) from the queue.
+
+<h4>Options</h4>
+(Debugging options mostly likely to be hidden at some point but exposed for now)
+
+<h4>Init</h4>
+Begins the processing for the selected project directory(s).
+
+<h4>Edit</h4>
+Opens the editor for the selected project directory. Note that the processing must finish before one can edit the item. 
+
+
+An illustration of three items that are undergoing processing:
+
+![Processing] (/imgs/processing.png)
+
 
 <h2>Editing</h2>
+
 

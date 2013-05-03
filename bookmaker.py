@@ -22,14 +22,20 @@ def main(args):
 
         if args.derive_all or args.derive:
             if book.settings['respawn']:
-                queue[book.identifier + '_run_cropper'] = P.run_cropper, (book, args.active_crop), book.logger, None                
-                queue[book.identifier + '_run_ocr'] = P.run_ocr, (book, args.language), book.logger, None
-
+                queue[book.identifier + '_run_cropper'] = (P.run_cropper, 
+                                                           (book, args.active_crop), 
+                                                           book.logger, None)
+                queue[book.identifier + '_run_ocr'] = (P.run_ocr, 
+                                                       (book, args.language), 
+                                                       book.logger, None)
             if args.derive_all:
-                queue[book.identifier + '_derive'] = P.derive_formats, (book, ('djvu', 'pdf', 'epub', 'text')), book.logger, None
+                queue[book.identifier + '_derive'] = (P.derive_formats, 
+                                                      (book, ('djvu', 'pdf', 'epub', 'text')), 
+                                                      book.logger, None)
             elif args.derive:
-                queue[book.identifier + '_derive'] = P.derive_formats, (book, tuple(args.derive)), book.logger, None
-
+                queue[book.identifier + '_derive'] = (P.derive_formats, 
+                                                      (book, tuple(args.derive)), 
+                                                      book.logger, None)
         P.add_process(P.drain_queue, 
                       book.identifier + '_drain_queue', 
                       (queue, 'sync'), book.logger)
