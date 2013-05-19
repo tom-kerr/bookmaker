@@ -28,7 +28,7 @@ class Environment:
     proc_mode = None
     dir_mode = 0755
     scale_factor = 4
-    
+
 
     def __init__(self, dir_list, args=None):
         Environment.set_current_path()
@@ -52,7 +52,7 @@ class Environment:
 
 
     @staticmethod
-    def log_settings(book):        
+    def log_settings(book):
         book.logger.message('*****SETTINGS*****')
         for setting, value in book.settings.items():
             book.logger.message(setting + ':' + str(value))
@@ -94,7 +94,7 @@ class Environment:
         book = BookData(book_dir, raw_data)
         if book not in self.books:
             self.books.append(book)
-        
+
 
     @staticmethod
     def find_raw_dir(dir):
@@ -103,7 +103,7 @@ class Environment:
             if re.search("(_raw_|_RAW_)", item):
                 if os.path.isdir(dir + '/' + item):
                     return item
-                
+
 
     @staticmethod
     def is_sane(dir):
@@ -126,7 +126,7 @@ class Environment:
         for leaf, file in enumerate(raw_images):
             if re.search("[\.(jpg|JPG|jpeg|JPEG)]$",file) is None:
                 Util.bail("non-jpg file found in "+ str(raw_dir) +
-                                 ": " + str(file))        
+                                 ": " + str(file))
             else:
                 raw_dimensions[leaf] = Image.open(file).size
         raw_images.sort()
@@ -175,14 +175,14 @@ class Environment:
         settings_file = path + '/settings.yaml'
         try:
             stream = file(settings_file, 'w')
-            yaml.dump(settings, 
-                      stream, 
-                      explicit_start=True, 
+            yaml.dump(settings,
+                      stream,
+                      explicit_start=True,
                       default_flow_style=False)
         except:
             print 'Failed to save settings!'
 
-    
+
     @staticmethod
     def make_dirs(dirs):
         for name, dir in dirs.items():
@@ -217,49 +217,7 @@ class Environment:
                 book.logger.logs[str(log)] = open(key['file'], mode, 1)
             except IOError:
                 Util.bail("could not open " + str(key['file']) + ' in mode ' + mode)
-                
 
-    @staticmethod
-    def make_scandata(book):
-        root = etree.Element('book')
-        book_data = etree.SubElement(root,'bookData')
-        book_id = etree.SubElement(book_data,'bookId')
-        book_id.text = str(book.identifier)
-        leaf_count = etree.SubElement(book_data,'leafCount')
-        leaf_count.text = str(book.page_count)
-
-        page_data = etree.SubElement(root, 'pageData')
-        for leaf in range(0, book.page_count):
-            side  = 'LEFT' if leaf%2==0 else 'RIGHT'
-            page = etree.SubElement(page_data, 'page')
-            page.set('leafNum', str(leaf))
-            handside = etree.SubElement(page, 'handSide')
-            handside.text = str(side)
-            page_type = etree.SubElement(page, 'pageType')
-            page_type.text = 'Normal' if leaf in range(1, book.page_count-1) else 'Delete' 
-            ataf = etree.SubElement(page, 'addToAccessFormats')
-            ataf.text = 'true' if leaf in range(1, book.page_count-1) else 'false' 
-            rotate_degree = etree.SubElement(page, 'rotateDegree')
-            rotate_degree.text = '-90' if leaf%2==0 else '90' 
-            skew_angle = etree.SubElement(page, 'skewAngle')
-            skew_angle.text = '0.0'
-            skew_conf = etree.SubElement(page, 'skewConf')
-            skew_conf.text = '0.0'
-            skew_active = etree.SubElement(page, 'skewActive')
-            skew_active.text = 'false'
-            orig_width = etree.SubElement(page, 'origWidth')
-            orig_width.text = str(book.raw_image_dimensions[leaf][0])
-            orig_height = etree.SubElement(page, 'origHeight')
-            orig_height.text = str(book.raw_image_dimensions[leaf][1])
-            crop_box = Crop.new_crop_element(page, 'cropBox')
-            page_number = etree.SubElement(page, 'pageNumber')
-        doc = etree.ElementTree(root)
-        try:
-            scandata = open(book.scandata_file,"w")
-            doc.write(scandata, pretty_print=True)
-            scandata.close()
-        except IOError:
-            Util.bail('failed to make scandata for ' + book.identifier)
 
 
 class BookData:
@@ -321,15 +279,15 @@ class BookData:
                 },
             'ocr': {
                 'file': str(self.dirs['log']) + '/' + self.identifier + '_9_ocr_log.txt'
-                } 
+                }
             }
 
 
     def init_crops(self):
         import_scandata = True if not self.settings['respawn'] else False
-        self.pageCrop = Crop('pageCrop', 0, self.page_count, 
-                             self.raw_image_dimensions[0][1], 
-                             self.raw_image_dimensions[0][0], 
+        self.pageCrop = Crop('pageCrop', 0, self.page_count,
+                             self.raw_image_dimensions[0][1],
+                             self.raw_image_dimensions[0][0],
                              self.scandata, import_scandata)
         self.standardCrop = Crop('standardCrop', 0, self.page_count,
                                  self.raw_image_dimensions[0][1],
@@ -345,13 +303,13 @@ class BookData:
 
 
     def import_crops(self):
-        self.cropBox = Crop('cropBox', 0, self.page_count, 
-                             self.raw_image_dimensions[0][1], 
-                             self.raw_image_dimensions[0][0], 
+        self.cropBox = Crop('cropBox', 0, self.page_count,
+                             self.raw_image_dimensions[0][1],
+                             self.raw_image_dimensions[0][0],
                              self.scandata, True)
-        self.pageCrop = Crop('pageCrop', 0, self.page_count, 
-                             self.raw_image_dimensions[0][1], 
-                             self.raw_image_dimensions[0][0], 
+        self.pageCrop = Crop('pageCrop', 0, self.page_count,
+                             self.raw_image_dimensions[0][1],
+                             self.raw_image_dimensions[0][0],
                              self.scandata, True)
         self.standardCrop = Crop('standardCrop', 0, self.page_count,
                                  self.raw_image_dimensions[0][1],
@@ -371,13 +329,65 @@ class BookData:
 class Scandata:
 
     def __init__(self, xml_file):
-        self.file = xml_file
+        self.filename = xml_file
+        self.file = open(xml_file, 'rw+')
         self.tree = None
         try:
             parser = etree.XMLParser(remove_blank_text=True)
             self.tree = etree.parse(self.file, parser)
+            #except IOError:
+            #Util.bail('could not parse ' + self.file)
+        except:
+            print 'failed to parse scandata'
+            pass
+        else:
+            self.file.close()
+
+
+    #@staticmethod
+    def new(self, identifier, page_count,
+            raw_image_dimensions,
+            scandata_file):
+        root = etree.Element('book')
+        book_data = etree.SubElement(root,'bookData')
+        book_id = etree.SubElement(book_data,'bookId')
+        book_id.text = str(identifier)
+        leaf_count = etree.SubElement(book_data,'leafCount')
+        leaf_count.text = str(page_count)
+
+        page_data = etree.SubElement(root, 'pageData')
+        for leaf in range(0, page_count):
+            side  = 'LEFT' if leaf%2==0 else 'RIGHT'
+            page = etree.SubElement(page_data, 'page')
+            page.set('leafNum', str(leaf))
+            handside = etree.SubElement(page, 'handSide')
+            handside.text = str(side)
+            page_type = etree.SubElement(page, 'pageType')
+            page_type.text = 'Normal' if leaf in range(1, page_count-1) else 'Delete'
+            ataf = etree.SubElement(page, 'addToAccessFormats')
+            ataf.text = 'true' if leaf in range(1, page_count-1) else 'false'
+            rotate_degree = etree.SubElement(page, 'rotateDegree')
+            rotate_degree.text = '-90' if leaf%2==0 else '90'
+            skew_angle = etree.SubElement(page, 'skewAngle')
+            skew_angle.text = '0.0'
+            skew_conf = etree.SubElement(page, 'skewConf')
+            skew_conf.text = '0.0'
+            skew_active = etree.SubElement(page, 'skewActive')
+            skew_active.text = 'false'
+            orig_width = etree.SubElement(page, 'origWidth')
+            orig_width.text = str(raw_image_dimensions[leaf][0])
+            orig_height = etree.SubElement(page, 'origHeight')
+            orig_height.text = str(raw_image_dimensions[leaf][1])
+            crop_box = Crop.new_crop_element(page, 'cropBox')
+            page_number = etree.SubElement(page, 'pageNumber')
+        doc = etree.ElementTree(root)
+        try:
+            scandata = open(scandata_file,"w")
+            doc.write(scandata, pretty_print=True)
+            self.tree = doc
+            scandata.close()
         except IOError:
-            Util.bail('could not parse ' + self.file)        
+            Util.bail('failed to make scandata for ' + identifier)
 
 
 
@@ -388,7 +398,7 @@ class Logger:
 
     def message(self, message, log='global'):
         if message is None:
-            return        
+            return
         timestamp = datetime.datetime.now()
         if type(log) == tuple:
             for l in log:

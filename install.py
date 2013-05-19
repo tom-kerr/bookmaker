@@ -10,7 +10,7 @@ from util import Util
 py_version = sys.version_info
 if py_version[0] < 2 or py_version[0] == 2 and py_version[1] != 7:
     Util.bail('Python 2.7 required')
-    
+
 plat = sys.platform
 if re.search('linux', plat):
     dist = platform.linux_distribution()[0]
@@ -21,42 +21,43 @@ if re.search('win', plat):
 
 print 'Environment: ' + dist, plat
 
-py_dep = {'yaml':   {'Ubuntu': {'method':'pkg-manager', 
+py_dep = {'yaml':   {'Ubuntu': {'method':'pkg-manager',
                                 'pkg': 'python-yaml'}},
-          'lxml':   {'Ubuntu': {'method':'pkg-manager', 
+          'lxml':   {'Ubuntu': {'method':'pkg-manager',
                                 'pkg': 'python-lxml'}},
-          'psutil': {'Ubuntu': {'method':'pkg-manager', 
+          'psutil': {'Ubuntu': {'method':'pkg-manager',
                                 'pkg': 'python-psutil'}},
-          'pypdf':  {'Ubuntu': {'method':'pkg-manager', 
+          'pypdf':  {'Ubuntu': {'method':'pkg-manager',
                                 'pkg': 'python-pypdf'}},
-          'pil':    {'Ubuntu': {'method':'pkg-manager', 
+          'pil':    {'Ubuntu': {'method':'pkg-manager',
                                 'pkg': 'python-imaging'}},
           'pygtk':  {},
-          'xmltodict':    {'Ubuntu': {'method':'pkg-manager', 
+
+          'xmltodict':    {'Ubuntu': {'method':'pip',
                                 'pkg': 'xmltodict'}},
-          'dict2xml':    {'Ubuntu': {'method':'pkg-manager', 
-                                'pkg': 'dict2xml'}},
-          'bibs':   {dist: {'method':'distutils', 
+          'dicttoxml':    {'Ubuntu': {'method':'pip',
+                                      'pkg': 'dicttoxml'}},
+          'bibs':   {dist: {'method':'distutils',
                             'url': 'https://github.com/reklaklislaw/bibs/archive/master.zip'}}
           }
 
 sys_dep = { 'make':       {'Ubuntu': 'make'},
             'libtiff':    {'Ubuntu': 'libtiff4-dev'},
-            'netpbm':     {'Ubuntu': 'netpbm'},
+            'libpng12':   {'Ubuntu': 'libpng12-dev'},
             'djvulibre':  {'Ubuntu': 'djvulibre-bin'},
             'exactimage': {'Ubuntu': 'exactimage'},
-            'fftw':       {'Ubuntu': 'libfftw3-3'},
+            'fftw':       {'Ubuntu': 'libfftw3-dev'},
             'leptonica':  {'Ubuntu': 'libleptonica-dev'},
             'tesseract':  {'Ubuntu': 'tesseract-ocr*'}
             }
-            
+
 
 def check_py_dep():
     for module, dists in py_dep.items():
         print 'Checking for ' + module
         try:
             __import__(module)
-        except ImportError:            
+        except ImportError:
             if dist in dists:
                 method = dists[dist]['method']
                 if method == 'pkg-manager':
@@ -67,10 +68,21 @@ def check_py_dep():
                     path = download_and_extract(source)
                     if not install_with_distutils(path):
                         Util.bail('Failed to install ' + module)
+                elif method == 'pip':
+                    install_with_pip(dists[dist]['pkg'])
             else:
                 Util.bail('Distribution ' + str(dist) + ' is not supported by this script')
         else:
             print 'Already Installed.'
+
+
+def install_with_pip(mod):
+    cmd = 'pip^ install^ ' + mod
+    retval = Util.cmd(cmd, retval=True, print_output=True)
+    if retval != 0:
+        return False
+    else:
+        return True
 
 
 def install_with_package_manager(mod):
@@ -115,25 +127,25 @@ def download_and_extract(source):
         except Exception as e:
             print 'Error opening ' + source
             Util.bail(str(e))
-                        
+
     print 'Extracting...'
     for extension in ('.zip','.tar','.tar.gz', '.tar.bz2', '.tgz'):
         if re.search(extension + '$', basename):
             ext = extension
             filename = basename.split(ext)[0]
-            break    
-    
+            break
+
     try:
         if ext == '.zip':
             archive = zipfile.ZipFile('packages/' + basename)
-            archive.extractall(path='packages/'+filename)        
+            archive.extractall(path='packages/'+filename)
         elif ext in ('.tar', '.tar.gz', '.tar.bz2', '.tgz'):
             archive = tarfile.open('packages/' + basename)
-            archive.extractall('packages/')    
+            archive.extractall('packages/')
     except Exception as e:
         print 'Error downloading and extracting ' + basename
         Util.bail(str(e))
-        
+
     match = glob.glob('packages/'+filename+'/*')
     path = None
     for m in match:

@@ -1,0 +1,29 @@
+#ifndef _CROPPER_C_
+#define _CROPPER_C_
+
+#include <stdio.h>
+#include <strings.h>
+#include "allheaders.h"
+
+
+int main(int argc, char* argv[]) {
+
+  if (argc != 7) {
+    puts("This program rotates, skews, and crops an image. \n"
+	 "accepts the following arguments:\n\n"
+	 "(int) rot_dir (rotation direction (0,-90, or 90))\n"
+	 "(float) skew_angle\n\n"
+	 "(float) l (left edge of crop box)\n"
+	 "(float) r (right edge of crop box)\n"
+	 "(float) t (top edge of crop box)\n"
+	 "(float) b (bottom edge of crop box)\n\n"
+	 "(char) in_file (image to be processed)\n"
+	 "(char) out_file (destination of processed image)");
+    exit(0);
+
+  }
+
+
+}
+
+#endif

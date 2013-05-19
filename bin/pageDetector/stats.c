@@ -10,6 +10,7 @@ double mean(double *array,
 
   double mean,*diff,sd;
   int i;
+  mean = 0.0;
   for (i=0;i < array_count;i++) {
     mean += array[i];
   }
@@ -21,6 +22,7 @@ double mean(double *array,
     diff[i] = pow(mean - array[i],2);
   }
 
+  sd = 0.0;
   for (i=0;i < array_count;i++) {
     sd += diff[i];
   }

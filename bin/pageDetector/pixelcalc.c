@@ -9,7 +9,7 @@ void EstimateBackgroundLuma(void **lines,
 			    unsigned int h,
 			    short int rot_dir,
 			    struct stats *edge_luma_stats) {
-
+  
   double *vrt_line = (double*)malloc(sizeof(double)*h);
   double *top_hrz_line = (double*)malloc(sizeof(double)*w);
   double *bottom_hrz_line = (double*)malloc(sizeof(double)*w);
@@ -23,6 +23,7 @@ void EstimateBackgroundLuma(void **lines,
   else if (rot_dir==1)
     x = w-1;
     
+  sum = 0.0;
   for (y=0;y<h;y++) 
     { 
       vrt_line[y] = GET_DATA_BYTE(lines[y],x);

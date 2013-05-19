@@ -1,4 +1,4 @@
-#ifndef _FOURIER_C_
+ #ifndef _FOURIER_C_
 #define _FOURIER_C_
 
 #include <math.h>
@@ -183,6 +183,7 @@ void ExtractFrequencies(struct fouriercomponents *fc,
   double deltasum = 0.0;
   for (i=0; i<fc->signal_count; i++) 
     deltasum += pow(avg_1hz - fc->magnitude[i][1],2);   
+  
   double sd_1hz = sqrt(deltasum / fc->signal_count);
 
   printf("mean 1hz:%lf  sd 1hz:%lf     scan_mode:%d\n",avg_1hz,sd_1hz,band->scan_mode);   
@@ -254,7 +255,7 @@ void FindLowFreqPeaks(PIX *pix_gray,
   double mean_vrt_peak = 0.0;
   double *hrz_deltas = (double *) malloc(sizeof(double)*hrzband->peak_count);
   double *vrt_deltas = (double *) malloc(sizeof(double)*vrtband->peak_count);
-
+  
   for (i=0;i<hrzband->peak_count;i++) {
     //printf("hrz %d  %lf\n",hrzband->peaks[i],hrzband->peak_magnitudes[i]);
     mean_hrz_peak += hrzband->peak_magnitudes[i];
@@ -293,11 +294,13 @@ void FindLowFreqPeaks(PIX *pix_gray,
   double vrt_delta_mean  = mean(vrt_deltas,vrtband->peak_count);
 
   double delta_sum, hrz_delta_sd,vrt_delta_sd;
+  delta_sum = 0.0;
   for (i=0;i<hrzband->peak_count;i++)
     delta_sum += pow(hrz_delta_mean - hrz_deltas[i],2);
 
   hrz_delta_sd = sqrt(delta_sum/hrzband->peak_count); 
 
+  delta_sum = 0.0;
   for (i=0;i<vrtband->peak_count;i++)
     delta_sum += pow(vrt_delta_mean - vrt_deltas[i],2);
 
@@ -331,13 +334,13 @@ void FindLowFreqPeaks(PIX *pix_gray,
   stable_count = 0;
   unstable_count = 0;
   stable_thresh = 1;
-  while (true) {
+  while (i < hrzband->peak_count) {
     if (hrzband->peaks[i] >= book->t) {
       if (stable_count >= stable_thresh ) {
 	page->t = hrzband->peaks[i - stable_thresh];
 	break;
       }
-        
+      
       delta = abs(hrzband->peak_magnitudes[i] - hrzband->peak_magnitudes[i-1]);
       //printf("delta %lf at %d\n",delta,hrzband->peaks[i]);
       if (delta < delta_thresh) {
@@ -379,7 +382,7 @@ void FindLowFreqPeaks(PIX *pix_gray,
   stable_count = 0;
   unstable_count = 0;
   stable_thresh = 1;
-  while(true) {
+  while(i < hrzband->peak_count) {
     if (hrzband->peaks[i] <= book->b) {
 
       if (stable_count >= stable_thresh ) {
@@ -430,7 +433,7 @@ void FindLowFreqPeaks(PIX *pix_gray,
     stable_count = 0;
     unstable_count = 0;
     stable_thresh = 0;
-    while (true) {
+    while (i < vrtband->peak_count) {
       if (vrtband->peaks[i] >= book->l ){
         
 
@@ -477,7 +480,7 @@ void FindLowFreqPeaks(PIX *pix_gray,
     hit_target = false;
     stable_count = 0;
     stable_thresh = 3;
-    while (true) {
+    while (i < vrtband->peak_count) {
 
       if (hit_target==false && vrtband->_1hz_magnitudes[i] < mean_vrt_peak*black_bar_thresh) {
         black_bar = i;
@@ -512,7 +515,7 @@ void FindLowFreqPeaks(PIX *pix_gray,
     stable_count = 0;
     unstable_count = 0;
     stable_thresh = 0;
-    while(true) {
+    while(i < vrtband->peak_count) {
       if (vrtband->peaks[i] <= book->r) {      
     
         if (stable_count >= stable_thresh ) {
@@ -556,7 +559,7 @@ void FindLowFreqPeaks(PIX *pix_gray,
     hit_target = false;
     stable_count = 0;
     stable_thresh = 3;
-    while (true) {
+    while (i < vrtband->peak_count) {
       if (hit_target==false && vrtband->_1hz_magnitudes[i] < mean_vrt_peak*black_bar_thresh) {
         black_bar = i;
         hit_target = true;

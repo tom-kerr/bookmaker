@@ -77,7 +77,7 @@ class Derive:
         djvu_files = []
         for leaf in range(1, self.book.page_count-1):
             leafnum = '%04d' % leaf
-            in_file = self.book.dirs['cropped'] + '/' + self.book.identifier + '_' + leafnum + '.pnm'
+            in_file = self.book.dirs['cropped'] + '/' + self.book.identifier + '_' + leafnum + '.JPG'
             if not os.path.exists(in_file):
                 self.ProcessHandler.ThreadQueue.put((self.book.identifier + '_djvu',
                                                 'cannot make djvu: input image file(s) missing',

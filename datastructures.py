@@ -8,8 +8,8 @@ import math
 
 class Crop:
 
-    def __init__(self, name, start, end, 
-                 image_width=None, image_height=None, 
+    def __init__(self, name, start, end,
+                 image_width=None, image_height=None,
                  scandata=None, import_scandata=False):
 
         self.name = name
@@ -25,8 +25,8 @@ class Crop:
         self.hand_side = {}
         self.active = dict.fromkeys(range(start, end), False)
         self.pagination = dict.fromkeys(range(start, end), None)
-        self.classification = dict.fromkeys(range(start, end), 'Normal')                
-        self.page_type = dict.fromkeys(range(start, end), 'Normal')        
+        self.classification = dict.fromkeys(range(start, end), 'Normal')
+        self.page_type = dict.fromkeys(range(start, end), 'Normal')
         self.add_to_access_formats = dict.fromkeys(range(start, end), None)
         self.rotate_degree = dict.fromkeys(range(start, end), None)
         self.skew_angle = dict.fromkeys(range(start, end), 0.0)
@@ -38,16 +38,16 @@ class Crop:
             self.box_with_skew_padding[leaf] = Box()
             if leaf%2==0:
                 self.hand_side[leaf] = 'LEFT'
-            else:                
+            else:
                 self.hand_side[leaf] = 'RIGHT'
-                
+
         if import_scandata:
             self.xml_io('import')
             self.update_pagination()
 
 
     def return_state(self, leaf):
-        state = {'box': copy(self.box[leaf]), 
+        state = {'box': copy(self.box[leaf]),
                  'box_with_skew_padding': copy(self.box_with_skew_padding[leaf]),
                  'active': self.active[leaf],
                  'page_type': copy(self.page_type[leaf]),
@@ -57,7 +57,7 @@ class Crop:
                  'skew_conf': copy(self.skew_conf[leaf]),
                  'skew_active': copy(self.skew_active[leaf])}
         return state
-                                                
+
 
     def get_box_metadata(self):
         for dimension in Box.dimensions:
@@ -74,14 +74,14 @@ class Crop:
     def set_all_active(self):
         page_data = self.scandata.tree.find('pageData')
         pages = page_data.findall('page')
-        for leaf, page in enumerate(pages): 
+        for leaf, page in enumerate(pages):
             if leaf in range(self.start, self.end):
                 cropBox = page.find('cropBox')
                 if cropBox is None:
                     raise Exception('Missing essential item \'cropBox\' in scandata')
                 for dimension, value in self.box[leaf].dimensions.items():
                     if value is not None:
-                        cropBox.find(dimension).text = str(int(value))                    
+                        cropBox.find(dimension).text = str(int(value))
                 self.active[leaf] = True
         #self.write_scandata()
 
@@ -89,9 +89,9 @@ class Crop:
     def xml_io(self, mode):
         page_data = self.scandata.tree.find('pageData')
         pages = page_data.findall('page')
-        for leaf, page in enumerate(pages): 
+        for leaf, page in enumerate(pages):
             if leaf in range(self.start, self.end):
-                
+
                 if mode is 'import':
                     xmlcrop = page.find(self.name)
                     if xmlcrop is None:
@@ -146,11 +146,11 @@ class Crop:
                 elif mode is 'export':
                     xmlcrop = page.find(self.name)
                     if xmlcrop is None:
-                        xmlcrop = Crop.new_crop_element(page, self.name)               
+                        xmlcrop = Crop.new_crop_element(page, self.name)
                     xmlcrop.set('active', str(self.active[leaf]))
                     for dimension, value in self.box[leaf].dimensions.items():
                         if value is not None:
-                            xmlcrop.find(dimension).text = str(int(value))                    
+                            xmlcrop.find(dimension).text = str(int(value))
                     pagetype = page.find('pageType')
                     if pagetype is not None:
                         if self.page_type[leaf] is not None:
@@ -172,7 +172,7 @@ class Crop:
                         skewactive.text = skewactive.text.lower()
                     skewconf = page.find('skewConf')
                     if skewconf is not None and self.skew_conf[leaf] is not None:
-                        skewconf.text = str(self.skew_conf[leaf])    
+                        skewconf.text = str(self.skew_conf[leaf])
         if mode is 'export':
             self.write_scandata()
 
@@ -263,13 +263,14 @@ class Crop:
                     else:
                         self.pagination[leaf] = str(start_pagenum + num) + '?'
                 #print leaf, self.pagination[leaf]
-                        
 
-    def write_scandata(self):        
+
+    def write_scandata(self):
         try:
-            f = open(self.scandata.file, 'w')
-        except:
-            Util.bail('failed to open ' + self.scandata.file + ' for writing')
+            f = open(self.scandata.filename, 'w')
+        except Exception as e:
+            print str(e)
+            Util.bail('failed to open scandata for writing')
         self.scandata.tree.write(f, pretty_print=True)
         f.close()
 
@@ -303,39 +304,39 @@ class Crop:
         else:
             angle = self.skew_angle[leaf] * factor
 
-        new_lt = Crop.calculate_skew(self.box[leaf].l, self.box[leaf].t, 
+        new_lt = Crop.calculate_skew(self.box[leaf].l, self.box[leaf].t,
                                      mx, my, angle)
-        new_rt = Crop.calculate_skew(self.box[leaf].r, self.box[leaf].t, 
+        new_rt = Crop.calculate_skew(self.box[leaf].r, self.box[leaf].t,
                                      mx, my, angle)
-        new_lb = Crop.calculate_skew(self.box[leaf].l, self.box[leaf].b, 
+        new_lb = Crop.calculate_skew(self.box[leaf].l, self.box[leaf].b,
                                      mx, my, angle)
-        new_rb = Crop.calculate_skew(self.box[leaf].r, self.box[leaf].b, 
+        new_rb = Crop.calculate_skew(self.box[leaf].r, self.box[leaf].b,
                                      mx, my, angle)
         if mode == 'contract':
-            if angle > 0:            
+            if angle > 0:
                 self.box[leaf].update_dimension('l', int(new_lt['x']))
                 self.box[leaf].update_dimension('t', int(new_rt['y']))
                 self.box[leaf].update_dimension('r', int(new_rb['x']))
-                self.box[leaf].update_dimension('b', int(new_lb['y']))            
-            elif angle < 0:     
+                self.box[leaf].update_dimension('b', int(new_lb['y']))
+            elif angle < 0:
                 self.box[leaf].update_dimension('l', int(new_lb['x']))
                 self.box[leaf].update_dimension('t', int(new_lt['y']))
                 self.box[leaf].update_dimension('r', int(new_rt['x']))
                 self.box[leaf].update_dimension('b', int(new_rb['y']))
         if mode == 'expand':
-            if angle > 0:            
+            if angle > 0:
                 self.box[leaf].update_dimension('l', int(new_lb['x']))
                 self.box[leaf].update_dimension('t', int(new_rt['y']))
                 self.box[leaf].update_dimension('r', int(new_rb['x']))
-                self.box[leaf].update_dimension('b', int(new_rb['y']))            
-            elif angle < 0:     
+                self.box[leaf].update_dimension('b', int(new_rb['y']))
+            elif angle < 0:
                 self.box[leaf].update_dimension('l', int(new_lb['x']))
                 self.box[leaf].update_dimension('t', int(new_rt['y']))
                 self.box[leaf].update_dimension('r', int(new_rb['x']))
-                self.box[leaf].update_dimension('b', int(new_lb['y']))            
+                self.box[leaf].update_dimension('b', int(new_lb['y']))
 
 
-    def calculate_box_with_skew_padding(self, leaf, factor=1, deskew=False):        
+    def calculate_box_with_skew_padding(self, leaf, factor=1, deskew=False):
         self.box_with_skew_padding[leaf] = Box()
         #self.padding[leaf] = {}
         if not self.box[leaf].is_valid():
@@ -351,10 +352,10 @@ class Crop:
 
         if angle > 0:
             XL = self.image_height - self.box[leaf].t
-            YL = self.box[leaf].l 
+            YL = self.box[leaf].l
         else:
             XL = self.box[leaf].t
-            YL = self.image_width - self.box[leaf].l 
+            YL = self.image_width - self.box[leaf].l
 
         padding_x = abs(((math.sin(math.radians(angle)) * XL)))
         padding_y = abs(((math.sin(math.radians(angle)) * YL)))
@@ -362,7 +363,7 @@ class Crop:
         #print padding_x, padding_y
         #self.padding[leaf]['x'] = padding_x
         #self.padding[leaf]['y'] = padding_y
-        
+
         self.box_with_skew_padding[leaf].set_dimension('l', self.box[leaf].l + padding_x)
         self.box_with_skew_padding[leaf].set_dimension('t', self.box[leaf].t + padding_y)
         self.box_with_skew_padding[leaf].set_dimension('r', self.box[leaf].r + padding_x)
@@ -385,9 +386,9 @@ class Crop:
             angle = 0 - self.skew_angle[leaf] * factor
         else:
             angle = self.skew_angle[leaf] * factor
-                            
-        new_lt = Crop.calculate_skew(self.box[leaf].l, 
-                                     self.box[leaf].t, 
+
+        new_lt = Crop.calculate_skew(self.box[leaf].l,
+                                     self.box[leaf].t,
                                      mx, my, angle)
         self.box[leaf].update_dimension('x', int(new_lt['x']))
         self.box[leaf].update_dimension('y', int(new_lt['y']))
@@ -395,35 +396,35 @@ class Crop:
 
     @staticmethod
     def calculate_skew(px, py, mx, my, angle):
-        x = ( ((px - mx) * math.cos(math.radians(angle)) ) - 
+        x = ( ((px - mx) * math.cos(math.radians(angle)) ) -
               ((py - my) * math.sin(math.radians(angle)) ) + mx)
-        y = ( ((px - mx) * math.sin(math.radians(angle)) ) + 
+        y = ( ((px - mx) * math.sin(math.radians(angle)) ) +
               ((py - my) * math.cos(math.radians(angle)) ) + my)
-        
+
         return {'x':x ,'y':y}
-        
+
 
 
 class Box:
-    
+
     dimensions = ('x','y','w','h',
                   'l','t','r','b')
-    
+
     def __init__(self):
-        
+
         self.name = None
         self.size = None
-               
+
         self.x = None
         self.y = None
         self.w = None
         self.h = None
-        
+
         self.l = None
         self.t = None
         self.r = None
         self.b = None
-    
+
         self.dimensions = {'x': None,
                            'y': None,
                            'w': None,
@@ -467,7 +468,7 @@ class Box:
                     if self.h is not None:
                         self.b = self.y + self.h
                         self.dimensions['b'] = self.b
-                        
+
             elif dimension == 'r':
                 self.r = self.dimensions['r'] = value
                 if self.l is not None and self.w is None:
@@ -549,7 +550,7 @@ class Box:
 
 
     def rotate(self, rot_dir, image_width, image_height):
-        
+
         l = x = self.l
         t = y = self.t
         r = self.r
@@ -565,7 +566,7 @@ class Box:
             self.update_dimension('w', h)
             self.update_dimension('h', w)
 
-        
+
         if rot_dir == 90:
             self.update_dimension('l', abs(b - image_height))
             self.update_dimension('t', l)
@@ -630,7 +631,7 @@ class Box:
         else:
             return False
 
-    
+
     def detect_orientation(self, container):
         if self.t < container.b - container.h/2:
             if self.b > container.b - container.h/2:
@@ -642,9 +643,9 @@ class Box:
 
 
     def center_within(self, container):
-        x = (container.x + 
+        x = (container.x +
              (container.w - self.w)/2)
-        y = (container.y + 
+        y = (container.y +
              (container.h - self.h)/2)
         if self.x is None:
             self.set_dimension('x', x)
@@ -656,7 +657,7 @@ class Box:
             self.update_dimension('y', y)
 
 
-    def position_around(self, anchor, head=None, floor=None):        
+    def position_around(self, anchor, head=None, floor=None):
         x = anchor.x - (self.w - anchor.w)/2
         if head:
             y = anchor.y - head
@@ -712,12 +713,12 @@ class Box:
     def draw(self, canvas, outline="blue", fill=None, annotate=True):
         img = Image.open(canvas)
         draw = ImageDraw.Draw(img)
-        draw.rectangle([self.l, self.t, 
-                        self.r, self.b], 
+        draw.rectangle([self.l, self.t,
+                        self.r, self.b],
                        outline = str(outline), fill = fill )
         if annotate:
             if self.name is not None:
-                draw.text([self.l-10, self.t-10], 
+                draw.text([self.l-10, self.t-10],
                           str(self.name),
                           fill = 'black')
         del draw
@@ -729,14 +730,14 @@ class Box:
         img = Image.new('RGB', (height, width), str(color))
         img.save(filename)
 
-                                  
+
 class Clusters:
 
     def __init__(self, leaf):
         self.leaf = leaf
         self.cluster = {}
         self.position = 0
-        
+
 
     def new_cluster(self, position=None):
         if position is None:
@@ -758,8 +759,8 @@ class Clusters:
             return False
         else:
             return results
-    
-    
+
+
     def find_by_orientation(self, container):
         self.top_left = None
         self.top_right = None
@@ -772,7 +773,7 @@ class Clusters:
         R = container.r - (0.1*container.w)
         T = container.t + (0.1*container.h)
         B = container.b - (0.1*container.h)
-        
+
         tmp = []
         for num, cluster in self.cluster.items():
             if cluster is not None:
@@ -782,14 +783,14 @@ class Clusters:
                     tmp.append( (num, cluster.x, cluster.y) )
 
         x = sorted(tmp, key=itemgetter(1))
-        y = sorted(tmp, key=itemgetter(2))        
-        
+        y = sorted(tmp, key=itemgetter(2))
+
         x_inverse = sorted(tmp, key=itemgetter(1), reverse=True)
         y_inverse = sorted(tmp, key=itemgetter(2), reverse=True)
 
         orientations = ['top_left','top_right','top_center',
                         'bottom_left','bottom_right','bottom_center']
-        
+
         for o, orientation in enumerate(orientations):
             ranks = {}
             if orientation is 'top_left':
@@ -797,9 +798,9 @@ class Clusters:
                     ranks[cluster[0]] = key
                 for key, cluster in enumerate(y):
                     ranks[cluster[0]] += math.pow(key, key)
-                ranks = sorted(ranks.items(), key=itemgetter(1))                
+                ranks = sorted(ranks.items(), key=itemgetter(1))
                 self.top_left = ranks[0][0] if len(ranks) > 0 else None
-            
+
             elif orientation is 'top_right':
                 for key, cluster in enumerate(x_inverse):
                     ranks[cluster[0]] = key
@@ -807,7 +808,7 @@ class Clusters:
                     ranks[cluster[0]] += math.pow(key, key)
                 ranks = sorted(ranks.items(), key=itemgetter(1))
                 self.top_right = ranks[0][0] if len(ranks) > 0 else None
-                            
+
             elif orientation is 'bottom_left':
                 for key, cluster in enumerate(x):
                     ranks[cluster[0]] = key
@@ -815,12 +816,12 @@ class Clusters:
                     ranks[cluster[0]] += math.pow(key, key)
                 ranks = sorted(ranks.items(), key=itemgetter(1))
                 self.bottom_left = ranks[0][0] if len(ranks) > 0 else None
-            
+
             elif orientation is 'bottom_right':
                 for key, cluster in enumerate(x_inverse):
                     ranks[cluster[0]] = key
                 for key, cluster in enumerate(y_inverse):
-                    ranks[cluster[0]] += math.pow(key, key) 
+                    ranks[cluster[0]] += math.pow(key, key)
                 ranks = sorted(ranks.items(), key=itemgetter(1))
                 self.bottom_right = ranks[0][0] if len(ranks) > 0 else None
                 """
@@ -831,11 +832,11 @@ class Clusters:
                     for r, rank in enumerate(top_ranks):
                         if self.cluster[rank[0]].x > best:
                             self.bottom_right = rank[0]
-                            """         
-            elif (orientation is 'top_center' and 
-                  self.top_left is not None and 
+                            """
+            elif (orientation is 'top_center' and
+                  self.top_left is not None and
                   self.top_center is not None):
-                    
+
                 for key, cluster in enumerate(x):
                     ranks[cluster[0]] = key
                 for key, cluster in enumerate(y):
@@ -843,9 +844,9 @@ class Clusters:
                 ranks = sorted(ranks.items(), key=itemgetter(1))
                 i = 0
                 while(True):
-                    L = self.cluster[self.top_left].l 
-                    R = self.cluster[self.top_right].r 
-                    if (self.cluster[ranks[i][0]].l > L and 
+                    L = self.cluster[self.top_left].l
+                    R = self.cluster[self.top_right].r
+                    if (self.cluster[ranks[i][0]].l > L and
                         self.cluster[ranks[i][0]].l < R):
                         self.top_center = ranks[i][0]
                         break
@@ -854,11 +855,11 @@ class Clusters:
                     if i >= len(ranks):
                         self.top_center = None
                         break
-            
-            elif (orientation is 'bottom_center' and 
-                  self.bottom_left is not None and 
+
+            elif (orientation is 'bottom_center' and
+                  self.bottom_left is not None and
                   self.bottom_center is not None):
-                  
+
                 for key, cluster in enumerate(x):
                     ranks[cluster[0]] = key
                 for key, cluster in enumerate(y_inverse):
@@ -868,7 +869,7 @@ class Clusters:
                 while(True):
                     L = self.cluster[self.bottom_left].l
                     R = self.cluster[self.bottom_right].r
-                    if (self.cluster[ranks[i][0]].l > L and 
+                    if (self.cluster[ranks[i][0]].l > L and
                         self.cluster[ranks[i][0]].l < R):
                         self.bottom_center = ranks[i][0]
                         break
@@ -877,25 +878,25 @@ class Clusters:
                     if i >= len(ranks):
                         self.bottom_center = None
                         break
-        
+
         if self.top_left is not None:
             self.cluster[self.top_left].draw(self.thumb, outline='pink', fill='pink')
         if self.top_right is not None:
             self.cluster[self.top_right].draw(self.thumb, outline='red', fill='red')
         if self.top_center is not None:
             self.cluster[self.top_center].draw(self.thumb, outline='cyan', fill='cyan')
-        
+
         if self.bottom_left is not None:
             self.cluster[self.bottom_left].draw(self.thumb, outline='pink', fill='pink')
         if self.bottom_right is not None:
             self.cluster[self.bottom_right].draw(self.thumb, outline='red', fill='red')
         if self.bottom_center is not None:
             self.cluster[self.bottom_center].draw(self.thumb, outline='cyan', fill='cyan')
-            
-        return {'top_left':self.top_left, 
-                'top_center':self.top_center, 
+
+        return {'top_left':self.top_left,
+                'top_center':self.top_center,
                 'top_right':self.top_right,
-                'bottom_left':self.bottom_left, 
-                'bottom_center':self.bottom_center, 
+                'bottom_left':self.bottom_left,
+                'bottom_center':self.bottom_center,
                 'bottom_right':self.bottom_right}
-            
+

@@ -2648,7 +2648,7 @@ class ExportHandler:
         #self.init_crop_button.destroy()
         self.ProcessHandler.add_process(self.ProcessHandler.run_cropper,
                                         self.editor.book.identifier + '_run_cropper',
-                                        (self.editor.book, self.active_crop, 
+                                        (self.editor.book, 'cropBox', 
                                          self.grayscale_option.get_active(), 
                                          self.normalize_option.get_active(), 
                                          self.invert_option.get_active()), 

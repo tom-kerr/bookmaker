@@ -6,7 +6,7 @@ import multiprocessing, threading
 import Queue
 
 from util import Util
-from environment import Environment
+from environment import Environment, Scandata
 from featuredetection import FeatureDetection
 #from pagination import AutoPaginate
 from standardcrop import StandardCrop
@@ -26,12 +26,12 @@ class ProcessHandling:
         self.active_threads = {}
         self.inactive_threads = self.new_queue()
         self.processes = 0
-        
+
         self.ThreadQueue = Queue.Queue()
         self.item_queue = self.new_queue()
         self.handled_exceptions = []
         self.unhandled_exceptions = []
-        
+
         self.poll = None
         self.monitor_threads = False
         self.FeatureDetection = None
@@ -55,11 +55,11 @@ class ProcessHandling:
         return OrderedDict()
 
 
-    def drain_queue(self, queue, mode):        
+    def drain_queue(self, queue, mode):
         pids = []
         for pid, data in queue.items():
             pids.append(pid)
-            func, args, logger, callback = data            
+            func, args, logger, callback = data
             if mode == 'sync':
                 if type(args) != tuple:
                     args = tuple((args,)) if args is not None else ()
@@ -79,7 +79,7 @@ class ProcessHandling:
             for pid, thread in self.active_threads.items():
                 active_pids.append(pid)
             for id in pids:
-                if id not in active_pids and id not in self.item_queue:              
+                if id not in active_pids and id not in self.item_queue:
                     finished += 1
             if finished == len(pids):
                 break
@@ -115,7 +115,7 @@ class ProcessHandling:
             new_thread.start_time = Util.microseconds()
             new_thread.start()
             self.active_threads[pid] = new_thread
-            if new_thread.func not in ('drain_queue', 'handle_thread_exceptions', 'run_main', 
+            if new_thread.func not in ('drain_queue', 'handle_thread_exceptions', 'run_main',
                                        'run_ocr', 'run_cropper', 'derive_formats'):
                 self.processes += 1
                 #print 'added ' + str(pid) + ' #processes:' + str(self.processes)
@@ -123,7 +123,7 @@ class ProcessHandling:
                 self.init_poll()
             if logger:
                 new_thread.logger.message('New Thread Started -->   ' +
-                                          'Identifier: ' + str(pid) + 
+                                          'Identifier: ' + str(pid) +
                                           '   Task: ' + str(func), 'processing')
             return True
 
@@ -150,15 +150,15 @@ class ProcessHandling:
         if pid in self.active_threads:
             if self.active_threads[pid].logger:
                 self.active_threads[pid].logger.message('Destroying Thread ' + str(pid), 'processing')
-            if self.active_threads[pid].func not in ('drain_queue', 'run_main', 'run_ocr', 
+            if self.active_threads[pid].func not in ('drain_queue', 'run_main', 'run_ocr',
                                                      'run_cropper', 'derive_formats'):
-                self.processes -= 1            
+                self.processes -= 1
             self.active_threads[pid]._Thread__stop()
             del self.active_threads[pid]
 
 
     def poll_threads(self):
-        while True:          
+        while True:
             time.sleep(3.0)
             inactive = {}
             for pid, thread in self.active_threads.items():
@@ -166,11 +166,11 @@ class ProcessHandling:
                     thread.end_time = Util.microseconds()
                     if thread.logger:
                         thread.logger.message('Thread ' + str(pid) + ' Finished', 'processing')
-                    inactive[pid] = thread                        
+                    inactive[pid] = thread
             for pid, thread in inactive.items():
                 if thread.call_back is not None:
                     thread.call_back(thread)
-                if thread.func not in ('drain_queue', 'run_main', 'run_ocr', 
+                if thread.func not in ('drain_queue', 'run_main', 'run_ocr',
                                        'run_cropper', 'derive_formats'):
                     self.processes -= 1
                     #print 'thread ' + pid + ' finished   #processes ' + str(self.processes)
@@ -185,9 +185,9 @@ class ProcessHandling:
             queue.reverse()
             for pid in queue:
                 del self.item_queue[pid]
-            if (self.processes == 0 and 
-                not [thread.func for pid, thread in self.active_threads.items() 
-                     if thread.func in ('drain_queue', 'run_main', 'run_ocr', 
+            if (self.processes == 0 and
+                not [thread.func for pid, thread in self.active_threads.items()
+                     if thread.func in ('drain_queue', 'run_main', 'run_ocr',
                                         'run_cropper', 'derive_formats')]):
                 self.poll = False
                 break
@@ -207,7 +207,7 @@ class ProcessHandling:
                     Common.dialog(message=msg)
                 elif Environment.interface == 'command':
                     print msg
-            self.ThreadQueue.put((pid, message, logger))            
+            self.ThreadQueue.put((pid, message, logger))
         return True
 
 
@@ -229,15 +229,17 @@ class ProcessHandling:
         queue = self.new_queue()
         queue['blah'] =self.FeatureDetection.pipeline, None, book.logger, None
         self.drain_queue(queue, 'async')
-        
 
-                
+
+
     def run_main(self, book):
         #yappi.start()
-        book.logger.message("Began Main Processing...")               
+        book.logger.message("Began Main Processing...")
         if book.settings['respawn']:
             Environment.clean_dirs(book.dirs)
-            Environment.make_scandata(book)
+            book.scandata.new(book.identifier, book.page_count,
+                              book.raw_image_dimensions,
+                              book.scandata_file)
         self.FeatureDetection = FeatureDetection(self, book)
         queue = self.new_queue()
         queue[book.identifier + '_featuredetection'] = self.FeatureDetection.pipeline, None, book.logger, None
@@ -245,13 +247,13 @@ class ProcessHandling:
             self.drain_queue(queue, 'async')
             self.make_standard_crop(book)
         except Exception as e:
-            Util.bail(str(e))            
+            Util.bail(str(e))
         end_time = self.inactive_threads[book.identifier + '_featuredetection'].end_time
         start_time = self.inactive_threads[book.identifier + '_featuredetection'].start_time
         self.FeatureDetection.ImageOps.complete(book.identifier + '_featuredetection')
         book.logger.message("Finished Main Processing in " + str((end_time - start_time)/60) + ' minutes')
         #yappi.print_stats()
-        
+
 
     def autopaginate(self):
         pass
@@ -265,9 +267,9 @@ class ProcessHandling:
         standardcrop.make_standard_crop()
 
 
-    def run_cropper(self, book, crop, 
+    def run_cropper(self, book, crop,
                     grayscale=False, normalize=False, invert=False):
-        book.logger.message("Began Cropping...")               
+        book.logger.message("Began Cropping...")
         queue = self.new_queue()
         self.Cropper = Cropper(self, book)
         chunk = (book.page_count-2)/self.cores
@@ -277,15 +279,15 @@ class ProcessHandling:
                 end = book.page_count-1
             else:
                 end = (start + chunk)
-            queue[book.identifier + '_' + str(start) + '_cropper'] = (self.Cropper.pipeline, 
+            queue[book.identifier + '_' + str(start) + '_cropper'] = (self.Cropper.pipeline,
                                                                       (start, end, crop, grayscale, normalize, invert),
                                                                       book.logger, None)
         try:
             self.drain_queue(queue, 'async')
-            self.Cropper.ImageOps.complete(book.identifier + '_cropper') 
+            self.Cropper.ImageOps.complete(book.identifier + '_cropper')
         except Exception as e:
             Util.bail(str(e))
-        
+
 
     def run_ocr(self, book, language):
         book.logger.message('Began OCR...')
@@ -298,15 +300,15 @@ class ProcessHandling:
                 end = book.page_count-1
             else:
                 end = (start + chunk)
-            queue[book.identifier + '_' + str(start) + '_ocr'] = (self.OCR.tesseract_hocr_pipeline, 
+            queue[book.identifier + '_' + str(start) + '_ocr'] = (self.OCR.tesseract_hocr_pipeline,
                                                                   (start, end, language),
-                                                                  book.logger, None)   
+                                                                  book.logger, None)
         try:
             self.drain_queue(queue, 'async')
-            self.OCR.ImageOps.complete(book.identifier + '_ocr') 
+            self.OCR.ImageOps.complete(book.identifier + '_ocr')
         except Exception as e:
             Util.bail(str(e))
-        
+
 
     def derive_formats(self, book, formats):
         self.Derive = Derive(self, book)
@@ -317,13 +319,13 @@ class ProcessHandling:
                     ocr_data = self.OCR.ocr_data
                 else:
                     ocr_data = None
-                queue[book.identifier + '_' + f] = (self.Derive.full_plain_text, 
+                queue[book.identifier + '_' + f] = (self.Derive.full_plain_text,
                                                     ocr_data, book.logger, None)
             elif f == 'pdf':
-                queue[book.identifier + '_' + f] = (self.Derive.pdf, 
+                queue[book.identifier + '_' + f] = (self.Derive.pdf,
                                                     args, book.logger, None)
             elif f == 'djvu':
-                queue[book.identifier + '_' + f] = (self.Derive.djvu, 
+                queue[book.identifier + '_' + f] = (self.Derive.djvu,
                                                     args, book.logger, None)
             elif 'epub':
                 self.Derive.epub()
