@@ -49,7 +49,7 @@ class Environment:
             book.logger = Logger()
             Environment.set_logs(book)
             Environment.log_settings(book)
-
+        
 
     @staticmethod
     def log_settings(book):
@@ -128,7 +128,8 @@ class Environment:
                 Util.bail("non-jpg file found in "+ str(raw_dir) +
                                  ": " + str(file))
             else:
-                raw_dimensions[leaf] = Image.open(file).size
+                raw_dimensions[leaf] = {}
+                raw_dimensions[leaf]['width'], raw_dimensions[leaf]['height'] = Image.open(file).size
         raw_images.sort()
         return raw_images, raw_dimensions
 
@@ -231,8 +232,8 @@ class BookData:
         self.raw_image_dimensions = raw_data['dimensions']
         self.scandata_file = self.root_dir + '/' + self.identifier + '_scandata.xml'
         self.scandata = Scandata(self.scandata_file)
-        self.thumb_rotation_point = {'x': (self.raw_image_dimensions[0][1]/Environment.scale_factor)/2,
-                                     'y': (self.raw_image_dimensions[0][0]/Environment.scale_factor)/2}
+        self.thumb_rotation_point = {'x': (self.raw_image_dimensions[0]['height']/Environment.scale_factor)/2,
+                                     'y': (self.raw_image_dimensions[0]['width']/Environment.scale_factor)/2}
         self.dirs = {
             'book':         self.root_dir,
             'raw_image':    self.raw_image_dir,
@@ -286,16 +287,16 @@ class BookData:
     def init_crops(self):
         import_scandata = True if not self.settings['respawn'] else False
         self.pageCrop = Crop('pageCrop', 0, self.page_count,
-                             self.raw_image_dimensions[0][1],
-                             self.raw_image_dimensions[0][0],
+                             self.raw_image_dimensions[0]['height'],
+                             self.raw_image_dimensions[0]['width'],
                              self.scandata, import_scandata)
         self.standardCrop = Crop('standardCrop', 0, self.page_count,
-                                 self.raw_image_dimensions[0][1],
-                                 self.raw_image_dimensions[0][0],
+                                 self.raw_image_dimensions[0]['height'],
+                                 self.raw_image_dimensions[0]['width'],
                                  self.scandata, import_scandata)
         self.contentCrop = Crop('contentCrop', 0, self.page_count,
-                                self.raw_image_dimensions[0][1],
-                                self.raw_image_dimensions[0][0],
+                                self.raw_image_dimensions[0]['height'],
+                                self.raw_image_dimensions[0]['width'],
                                 self.scandata)
         self.crops = {'pageCrop': self.pageCrop,
                       'standardCrop': self.standardCrop,
@@ -304,20 +305,20 @@ class BookData:
 
     def import_crops(self):
         self.cropBox = Crop('cropBox', 0, self.page_count,
-                             self.raw_image_dimensions[0][1],
-                             self.raw_image_dimensions[0][0],
+                             self.raw_image_dimensions[0]['height'],
+                             self.raw_image_dimensions[0]['width'],
                              self.scandata, True)
         self.pageCrop = Crop('pageCrop', 0, self.page_count,
-                             self.raw_image_dimensions[0][1],
-                             self.raw_image_dimensions[0][0],
+                             self.raw_image_dimensions[0]['height'],
+                             self.raw_image_dimensions[0]['width'],
                              self.scandata, True)
         self.standardCrop = Crop('standardCrop', 0, self.page_count,
-                                 self.raw_image_dimensions[0][1],
-                                 self.raw_image_dimensions[0][0],
+                                 self.raw_image_dimensions[0]['height'],
+                                 self.raw_image_dimensions[0]['width'],
                                  self.scandata, True)
         self.contentCrop = Crop('contentCrop', 0, self.page_count,
-                                self.raw_image_dimensions[0][1],
-                                self.raw_image_dimensions[0][0],
+                                self.raw_image_dimensions[0]['height'],
+                                self.raw_image_dimensions[0]['width'],
                                 self.scandata, True)
         self.crops = {'cropBox': self.cropBox,
                       'pageCrop': self.pageCrop,
@@ -372,9 +373,9 @@ class Scandata:
             skew_active = etree.SubElement(page, 'skewActive')
             skew_active.text = 'false'
             orig_width = etree.SubElement(page, 'origWidth')
-            orig_width.text = str(raw_image_dimensions[leaf][0])
+            orig_width.text = str(raw_image_dimensions[leaf]['width'])
             orig_height = etree.SubElement(page, 'origHeight')
-            orig_height.text = str(raw_image_dimensions[leaf][1])
+            orig_height.text = str(raw_image_dimensions[leaf]['height'])
             crop_box = Crop.new_crop_element(page, 'cropBox')
             page_number = etree.SubElement(page, 'pageNumber')
         doc = etree.ElementTree(root)

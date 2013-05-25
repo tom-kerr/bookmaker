@@ -1,9 +1,8 @@
 from environment import Environment
-from util import Util
 from component import Component
 
 
-class SWC(Component):
+class SWClustering(Component):
     """
     Sliding Window Clustering
     -------------------------
@@ -37,13 +36,15 @@ class SWC(Component):
             'window_width','window_height',
             'skew_angle','center_x','center_y']
 
-    #executable = Environment.current_path + '/bin/clusterAnalysis/slidingWindow/./slidingWindow'
-    executable = '/home/reklak/development/gits/bookmaker/bin/clusterAnalysis/slidingWindow/./slidingWindow'
-    #cmd =  executable + '^ {in_file} {out_file} {window_width} {window_height} {skew_angle} {center_x} {center_y}',
+    executable = Environment.current_path + '/bin/clusterAnalysis/slidingWindow/./slidingWindow'
+    #executable = '/home/reklak/development/gits/bookmaker/bin/clusterAnalysis/slidingWindow/./slidingWindow'
 
 
-    def __init__(self):
-        super(SWC, self).__init__(SWC.args)
-
+    def __init__(self, book):
+        super(SWClustering, self).__init__(SWClustering.args)
+        self.book = book
 
     
+    def run(self, leaf):
+        pass
+        

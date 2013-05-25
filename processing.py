@@ -240,17 +240,21 @@ class ProcessHandling:
             book.scandata.new(book.identifier, book.page_count,
                               book.raw_image_dimensions,
                               book.scandata_file)
-        self.FeatureDetection = FeatureDetection(self, book)
+        try:
+            self.FeatureDetection = FeatureDetection(self, book)
+        except Exception as e:
+            Util.bail(str(e))
         queue = self.new_queue()
         queue[book.identifier + '_featuredetection'] = self.FeatureDetection.pipeline, None, book.logger, None
         try:
             self.drain_queue(queue, 'async')
-            self.make_standard_crop(book)
+            #self.make_standard_crop(book)
         except Exception as e:
             Util.bail(str(e))
-        end_time = self.inactive_threads[book.identifier + '_featuredetection'].end_time
-        start_time = self.inactive_threads[book.identifier + '_featuredetection'].start_time
-        self.FeatureDetection.ImageOps.complete(book.identifier + '_featuredetection')
+
+            #end_time = self.inactive_threads[book.identifier + '_featuredetection'].end_time
+            #start_time = self.inactive_threads[book.identifier + '_featuredetection'].start_time
+            #self.FeatureDetection.ImageOps.complete(book.identifier + '_featuredetection')
         book.logger.message("Finished Main Processing in " + str((end_time - start_time)/60) + ' minutes')
         #yappi.print_stats()
 

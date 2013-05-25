@@ -6,12 +6,27 @@ import Image, ImageDraw
 import math
 
 
-class Crop:
+class StructuralMetadata(object):
+
+    def __init__(self):
+        self.hand_side = {}
+        self.active =                dict.fromkeys(range(self.start, self.end), False)
+        self.pagination =            dict.fromkeys(range(self.start, self.end), None)
+        self.classification =        dict.fromkeys(range(self.start, self.end), 'Normal')
+        self.page_type =             dict.fromkeys(range(self.start, self.end), 'Normal')
+        self.add_to_access_formats = dict.fromkeys(range(self.start, self.end), None)
+        self.rotate_degree =         dict.fromkeys(range(self.start, self.end), None)
+        self.skew_angle =            dict.fromkeys(range(self.start, self.end), 0.0)
+        self.skew_conf =             dict.fromkeys(range(self.start, self.end), None)
+        self.skew_active =           dict.fromkeys(range(self.start, self.end), None)
+
+
+
+class Crop(StructuralMetadata):
 
     def __init__(self, name, start, end,
                  image_width=None, image_height=None,
                  scandata=None, import_scandata=False):
-
         self.name = name
         self.start = start
         self.end = end
@@ -19,19 +34,11 @@ class Crop:
         self.image_width = image_width
         self.scandata = scandata
 
+        super(Crop, self).__init__()
+
         self.meta ={}
         self.box = {}
         self.box_with_skew_padding = {}
-        self.hand_side = {}
-        self.active = dict.fromkeys(range(start, end), False)
-        self.pagination = dict.fromkeys(range(start, end), None)
-        self.classification = dict.fromkeys(range(start, end), 'Normal')
-        self.page_type = dict.fromkeys(range(start, end), 'Normal')
-        self.add_to_access_formats = dict.fromkeys(range(start, end), None)
-        self.rotate_degree = dict.fromkeys(range(start, end), None)
-        self.skew_angle = dict.fromkeys(range(start, end), 0.0)
-        self.skew_conf = dict.fromkeys(range(start, end), None)
-        self.skew_active = dict.fromkeys(range(start, end), None)
 
         for leaf in range(start, end):
             self.box[leaf] = Box()
@@ -78,7 +85,7 @@ class Crop:
             if leaf in range(self.start, self.end):
                 cropBox = page.find('cropBox')
                 if cropBox is None:
-                    raise Exception('Missing essential item \'cropBox\' in scandata')
+                    raise LookupError('Missing essential item \'cropBox\' in scandata')
                 for dimension, value in self.box[leaf].dimensions.items():
                     if value is not None:
                         cropBox.find(dimension).text = str(int(value))
@@ -95,7 +102,7 @@ class Crop:
                 if mode is 'import':
                     xmlcrop = page.find(self.name)
                     if xmlcrop is None:
-                        raise Exception('Missing essential item \'' + self.name  + '\' in scandata')
+                        raise LookupError('Missing essential item \'' + self.name  + '\' in scandata')
                     try:
                         active = xmlcrop.get('active')
                         if active=='True':
@@ -271,8 +278,10 @@ class Crop:
         except Exception as e:
             print str(e)
             Util.bail('failed to open scandata for writing')
-        self.scandata.tree.write(f, pretty_print=True)
-        f.close()
+        else:
+            self.scandata.tree.write(f, pretty_print=True)
+        finally:
+            f.close()
 
 
     @staticmethod
@@ -709,7 +718,7 @@ class Box:
                 self.update_dimension('y', self.y - delta)
                 self.update_dimension('h', self.h - abs(delta - space))
 
-    
+
     def draw(self, canvas, outline="blue", fill=None, annotate=True):
         img = Image.open(canvas)
         draw = ImageDraw.Draw(img)

@@ -5,9 +5,8 @@ from environment import Environment
 from processing import ProcessHandling
 
 def main(args):
-    
     try:
-        E = Environment(args.root_dir, args)            
+        E = Environment(args.root_dir, args)
     except Exception as e:
         Util.bail(str(e))
 
@@ -16,30 +15,30 @@ def main(args):
     #              'check_thread_exceptions',
     #              None)
 
-    for book in E.books:        
+    for book in E.books:
         queue = P.new_queue()
         queue[book.identifier + '_main'] = P.run_main, book, book.logger, None
 
         if args.derive_all or args.derive:
             if book.settings['respawn']:
-                queue[book.identifier + '_run_cropper'] = (P.run_cropper, 
-                                                           (book, args.active_crop), 
+                queue[book.identifier + '_run_cropper'] = (P.run_cropper,
+                                                           (book, args.active_crop),
                                                            book.logger, None)
-                queue[book.identifier + '_run_ocr'] = (P.run_ocr, 
-                                                       (book, args.language), 
+                queue[book.identifier + '_run_ocr'] = (P.run_ocr,
+                                                       (book, args.language),
                                                        book.logger, None)
             if args.derive_all:
-                queue[book.identifier + '_derive'] = (P.derive_formats, 
-                                                      (book, ('djvu', 'pdf', 'epub', 'text')), 
+                queue[book.identifier + '_derive'] = (P.derive_formats,
+                                                      (book, ('djvu', 'pdf', 'epub', 'text')),
                                                       book.logger, None)
             elif args.derive:
-                queue[book.identifier + '_derive'] = (P.derive_formats, 
-                                                      (book, tuple(args.derive)), 
+                queue[book.identifier + '_derive'] = (P.derive_formats,
+                                                      (book, tuple(args.derive)),
                                                       book.logger, None)
-        P.add_process(P.drain_queue, 
-                      book.identifier + '_drain_queue', 
+        P.add_process(P.drain_queue,
+                      book.identifier + '_drain_queue',
                       (queue, 'sync'), book.logger)
-        
+
 
 
 if __name__ == "__main__":
@@ -70,7 +69,7 @@ if __name__ == "__main__":
     debug.add_argument('--draw-content-dimensions', action='store_true', default=None)
     debug.add_argument('--draw-page-number-candidates', action='store_true', default=None)
     debug.add_argument('--draw-noise', action='store_true')
-    
+
 
     if len(sys.argv)<2:
         parser.print_help()

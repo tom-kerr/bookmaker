@@ -10,33 +10,48 @@ class Util:
     active_procs = []
 
     @staticmethod
-    def exec_cmd(cmd, stdout=None, stdin=None, 
-                 retval=False, return_output=False, print_output=False
+    def exec_cmd(cmd, stdout=None, stdin=None,
+                 retval=False, return_output=False, print_output=False,
                  current_wd=None, logger=None):
         devnull = open(os.devnull, 'w')
         if stdout:
             stdout = open(stdout, 'wb')
         elif return_output:
             stdout = subprocess.PIPE
+        else:
+            stdout = devnull
         if stdin:
             stdin = open(stdin, 'rb')
-
+        print cmd
         try:
             start = Util.microseconds()
             if current_wd is not None:
                 p = subprocess.Popen(cmd, cwd=current_wd, stdout=stdout, stdin=stdin)
             else:
                 p = subprocess.Popen(cmd, stdout=stdout, stdin=stdin)
-            
+
             p.wait()
             output = p.communicate()
+            if print_output:
+                print output
             end = Util.microseconds()
 
         except Exception as e:
             fname, lineno = Util.exception_info()
             raise Exception(str(e) + ' (' + fname + ', line ' + str(lineno) + ')')
-            
-        
+
+        if retval:
+            return p.returncode
+
+        if return_output:
+            return {'output': output[0],
+                    'exec_time': end - start,
+                    'pid': p.pid}
+        else:
+            return {'exec_time': end - start,
+                    'pid': p.pid}
+
+
 
 
     @staticmethod
@@ -48,14 +63,14 @@ class Util:
                 components = cmd.split(' > ')
                 mode = 'wb'
             elif redirect == 'stdin':
-                components = cmd.split(' < ')           
+                components = cmd.split(' < ')
                 mode = 'rb'
             cmd = components[0]
             components[1] = [re.sub("^ +", '', c) for c in components[1].split('^') if c is not ''][0]
             redir = open(str(components[1]), mode)
         elif return_output:
             redir = subprocess.PIPE
-                    
+
         cmd = [re.sub("^ +", '', c) for c in cmd.split('^') if c is not '']
 
         if redirect == 'stdin':
@@ -70,7 +85,7 @@ class Util:
         else:
             sin = None
             sout = None
-        
+
         if not return_output:
             if redirect in ('stdin', False) and print_output:
                 sout = None
@@ -87,7 +102,7 @@ class Util:
             output = p.communicate()
             end = Util.microseconds()
             #Util.active_procs.remove(p)
-            
+
         except Exception as e:
             #Util.active_pids.append(p.pid)
             fname, lineno = Util.exception_info()
@@ -97,14 +112,14 @@ class Util:
             return p.returncode
 
         if return_output:
-            return  {'output': output[0], 
+            return  {'output': output[0],
                      'exec_time': end - start,
                      'pid': p.pid}
         else:
             return {'exec_time': end - start,
                     'pid': p.pid}
 
-    
+
     @staticmethod
     def end_active_processes():
         for p in Util.active_procs:
@@ -117,7 +132,7 @@ class Util:
     @staticmethod
     def exception_info():
         exc_type, exc_obj, exc_tb = sys.exc_info()
-        fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]      
+        fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
         return (fname, exc_tb.tb_lineno)
 
 
@@ -127,7 +142,7 @@ class Util:
             logger.message('Halting...', 'global')
         sys.exit(0)
 
-        
+
     @staticmethod
     def bail(message, logger=None):
         print 'Fatal Error: ' + str(message)
@@ -176,16 +191,16 @@ class Util:
         for value in data:
             if value < statobj['mean'] - statobj['sd']*2:
                 freq['below_2SD'].append(value)
-            if (value < statobj['mean'] - statobj['sd'] and 
+            if (value < statobj['mean'] - statobj['sd'] and
                 value >= statobj['mean'] - statobj['sd']*2):
                 freq['below_1SD'].append(value)
-            if (value < statobj['mean'] and 
+            if (value < statobj['mean'] and
                 value >= statobj['mean'] - statobj['sd']):
                 freq['below_mean'].append(value)
-            if (value >= statobj['mean'] and 
+            if (value >= statobj['mean'] and
                 value < statobj['mean'] + statobj['sd']):
                 freq['above_mean'].append(value)
-            if (value >= statobj['mean'] + statobj['sd'] and 
+            if (value >= statobj['mean'] + statobj['sd'] and
                 value < statobj['mean'] + statobj['sd']*2):
                 freq['above_1SD'].append(value)
             if (value >= statobj['mean'] + statobj['sd']*2):

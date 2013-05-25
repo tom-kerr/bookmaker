@@ -7,8 +7,8 @@ class Component(object):
             setattr(self, arg, None)
 
 
-    def execute(self, stdout=None, stdin=None, 
-                retval=False, return_output=False, print_output=False
+    def execute(self, stdout=None, stdin=None,
+                retval=False, return_output=False, print_output=False,
                 current_wd=None, logger=None):
         cmd = [self.executable]
         for arg in self.args:
@@ -18,4 +18,10 @@ class Component(object):
                 stdin = arg
             else:
                 cmd.append(str(getattr(self, arg)))
-        Util.exec_cmd(cmd, stdout=stdout, stdin=stdin)
+        try:
+            return Util.exec_cmd(cmd, stdout=stdout, stdin=stdin,
+                                 retval=retval, return_output=return_output,
+                                 print_output=print_output,
+                                 current_wd=current_wd, logger=logger)
+        except Exception as e:
+            raise e
