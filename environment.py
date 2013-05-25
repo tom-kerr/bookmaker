@@ -328,17 +328,14 @@ class BookData:
 
 class Scandata:
 
-    def __init__(self, xml_file):
-        self.filename = xml_file
-        self.file = open(xml_file, 'rw+')
+    def __init__(self, filename):
+        self.filename = filename
+        self.file = open(filename, 'r+')
         self.tree = None
         try:
             parser = etree.XMLParser(remove_blank_text=True)
             self.tree = etree.parse(self.file, parser)
-            #except IOError:
-            #Util.bail('could not parse ' + self.file)
         except:
-            print 'failed to parse scandata'
             pass
         else:
             self.file.close()

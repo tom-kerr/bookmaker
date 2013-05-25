@@ -10,6 +10,36 @@ class Util:
     active_procs = []
 
     @staticmethod
+    def exec_cmd(cmd, stdout=None, stdin=None, 
+                 retval=False, return_output=False, print_output=False
+                 current_wd=None, logger=None):
+        devnull = open(os.devnull, 'w')
+        if stdout:
+            stdout = open(stdout, 'wb')
+        elif return_output:
+            stdout = subprocess.PIPE
+        if stdin:
+            stdin = open(stdin, 'rb')
+
+        try:
+            start = Util.microseconds()
+            if current_wd is not None:
+                p = subprocess.Popen(cmd, cwd=current_wd, stdout=stdout, stdin=stdin)
+            else:
+                p = subprocess.Popen(cmd, stdout=stdout, stdin=stdin)
+            
+            p.wait()
+            output = p.communicate()
+            end = Util.microseconds()
+
+        except Exception as e:
+            fname, lineno = Util.exception_info()
+            raise Exception(str(e) + ' (' + fname + ', line ' + str(lineno) + ')')
+            
+        
+
+
+    @staticmethod
     def cmd(cmd, current_wd=None, logger=None, retval=False,
             redirect=False, return_output=False, print_output=False):
         devnull = open(os.devnull, 'w')
@@ -27,7 +57,7 @@ class Util:
             redir = subprocess.PIPE
                     
         cmd = [re.sub("^ +", '', c) for c in cmd.split('^') if c is not '']
-        
+
         if redirect == 'stdin':
             sin = redir
             sout = None

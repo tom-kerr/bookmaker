@@ -27,6 +27,11 @@ class ImageOps:
             'cmd': '{PATH}/bin/clusterAnalysis/slidingWindow/./slidingWindow^ {in_file} {out_file} {window_width} {window_height} {skew_angle} {center_x} {center_y}',
             'message': 'RUNNING SLIDING WINDOW CLUSTER ANALYSIS',
             },
+        'optics': {
+            'args': ['input_file', 'output_file', 'cluster_file', 'center_file', 'unique_file', 'eps', 'minpts'],
+            'cmd': '{PATH}/bin/optics/src/bin/./optics_xyz^ --silent^ --datafile^ {input_file} --outputfile^ {output_file} --clusterfile^ {cluster_file} --centerfile^ {center_file} --uniquefile^ {unique_file} --eps^ {eps} --minpts^ {minpts} ',
+            'message': 'RUNNING OPTICS'
+            },
         'cropper': {
             'args': ['in_file', 'rot_dir', 'skew_angle','l', 'r', 't', 'b', 'out_file'],
             'cmd': '{PATH}/bin/cropper/./cropper^ {in_file} {rot_dir} {skew_angle} {l} {r} {t} {b} {out_file}',
@@ -36,41 +41,6 @@ class ImageOps:
             'args': ['in_file','scale_factor','rotation_direction','out_file'],
             'cmd': '{PATH}/bin/./jpegScale^ {in_file} {scale_factor} {rotation_direction} {out_file}',
             'message': 'SCALING RAW',
-            },
-        'jpegtopnm': {
-            'args': ['in_file','out_file'],
-            'cmd': 'jpegtopnm^ {in_file} > {out_file}',
-            'message': 'CREATING PNM FROM RAW',
-            },
-        'pnmflip': {
-            'args': ['rotation','in_file','out_file'],
-            'cmd': 'pnmflip^ -r{rotation} {in_file} > {out_file}',
-            'message': 'FLIPPING PNM',
-            },
-        'pnmnorm': {
-            'args': ['in_file','out_file'],
-            'cmd': 'pnmnorm^ {in_file} > {out_file}',
-            'message': 'NORMALIZING PNM',
-            },
-        'pnminvert': {
-            'args': ['in_file','out_file'],
-            'cmd': 'pnminvert^ {in_file} > {out_file}',
-            'message': 'INVERTING PNM',
-            },
-        'pamcut': {
-            'args': ['l','r','t','b','in_file','out_file'],
-            'cmd': 'pamcut^ -left={l} -right={r} -top={t} -bottom={b} {in_file} > {out_file}',
-            'message': 'CUTTING OUT AREA',
-            },
-        'ppmtopgm': {
-            'args': ['in_file','out_file'],
-            'cmd': 'ppmtopgm^ {in_file} > {out_file}',
-            'message': 'CREATING GRAYSCALE PNM',
-            },
-        'pnmrotate': {
-            'args': ['rotation','in_file','out_file'],
-            'cmd': 'pnmrotate^ {rotation} {in_file} > {out_file}',
-            'message': 'ROTATING PNM',
             },
         'tesseract':{
             'args': ['in_file','out_base','language','psm', 'hocr'],

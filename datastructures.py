@@ -267,7 +267,7 @@ class Crop:
 
     def write_scandata(self):
         try:
-            f = open(self.scandata.filename, 'w')
+            f = open(self.scandata.filename, 'r+')
         except Exception as e:
             print str(e)
             Util.bail('failed to open scandata for writing')
@@ -709,7 +709,7 @@ class Box:
                 self.update_dimension('y', self.y - delta)
                 self.update_dimension('h', self.h - abs(delta - space))
 
-
+    
     def draw(self, canvas, outline="blue", fill=None, annotate=True):
         img = Image.open(canvas)
         draw = ImageDraw.Draw(img)

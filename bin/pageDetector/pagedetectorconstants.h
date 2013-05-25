@@ -2,7 +2,7 @@
 #define _PAGEDETECTORCONSTANTS_H_
 
 #define DEBUG_IMAGE_DIR "/home/reklaklislaw/development/debug/"
-#define WRITE_DEBUG_IMAGES 1
+#define WRITE_DEBUG_IMAGES 0
 #define WRITE_DEBUG_DATS 0
 #define debugstr
   
