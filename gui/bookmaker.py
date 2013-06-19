@@ -93,7 +93,7 @@ class Bookmaker:
             if raw_data:
                 book_data = BookData(selected, raw_data)
                 book_data.logger = Logger()
-                Environment.set_logs(book_data, 'a')
+                book_data.init_logs()
                 try:
                     book_data.import_crops()
                 except Exception as e:

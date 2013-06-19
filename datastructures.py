@@ -10,28 +10,26 @@ class StructuralMetadata(object):
 
     def __init__(self):
         self.hand_side = {}
-        self.active =                dict.fromkeys(range(self.start, self.end), False)
-        self.pagination =            dict.fromkeys(range(self.start, self.end), None)
-        self.classification =        dict.fromkeys(range(self.start, self.end), 'Normal')
-        self.page_type =             dict.fromkeys(range(self.start, self.end), 'Normal')
-        self.add_to_access_formats = dict.fromkeys(range(self.start, self.end), None)
-        self.rotate_degree =         dict.fromkeys(range(self.start, self.end), None)
-        self.skew_angle =            dict.fromkeys(range(self.start, self.end), 0.0)
-        self.skew_conf =             dict.fromkeys(range(self.start, self.end), None)
-        self.skew_active =           dict.fromkeys(range(self.start, self.end), None)
+        self.active =                dict.fromkeys(range(0, self.page_count), False)
+        self.pagination =            dict.fromkeys(range(0, self.page_count), None)
+        self.classification =        dict.fromkeys(range(0, self.page_count), 'Normal')
+        self.page_type =             dict.fromkeys(range(0, self.page_count), 'Normal')
+        self.add_to_access_formats = dict.fromkeys(range(0, self.page_count), None)
+        self.rotate_degree =         dict.fromkeys(range(0, self.page_count), None)
+        self.skew_angle =            dict.fromkeys(range(0, self.page_count), 0.0)
+        self.skew_conf =             dict.fromkeys(range(0, self.page_count), None)
+        self.skew_active =           dict.fromkeys(range(0, self.page_count), None)
 
 
 
 class Crop(StructuralMetadata):
 
-    def __init__(self, name, start, end,
-                 image_width=None, image_height=None,
-                 scandata=None, import_scandata=False):
+    def __init__(self, name, page_count,
+                 raw_image_dimensions, scandata=None,
+                 import_scandata=False, scale_factor=1):
         self.name = name
-        self.start = start
-        self.end = end
-        self.image_height = image_height
-        self.image_width = image_width
+        self.page_count = page_count
+        self.scale_factor = scale_factor
         self.scandata = scandata
 
         super(Crop, self).__init__()
@@ -39,10 +37,15 @@ class Crop(StructuralMetadata):
         self.meta ={}
         self.box = {}
         self.box_with_skew_padding = {}
+        self.image_height = {}
+        self.image_width = {}
 
-        for leaf in range(start, end):
+        for leaf in range(0, self.page_count):
             self.box[leaf] = Box()
             self.box_with_skew_padding[leaf] = Box()
+
+            self.image_width[leaf] = raw_image_dimensions[leaf]['height']/scale_factor
+            self.image_height[leaf] = raw_image_dimensions[leaf]['width']/scale_factor
             if leaf%2==0:
                 self.hand_side[leaf] = 'LEFT'
             else:
@@ -82,7 +85,7 @@ class Crop(StructuralMetadata):
         page_data = self.scandata.tree.find('pageData')
         pages = page_data.findall('page')
         for leaf, page in enumerate(pages):
-            if leaf in range(self.start, self.end):
+            if leaf in range(0, self.page_count):
                 cropBox = page.find('cropBox')
                 if cropBox is None:
                     raise LookupError('Missing essential item \'cropBox\' in scandata')
@@ -90,14 +93,24 @@ class Crop(StructuralMetadata):
                     if value is not None:
                         cropBox.find(dimension).text = str(int(value))
                 self.active[leaf] = True
-        #self.write_scandata()
+        #self.write_to_scandata()
+
+
+    def write_to_scandata(self):
+        try:
+            f = open(self.scandata.filename, 'r+')
+        except Exception as e:
+            Util.bail('failed to open scandata for writing')
+        else:
+            self.scandata.tree.write(f, pretty_print=True)
+            f.close()
 
 
     def xml_io(self, mode):
         page_data = self.scandata.tree.find('pageData')
         pages = page_data.findall('page')
         for leaf, page in enumerate(pages):
-            if leaf in range(self.start, self.end):
+            if leaf in range(0, self.page_count):
 
                 if mode is 'import':
                     xmlcrop = page.find(self.name)
@@ -144,11 +157,11 @@ class Crop(StructuralMetadata):
                     origwidth = page.find('origWidth')
                     if origwidth is not None:
                         self.box[leaf].orig_width = int(origwidth.text)
-                        self.image_height = int(origwidth.text)
+                        self.image_height[leaf] = int(origwidth.text)/self.scale_factor
                         origheight = page.find('origHeight')
                     if origheight is not None:
                         self.box[leaf].orig_height = int(origheight.text)
-                        self.image_width = int(origheight.text)
+                        self.image_width[leaf] = int(origheight.text)/self.scale_factor
 
                 elif mode is 'export':
                     xmlcrop = page.find(self.name)
@@ -181,7 +194,7 @@ class Crop(StructuralMetadata):
                     if skewconf is not None and self.skew_conf[leaf] is not None:
                         skewconf.text = str(self.skew_conf[leaf])
         if mode is 'export':
-            self.write_scandata()
+            self.write_to_scandata()
 
 
     def delete_assertion(self, leaf):
@@ -200,7 +213,7 @@ class Crop(StructuralMetadata):
         if remove is not None:
             #self.pagination[leaf] = None
             assertions[remove].getparent().remove(assertions[remove])
-            self.write_scandata()
+            self.write_to_scandata()
             self.update_pagination()
 
 
@@ -215,7 +228,7 @@ class Crop(StructuralMetadata):
             if entry.text == str(leaf):
                 pagenum = element.find('pageNum')
                 pagenum.text = str(number)
-                self.write_scandata()
+                self.write_to_scandata()
                 self.update_pagination()
                 return
         insert_point = None
@@ -233,7 +246,7 @@ class Crop(StructuralMetadata):
         leafnum.text = str(leaf)
         pagenum = etree.SubElement(assertion, 'pageNum')
         pagenum.text = str(number)
-        self.write_scandata()
+        self.write_to_scandata()
         self.update_pagination()
 
 
@@ -256,7 +269,7 @@ class Crop(StructuralMetadata):
                 end_leaf = int(assertions[next_num].find('leafNum').text)
                 end_pagenum = int(assertions[next_num].find('pageNum').text)
             except:
-                end_leaf = self.end
+                end_leaf = self.page_count
                 end_pagenum = start_pagenum + (end_leaf - start_leaf)
             ranges[num] = (start_leaf, end_leaf)
             for num, leaf in enumerate(range(start_leaf, end_leaf+1)):
@@ -270,18 +283,6 @@ class Crop(StructuralMetadata):
                     else:
                         self.pagination[leaf] = str(start_pagenum + num) + '?'
                 #print leaf, self.pagination[leaf]
-
-
-    def write_scandata(self):
-        try:
-            f = open(self.scandata.filename, 'r+')
-        except Exception as e:
-            print str(e)
-            Util.bail('failed to open scandata for writing')
-        else:
-            self.scandata.tree.write(f, pretty_print=True)
-        finally:
-            f.close()
 
 
     @staticmethod
@@ -321,6 +322,7 @@ class Crop(StructuralMetadata):
                                      mx, my, angle)
         new_rb = Crop.calculate_skew(self.box[leaf].r, self.box[leaf].b,
                                      mx, my, angle)
+
         if mode == 'contract':
             if angle > 0:
                 self.box[leaf].update_dimension('l', int(new_lt['x']))
@@ -351,8 +353,8 @@ class Crop(StructuralMetadata):
         if not self.box[leaf].is_valid():
             self.box_with_skew_padding[leaf].set_dimension('l', 0)
             self.box_with_skew_padding[leaf].set_dimension('t', 0)
-            self.box_with_skew_padding[leaf].set_dimension('r', self.image_width)
-            self.box_with_skew_padding[leaf].set_dimension('b', self.image_height)
+            self.box_with_skew_padding[leaf].set_dimension('r', self.image_width[leaf])
+            self.box_with_skew_padding[leaf].set_dimension('b', self.image_height[leaf])
 
         if deskew:
             angle = 0 - self.skew_angle[leaf] * factor
@@ -360,11 +362,11 @@ class Crop(StructuralMetadata):
             angle = self.skew_angle[leaf] * factor
 
         if angle > 0:
-            XL = self.image_height - self.box[leaf].t
+            XL = self.image_height[leaf] - self.box[leaf].t
             YL = self.box[leaf].l
         else:
             XL = self.box[leaf].t
-            YL = self.image_width - self.box[leaf].l
+            YL = self.image_width[leaf] - self.box[leaf].l
 
         padding_x = abs(((math.sin(math.radians(angle)) * XL)))
         padding_y = abs(((math.sin(math.radians(angle)) * YL)))

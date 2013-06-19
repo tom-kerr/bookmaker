@@ -40,8 +40,8 @@ int main (int argc, char *argv[]) {
   window_file = fopen(argv[2],"w");
   
   unsigned short int L = (unsigned short int) atoi(argv[3]);
-  unsigned short int R = (unsigned short int) atoi(argv[4]);
-  unsigned short int T = (unsigned short int) atoi(argv[5]);
+  unsigned short int T = (unsigned short int) atoi(argv[4]);
+  unsigned short int R = (unsigned short int) atoi(argv[5]);
   unsigned short int B = (unsigned short int) atoi(argv[6]);
   
   imageWidth = (unsigned short int) atoi(argv[7]);

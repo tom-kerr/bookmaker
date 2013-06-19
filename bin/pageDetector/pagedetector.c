@@ -7,6 +7,7 @@
 #include <fftw3.h>
 #include "allheaders.h"
 
+#include "common.c"
 #include "constants.h"
 #include "stats.c"
 #include "structs.h"
@@ -21,13 +22,13 @@
 
 
 
-float getNonContentAvgLuma(PIX *pix_clipped_8_gray, 
+float getNonContentAvgLuma(PIX *pix_clipped_gray, 
 			   struct cluster *clusters) {
 
-  int w = pixGetWidth(pix_clipped_8_gray);
-  int h = pixGetHeight(pix_clipped_8_gray);
+  int w = pixGetWidth(pix_clipped_gray);
+  int h = pixGetHeight(pix_clipped_gray);
 
-  void **pix_clipped_8_gray_lines = pixGetLinePtrs(pix_clipped_8_gray, NULL);
+  void **pix_clipped_gray_lines = pixGetLinePtrs(pix_clipped_gray, NULL);
 
   int x,y,i,k; 
   int luma_sum, luma_count;
@@ -38,7 +39,7 @@ float getNonContentAvgLuma(PIX *pix_clipped_8_gray,
 	  (y < clusters->dimensions.t || y > clusters->dimensions.b))
 	{
 	  //printf("%d, %d\n", x,y);
-	  luma_sum += GET_DATA_BYTE(pix_clipped_8_gray_lines[y], x);
+	  luma_sum += GET_DATA_BYTE(pix_clipped_gray_lines[y], x);
 	  luma_count++;
 	}
     }
@@ -84,32 +85,34 @@ PIX* NormalizedGray(PIX *pix,
 
 void run(char *in_file,
 	 int rot_dir,
+	 float scale_factor,
 	 char *scaled_out_file) {
 
-  PIX *pix_scaled_4, *pix_scaled_8, 
-    *pix_scaled_4_gray, *pix_scaled_8_gray, 
-    *pix_scaled_8_gray_normalized;
+  PIX *pix_scaled_1x, *pix_scaled_2x, 
+    *pix_scaled_1x_gray, *pix_scaled_2x_gray, 
+    *pix_scaled_2x_gray_normalized;
 
-  pix_scaled_4 = JpegScale(in_file,rot_dir,4,scaled_out_file);
-  pix_scaled_4_gray = NormalizedGray(pix_scaled_4, rot_dir);
+  pix_scaled_1x = ScaleAndRotate(in_file, rot_dir, scale_factor, scaled_out_file);
+  pix_scaled_1x_gray = NormalizedGray(pix_scaled_1x, rot_dir);
 
-  pix_scaled_8 = JpegScale(in_file,rot_dir,8,NULL);
-  pix_scaled_8_gray_normalized = NormalizedGray(pix_scaled_8, rot_dir);
+  pix_scaled_2x = ScaleAndRotate(in_file,rot_dir, scale_factor/2.0, NULL);
+  pix_scaled_2x_gray_normalized = NormalizedGray(pix_scaled_2x, rot_dir);
 
   
 #if WRITE_DEBUG_IMAGES
-  pixWrite(DEBUG_IMAGE_DIR "scaled_8_normalized_initial", pix_scaled_8_gray_normalized, IFF_JFIF_JPEG);
+  pixWrite(DEBUG_IMAGE_DIR "scaled_2x_normalized_initial", 
+	   pix_scaled_2x_gray_normalized, IFF_JFIF_JPEG);
 #endif
 
 
   int x,y;
-  unsigned int w = pixGetWidth(pix_scaled_8_gray_normalized);
-  unsigned int h = pixGetHeight(pix_scaled_8_gray_normalized);
+  unsigned int w = pixGetWidth(pix_scaled_2x_gray_normalized);
+  unsigned int h = pixGetHeight(pix_scaled_2x_gray_normalized);
 
   unsigned int w_padding = w * 0.25;
   unsigned int h_padding = h * 0.25;
 
-  PIX *pix_scaled_8_gray_normalized_padded = AddPadding(pix_scaled_8_gray_normalized, 
+  PIX *pix_scaled_2x_gray_normalized_padded = AddPadding(pix_scaled_2x_gray_normalized, 
 							rot_dir,
 							w, w_padding,
 							h, h_padding,
@@ -117,8 +120,8 @@ void run(char *in_file,
   unsigned int padded_w = w + w_padding;
   unsigned int padded_h = h + h_padding*2;
 
-  //void **lines_scaled_8_gray_normalized = pixGetLinePtrs(pix_scaled_8_gray_normalized, NULL);
-  void **lines_scaled_8_gray_normalized = pixGetLinePtrs(pix_scaled_8_gray_normalized_padded, NULL);
+  //void **lines_scaled_2x_gray_normalized = pixGetLinePtrs(pix_scaled_2x_gray_normalized, NULL);
+  void **lines_scaled_2x_gray_normalized = pixGetLinePtrs(pix_scaled_2x_gray_normalized_padded, NULL);
 
   struct dimensions *book = (struct dimensions *) malloc(sizeof(struct dimensions));
   book->l = book->t = book->r = book->b = -1;
@@ -126,8 +129,8 @@ void run(char *in_file,
 
   //horizontal component
   struct fouriercomponents *fc = (struct fouriercomponents *) malloc(sizeof(struct fouriercomponents));
-  //SetFourierData(lines_scaled_8_gray_normalized, fc, w, h, 0, 0, 0);
-  SetFourierData(lines_scaled_8_gray_normalized, fc, padded_w, padded_h, 0, 0, 0);
+  //SetFourierData(lines_scaled_2x_gray_normalized, fc, w, h, 0, 0, 0);
+  SetFourierData(lines_scaled_2x_gray_normalized, fc, padded_w, padded_h, 0, 0, 0);
   CalcFourierTransforms(fc);
   struct bandfilter *hrzband = (struct bandfilter *) malloc(sizeof(struct bandfilter));
   ExtractFrequencies(fc, hrzband);
@@ -157,7 +160,7 @@ void run(char *in_file,
   //detectMattingSignature(_VrtB, _R, _BOOK, w, rot_dir);
   //freeBandData(_VrtB, w);
   //now gather peaks
-  SetFourierData(lines_scaled_8_gray_normalized, fc, padded_h, padded_w, 1, 0, padded_h);
+  SetFourierData(lines_scaled_2x_gray_normalized, fc, padded_h, padded_w, 1, 0, padded_h);
   CalcFourierTransforms(fc);
   ExtractFrequencies(fc, vrtband);
   FreeFourierData(fc, padded_w);  
@@ -174,7 +177,7 @@ void run(char *in_file,
 
   float avg_luma_book = 0.0;
   struct dimensions *page = (struct dimensions *) malloc(sizeof(struct dimensions));
-  FindLowFreqPeaks(pix_scaled_8_gray_normalized, 
+  FindLowFreqPeaks(pix_scaled_2x_gray_normalized, 
 		   hrzband, vrtband,
 		   book, page, 
 		   avg_luma_book, 
@@ -207,12 +210,12 @@ void run(char *in_file,
   */
 
   l_int32 graychannel;
-  pix_scaled_8_gray = ConvertToGray(pix_scaled_8, &graychannel);
+  pix_scaled_2x_gray = ConvertToGray(pix_scaled_2x, &graychannel);
   
   if (rot_dir==-1)
-    page->r = FindBBar(pix_scaled_8_gray, rot_dir, page->t, page->b, &delta_binding, &thresh_binding);
+    page->r = FindBBar(pix_scaled_2x_gray, rot_dir, page->t, page->b, &delta_binding, &thresh_binding);
   else if (rot_dir==1)
-    page->l = FindBBar(pix_scaled_8_gray, rot_dir, page->t, page->b, &delta_binding, &thresh_binding);
+    page->l = FindBBar(pix_scaled_2x_gray, rot_dir, page->t, page->b, &delta_binding, &thresh_binding);
   
 
   printf("\nBK_L: %d\nBK_T: %d\nBK_R: %d\nBK_B: %d\n",book->l, book->t, book->r, book->b);
@@ -223,16 +226,16 @@ void run(char *in_file,
   l_int32 init_box_w = (l_int32)((page->r - page->l));
   l_int32 init_box_h = (l_int32)((page->b - page->t));  
   init_box = boxCreate(page->l, page->t, init_box_w, init_box_h);
-  PIX *pix_clipped_8 = pixClipRectangle(pix_scaled_8, init_box, NULL);
-  PIX *pix_clipped_8_gray = ConvertToGray(pix_clipped_8, &graychannel);
+  PIX *pix_clipped_2x = pixClipRectangle(pix_scaled_2x, init_box, NULL);
+  PIX *pix_clipped_2x_gray = ConvertToGray(pix_clipped_2x, &graychannel);
 
 
-  unsigned int clipped_w = pixGetWidth(pix_clipped_8);
-  unsigned int clipped_h = pixGetHeight(pix_clipped_8);  
+  unsigned int clipped_w = pixGetWidth(pix_clipped_2x);
+  unsigned int clipped_h = pixGetHeight(pix_clipped_2x);  
 
 
   struct stats *page_luma_stats = (struct stats *) malloc(sizeof(struct stats));
-  CalculateAvgLumaSection(pix_clipped_8_gray,
+  CalculateAvgLumaSection(pix_clipped_2x_gray,
                           page_luma_stats,
                           0, 
                           0,
@@ -245,7 +248,7 @@ void run(char *in_file,
 
  
   struct stats *top_edge_luma_stats = (struct stats *) malloc(sizeof(struct stats));
-  CalculateAvgLumaSection(pix_clipped_8_gray,
+  CalculateAvgLumaSection(pix_clipped_2x_gray,
                           top_edge_luma_stats,
                           0, 
                           0,
@@ -257,7 +260,7 @@ void run(char *in_file,
 	 top_edge_luma_stats->sd);
     
   struct stats *bottom_edge_luma_stats = (struct stats *) malloc(sizeof(struct stats));
-  CalculateAvgLumaSection(pix_clipped_8_gray,
+  CalculateAvgLumaSection(pix_clipped_2x_gray,
                           bottom_edge_luma_stats,
                           0, 
                           clipped_h-6,
@@ -281,7 +284,7 @@ void run(char *in_file,
     }
 
   struct stats *outside_edge_luma_stats = (struct stats *) malloc(sizeof(struct stats));
-  CalculateAvgLumaSection(pix_clipped_8_gray,
+  CalculateAvgLumaSection(pix_clipped_2x_gray,
                           outside_edge_luma_stats,
                           left, 
                           0,
@@ -294,7 +297,7 @@ void run(char *in_file,
 
 
 
-  struct corners *corners = RunFastDetector9(pix_clipped_8_gray, 
+  struct corners *corners = RunFastDetector9(pix_clipped_2x_gray, 
 					     clipped_w, 
 					     clipped_h);
 
@@ -343,9 +346,9 @@ void run(char *in_file,
 			      clusters[content_cluster]->dimensions.r - clusters[content_cluster]->dimensions.l,
 			      clusters[content_cluster]->dimensions.b - clusters[content_cluster]->dimensions.t);
       
-      pixRenderBoxArb(pix_clipped_8_gray, content_box, 1, 255, 0, 0);
+      pixRenderBoxArb(pix_clipped_2x_gray, content_box, 1, 255, 0, 0);
     
-      non_content_avg_luma = getNonContentAvgLuma(pix_clipped_8_gray, 
+      non_content_avg_luma = getNonContentAvgLuma(pix_clipped_2x_gray, 
 						  clusters[content_cluster]);
     }
   }
@@ -356,17 +359,17 @@ void run(char *in_file,
     non_content_avg_luma = page_luma_stats->mean*.9;
   }
 
-  //pix_scaled_8_gray_normalized = pixThresholdToValue(NULL, pix_scaled_8_gray, non_content_avg_luma*0.80, 0);
-  //pix_scaled_8_gray_normalized = pixThresholdToValue(NULL, pix_scaled_8_gray_normalized, non_content_avg_luma*1.1, 255);
+  //pix_scaled_2x_gray_normalized = pixThresholdToValue(NULL, pix_scaled_2x_gray, non_content_avg_luma*0.80, 0);
+  //pix_scaled_2x_gray_normalized = pixThresholdToValue(NULL, pix_scaled_2x_gray_normalized, non_content_avg_luma*1.1, 255);
 
   if (rot_dir==-1)
-    page->r = FindBBar(pix_scaled_8_gray_normalized, rot_dir, page->t, page->b, &delta_binding, &thresh_binding);
+    page->r = FindBBar(pix_scaled_2x_gray_normalized, rot_dir, page->t, page->b, &delta_binding, &thresh_binding);
   else if (rot_dir==1)
-    page->l = FindBBar(pix_scaled_8_gray_normalized, rot_dir, page->t, page->b, &delta_binding, &thresh_binding);
+    page->l = FindBBar(pix_scaled_2x_gray_normalized, rot_dir, page->t, page->b, &delta_binding, &thresh_binding);
 
   
   /*
-  int inside = FindInsideMargin(pix_scaled_8_gray,
+  int inside = FindInsideMargin(pix_scaled_2x_gray,
 				rot_dir,
 				non_content_avg_luma*.9);
 
@@ -387,7 +390,7 @@ void run(char *in_file,
 
     /*
     for(i=clipped_w-1; i > 0; i--) {        
-      luma = CalculateAvgCol(pix_clipped_8_gray, i, 0, clipped_h-1); 
+      luma = CalculateAvgCol(pix_clipped_2x_gray, i, 0, clipped_h-1); 
       if (luma >= non_content_avg_luma - page_luma_stats->sd*2) {
 	//if (luma >= non_content_avg_luma) {
 	printf("INSIDE A| col %d  luma: %lf  \n", i, luma);
@@ -398,7 +401,7 @@ void run(char *in_file,
     */
 
     for(i=0; i < clipped_w-1; i++) {        
-      luma = CalculateAvgCol(pix_clipped_8_gray, i, 0, clipped_h-1); 
+      luma = CalculateAvgCol(pix_clipped_2x_gray, i, 0, clipped_h-1); 
       //if (luma >= non_content_avg_luma - page_luma_stats->sd) {
       if (luma >= non_content_avg_luma) {	
 	printf("OUTSIDE A| col %d  luma: %lf  \n", i, luma);
@@ -411,7 +414,7 @@ void run(char *in_file,
      
   else if (rot_dir==1) {
     for(i=clipped_w-1; i>0; i--) {        
-      luma = CalculateAvgCol(pix_clipped_8_gray, i, 0, clipped_h-1); 
+      luma = CalculateAvgCol(pix_clipped_2x_gray, i, 0, clipped_h-1); 
       //if (luma >= non_content_avg_luma - page_luma_stats->sd) {
       if (luma >= non_content_avg_luma) {	
 	printf("OUTSIDE B| col %d  luma: %lf  \n", i, luma);
@@ -421,7 +424,7 @@ void run(char *in_file,
     }
     /*
     for(i=0; i < clipped_w-1; i++) {        
-      luma = CalculateAvgCol(pix_clipped_8_gray, i, 0, clipped_h-1); 
+      luma = CalculateAvgCol(pix_clipped_2x_gray, i, 0, clipped_h-1); 
       if (luma >= non_content_avg_luma - page_luma_stats->sd*2) {
 	//if (luma >= non_content_avg_luma) {
 	printf("INSIDE B| col %d  luma: %lf  \n", i, luma);
@@ -434,7 +437,7 @@ void run(char *in_file,
     
   
   for(i=clipped_h-1; i>0; i--) {        
-    luma = CalculateAvgRow(pix_clipped_8_gray, i, 0, clipped_w-1); 
+    luma = CalculateAvgRow(pix_clipped_2x_gray, i, 0, clipped_w-1); 
     if (luma >= non_content_avg_luma - page_luma_stats->sd*2) {
     //if (luma >= non_content_avg_luma) {      
       printf("BOTTOM| row %d  luma: %lf  \n", i, luma);
@@ -444,7 +447,7 @@ void run(char *in_file,
   }
 
   for(i=0; i<clipped_h-1; i++) {        
-    luma = CalculateAvgRow(pix_clipped_8_gray, i, 0, clipped_w-1); 
+    luma = CalculateAvgRow(pix_clipped_2x_gray, i, 0, clipped_w-1); 
     if (luma >= non_content_avg_luma - page_luma_stats->sd*2) {
     //if (luma >= non_content_avg_luma) {
       printf("TOP| row %d  luma: %lf  \n", i, luma);
@@ -461,12 +464,12 @@ void run(char *in_file,
 			page->r-page->l,
 			page->b-page->t);
   
-  pixRenderBoxArb(pix_scaled_8, crop, 1, 0, 0, 255);
+  pixRenderBoxArb(pix_scaled_2x, crop, 1, 0, 0, 255);
   
-  pixWrite(DEBUG_IMAGE_DIR "scaled_8.jpg", pix_scaled_8, IFF_JFIF_JPEG); 
-  pixWrite(DEBUG_IMAGE_DIR "scaled_8_clipped.jpg", pix_clipped_8, IFF_JFIF_JPEG); 
-  pixWrite(DEBUG_IMAGE_DIR "scaled_8_clipped_gray.jpg", pix_clipped_8_gray, IFF_JFIF_JPEG); 
-  pixWrite(DEBUG_IMAGE_DIR "scaled_8_normalized_gray", pix_scaled_8_gray_normalized, IFF_JFIF_JPEG);
+  pixWrite(DEBUG_IMAGE_DIR "scaled_2x.jpg", pix_scaled_2x, IFF_JFIF_JPEG); 
+  pixWrite(DEBUG_IMAGE_DIR "scaled_2x_clipped.jpg", pix_clipped_2x, IFF_JFIF_JPEG); 
+  pixWrite(DEBUG_IMAGE_DIR "scaled_2x_clipped_gray.jpg", pix_clipped_2x_gray, IFF_JFIF_JPEG); 
+  pixWrite(DEBUG_IMAGE_DIR "scaled_2x_normalized_gray", pix_scaled_2x_gray_normalized, IFF_JFIF_JPEG);
 #endif
 
 
@@ -561,21 +564,27 @@ void run(char *in_file,
 
 void main (int argc, char **argv ) {
 
-  if (argc!=4) {
-    printf("Usage: in_file rotation_dir[-1,1] scaled_out_file\n");
+  if (argc!=5) {
+    printf("Usage: in_file rotation_dir[-1,1] scale_factor[1,2,4,8] scaled_out_file\n");
     exit(1);
   }
 
   char *in_file = argv[1];
   int rot_dir = atoi(argv[2]);
-  char *scaled_out_file = argv[3];  
+  float scale_factor = atof(argv[3]);
+  char *scaled_out_file = argv[4];  
   
   if (rot_dir != -1 && rot_dir != 1) {
-    printf("invalid rotation direction");
+    printf("invalid rotation direction [-1, 1]");
     exit(1);
   }
 
-  run(in_file,rot_dir,scaled_out_file);
+  if ((int)scale_factor%2!=0 && (int)scale_factor>8) {
+    printf("Invalid scale_factor [1, 2, 4, 8]\n");
+    exit(1);
+  }
+
+  run(in_file, rot_dir, scale_factor, scaled_out_file);
   exit(0);
 }
 

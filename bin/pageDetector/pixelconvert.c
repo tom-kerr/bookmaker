@@ -3,13 +3,22 @@
 #include "pagedetectorconstants.h"
 #include "pixelconvert.h"
 
-PIX* JpegScale(char *in_file, 
-	       int rot_dir,
-	       int scale_factor,
-	       char *scaled_out_file) {
+#include <stdio.h>
+
+PIX* ScaleAndRotate(char *in_file, 
+		    int rot_dir,
+		    float scale_factor,
+		    char *scaled_out_file) {
 
   FILE *in_stream, *out_stream;
-  PIX *pix_scaled, *pix_scaled_rotated;
+  PIX *pix, *pix_scaled, *pix_scaled_rotated;
+  
+  const char* ext = get_file_ext(in_file);
+
+  if (ext == NULL) {
+    printf("invalid file!\n");
+    exit(1);
+  }
 
   in_stream = fopenReadStream(in_file);
   if (in_stream==NULL)
@@ -17,12 +26,33 @@ PIX* JpegScale(char *in_file,
       printf("Failed to open in_file\n");
       exit(1);
     }
-  pix_scaled = pixReadStreamJpeg(in_stream, 0, scale_factor, NULL, 0);
+
+  if (strcmp(ext, "jpeg") == 0) {
+    scale_factor = 1.0/scale_factor;
+    pix_scaled = pixReadStreamJpeg(in_stream, 0, scale_factor, NULL, 0);
+
+  } else {
+
+    if (strcmp(ext, "tiff") == 0) 
+      pix = pixReadStreamTiff(in_stream, 0);    
+    else if (strcmp(ext, "png") == 0) 
+      pix = pixReadStreamPng(in_stream);
+  
+    if (pix==NULL) 
+      {
+	printf("Failed to read stream\n");
+	exit(1);
+      }
+  
+    pix_scaled = pixScale(pix, scale_factor, scale_factor);
+  }
+  
   if (pix_scaled==NULL)
     {
       printf("Failed to scale\n");
       exit(1);
     }
+
   if (rot_dir == 1 || rot_dir==-1)
     pix_scaled_rotated = pixRotate90(pix_scaled, rot_dir);
   else if (rot_dir == 0)
@@ -31,7 +61,7 @@ PIX* JpegScale(char *in_file,
     printf("Invalid rot_dir [-1,0,1]\n");
     exit(1);
   }
-    
+
   if (pix_scaled_rotated==NULL)
     {
       printf("Failed to rotate\n");
@@ -41,12 +71,18 @@ PIX* JpegScale(char *in_file,
   if (scaled_out_file!=NULL) 
     {
       out_stream = fopen(scaled_out_file, "w");
-      if (out_stream) {
-	pixWriteStreamJpeg(out_stream, pix_scaled_rotated, 30, 0);
-	fclose(out_stream);
-      } else
-	printf("failed to open out_stream!\n");
-    }
+      if (strcmp(ext, "jpeg") == 0) 
+      	pixWriteStreamJpeg(out_stream, pix_scaled_rotated, 30, 0);
+      else if (strcmp(ext, "tiff") == 0) 
+	pixWriteStreamTiff(out_stream, pix_scaled_rotated, IFF_TIFF);
+      else if (strcmp(ext, "png") == 0) 
+	pixWriteStreamPng(out_stream, pix_scaled_rotated, 0.0);
+      fclose(out_stream);
+    } 
+  else 
+    printf("failed to open out_stream!\n");
+
+  
 
   return pix_scaled_rotated;
 }

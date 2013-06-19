@@ -22,7 +22,7 @@ class Util:
             stdout = devnull
         if stdin:
             stdin = open(stdin, 'rb')
-        print cmd
+            #print cmd
         try:
             start = Util.microseconds()
             if current_wd is not None:
@@ -30,8 +30,8 @@ class Util:
             else:
                 p = subprocess.Popen(cmd, stdout=stdout, stdin=stdin)
 
-            p.wait()
             output = p.communicate()
+            
             if print_output:
                 print output
             end = Util.microseconds()
@@ -47,74 +47,6 @@ class Util:
             return {'output': output[0],
                     'exec_time': end - start,
                     'pid': p.pid}
-        else:
-            return {'exec_time': end - start,
-                    'pid': p.pid}
-
-
-
-
-    @staticmethod
-    def cmd(cmd, current_wd=None, logger=None, retval=False,
-            redirect=False, return_output=False, print_output=False):
-        devnull = open(os.devnull, 'w')
-        if redirect in ('stdout', 'stdin'):
-            if redirect == 'stdout':
-                components = cmd.split(' > ')
-                mode = 'wb'
-            elif redirect == 'stdin':
-                components = cmd.split(' < ')
-                mode = 'rb'
-            cmd = components[0]
-            components[1] = [re.sub("^ +", '', c) for c in components[1].split('^') if c is not ''][0]
-            redir = open(str(components[1]), mode)
-        elif return_output:
-            redir = subprocess.PIPE
-
-        cmd = [re.sub("^ +", '', c) for c in cmd.split('^') if c is not '']
-
-        if redirect == 'stdin':
-            sin = redir
-            sout = None
-        elif redirect == 'stdout':
-            sin = None
-            sout = redir
-        elif return_output:
-            sin = None
-            sout = redir
-        else:
-            sin = None
-            sout = None
-
-        if not return_output:
-            if redirect in ('stdin', False) and print_output:
-                sout = None
-            elif redirect in ('stdin', False) and not print_output:
-                sout = devnull
-        try:
-            start = Util.microseconds()
-            if current_wd is not None:
-                p = subprocess.Popen(cmd, cwd=current_wd, stdout=sout, stdin=sin)
-            else:
-                p = subprocess.Popen(cmd, stdout=sout, stdin=sin)
-            #Util.active_procs.append(p)
-            p.wait()
-            output = p.communicate()
-            end = Util.microseconds()
-            #Util.active_procs.remove(p)
-
-        except Exception as e:
-            #Util.active_pids.append(p.pid)
-            fname, lineno = Util.exception_info()
-            raise Exception(str(e) + ' (' + fname + ', line ' + str(lineno) + ')')
-
-        if retval:
-            return p.returncode
-
-        if return_output:
-            return  {'output': output[0],
-                     'exec_time': end - start,
-                     'pid': p.pid}
         else:
             return {'exec_time': end - start,
                     'pid': p.pid}

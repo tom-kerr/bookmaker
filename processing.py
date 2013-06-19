@@ -8,15 +8,21 @@ import Queue
 from util import Util
 from environment import Environment, Scandata
 from featuredetection import FeatureDetection
-#from pagination import AutoPaginate
+
 from standardcrop import StandardCrop
-from cropper import Cropper
-from ocr import OCR
-from derive import Derive
+
+from core.derive import Derive
+from core.crop import Crop
+from core.ocr import OCR
 from gui.common import Common
 
 
 class ProcessHandling:
+
+    thread_count_ignore = ('drain_queue',
+                           'handle_thread_exceptions',
+                           'distribute',
+                           'run_pipeline')
 
     def __init__(self):
         try:
@@ -35,9 +41,8 @@ class ProcessHandling:
         self.poll = None
         self.monitor_threads = False
         self.FeatureDetection = None
-        self.Cropper = None
-        self.OCR = None
-        self.Derive = None
+        self.OperationObjects = {}
+
 
     def init_poll(self):
         self.poll = threading.Thread(None, self.poll_threads, 'poll_threads')
@@ -60,8 +65,9 @@ class ProcessHandling:
         for pid, data in queue.items():
             pids.append(pid)
             func, args, logger, callback = data
+            #print func, args, logger, callback
             if mode == 'sync':
-                if type(args) != tuple:
+                if not isinstance(args, tuple):
                     args = tuple((args,)) if args is not None else ()
                 try:
                     func(*args)
@@ -73,7 +79,7 @@ class ProcessHandling:
             try:
                 self.handle_thread_exceptions()
             except Exception as e:
-                raise Exception(str(e))
+                raise e
             finished = 0
             active_pids = []
             for pid, thread in self.active_threads.items():
@@ -105,7 +111,7 @@ class ProcessHandling:
             self.wait(func, pid, args)
             return False
         else:
-            if type(args) != tuple:
+            if not isinstance(args, tuple):
                 args = tuple((args,)) if args is not None else ()
             new_thread = threading.Thread(None, func, pid, args)
             new_thread.func = func.__name__
@@ -115,8 +121,7 @@ class ProcessHandling:
             new_thread.start_time = Util.microseconds()
             new_thread.start()
             self.active_threads[pid] = new_thread
-            if new_thread.func not in ('drain_queue', 'handle_thread_exceptions', 'run_main',
-                                       'run_ocr', 'run_cropper', 'derive_formats'):
+            if new_thread.func not in ProcessHandling.thread_count_ignore:
                 self.processes += 1
                 #print 'added ' + str(pid) + ' #processes:' + str(self.processes)
             if not self.poll:
@@ -150,8 +155,7 @@ class ProcessHandling:
         if pid in self.active_threads:
             if self.active_threads[pid].logger:
                 self.active_threads[pid].logger.message('Destroying Thread ' + str(pid), 'processing')
-            if self.active_threads[pid].func not in ('drain_queue', 'run_main', 'run_ocr',
-                                                     'run_cropper', 'derive_formats'):
+            if self.active_threads[pid].func not in ProcessHandling.thread_count_ignore:
                 self.processes -= 1
             self.active_threads[pid]._Thread__stop()
             del self.active_threads[pid]
@@ -170,8 +174,7 @@ class ProcessHandling:
             for pid, thread in inactive.items():
                 if thread.call_back is not None:
                     thread.call_back(thread)
-                if thread.func not in ('drain_queue', 'run_main', 'run_ocr',
-                                       'run_cropper', 'derive_formats'):
+                if thread.func not in ProcessHandling.thread_count_ignore:
                     self.processes -= 1
                     #print 'thread ' + pid + ' finished   #processes ' + str(self.processes)
                 self.inactive_threads[pid] = thread
@@ -187,8 +190,7 @@ class ProcessHandling:
                 del self.item_queue[pid]
             if (self.processes == 0 and
                 not [thread.func for pid, thread in self.active_threads.items()
-                     if thread.func in ('drain_queue', 'run_main', 'run_ocr',
-                                        'run_cropper', 'derive_formats')]):
+                     if thread.func in ProcessHandling.thread_count_ignore]):
                 self.poll = False
                 break
 
@@ -224,96 +226,59 @@ class ProcessHandling:
             raise Exception(msg)
 
 
-    def run_test(self, book):
-        self.FeatureDetection = FeatureDetection(self, book)
-        queue = self.new_queue()
-        queue['blah'] =self.FeatureDetection.pipeline, None, book.logger, None
-        self.drain_queue(queue, 'async')
+    def __create_operation_instance(self, identifier, _class, method, book):
+        if _class not in globals():
+            raise LookupError('Could not find module \'' + _class + '\'')
+        else:
+            if identifier not in self.OperationObjects:
+                self.OperationObjects[identifier] = {}
+            self.OperationObjects[identifier][_class] = globals()[_class](self, book)
+            function = getattr(self.OperationObjects[identifier][_class], method)
+            return function
 
 
-
-    def run_main(self, book):
-        #yappi.start()
-        book.logger.message("Began Main Processing...")
-        if book.settings['respawn']:
-            Environment.clean_dirs(book.dirs)
-            book.scandata.new(book.identifier, book.page_count,
-                              book.raw_image_dimensions,
-                              book.scandata_file)
-        try:
-            self.FeatureDetection = FeatureDetection(self, book)
-        except Exception as e:
-            Util.bail(str(e))
-        queue = self.new_queue()
-        queue[book.identifier + '_featuredetection'] = self.FeatureDetection.pipeline, None, book.logger, None
-        try:
-            self.drain_queue(queue, 'async')
-            #self.make_standard_crop(book)
-        except Exception as e:
-            Util.bail(str(e))
-
-            #end_time = self.inactive_threads[book.identifier + '_featuredetection'].end_time
-            #start_time = self.inactive_threads[book.identifier + '_featuredetection'].start_time
-            #self.FeatureDetection.ImageOps.complete(book.identifier + '_featuredetection')
-        book.logger.message("Finished Main Processing in " + str((end_time - start_time)/60) + ' minutes')
-        #yappi.print_stats()
+    def multi_threaded(f):
+        def distribute(self, identifier, _class, method, book, *args):
+            function = self.__create_operation_instance(identifier, _class, method, book)
+            queue = self.new_queue()
+            chunk = (book.page_count-2)/self.cores
+            for core in range(0, self.cores):
+                start = (core * chunk) + 1
+                if core == self.cores - 1:
+                    end = book.page_count-1
+                else:
+                    end = (start + chunk)
+                fargs = [start, end]
+                for arg in args:
+                    fargs.append(arg)
+                queue[book.identifier + '_' + str(start) + function.__name__] = (function,
+                                                                                 tuple(fargs),
+                                                                                 book.logger, None)
+            return f(self, queue)
+        return distribute
 
 
-    def autopaginate(self):
-        pass
-        #if Environment.settings['autopaginate']:
-        #    autoPaginator = AutoPaginate()
-        #    autoPaginator.run(book.page_number_candidates)
-
-
-    def make_standard_crop(self, book):
-        standardcrop = StandardCrop(book)
-        standardcrop.make_standard_crop()
-
-
-    def run_cropper(self, book, crop,
-                    grayscale=False, normalize=False, invert=False):
-        book.logger.message("Began Cropping...")
-        queue = self.new_queue()
-        self.Cropper = Cropper(self, book)
-        chunk = (book.page_count-2)/self.cores
-        for core in range(0, self.cores):
-            start = (core * chunk) + 1
-            if core == self.cores - 1:
-                end = book.page_count-1
-            else:
-                end = (start + chunk)
-            queue[book.identifier + '_' + str(start) + '_cropper'] = (self.Cropper.pipeline,
-                                                                      (start, end, crop, grayscale, normalize, invert),
-                                                                      book.logger, None)
+    @multi_threaded
+    def run_pipeline_distributed(self, queue):
         try:
             self.drain_queue(queue, 'async')
-            self.Cropper.ImageOps.complete(book.identifier + '_cropper')
         except Exception as e:
             Util.bail(str(e))
 
 
-    def run_ocr(self, book, language):
-        book.logger.message('Began OCR...')
-        self.OCR = OCR(self, book)
+    def run_pipeline(self, identifier, _class, method, book, args):
+        function = self.__create_operation_instance(identifier, _class, method, book)
         queue = self.new_queue()
-        chunk = (book.page_count-2)/self.cores
-        for core in range(0, self.cores):
-            start = (core * chunk) + 1
-            if core == self.cores - 1:
-                end = book.page_count-1
-            else:
-                end = (start + chunk)
-            queue[book.identifier + '_' + str(start) + '_ocr'] = (self.OCR.tesseract_hocr_pipeline,
-                                                                  (start, end, language),
-                                                                  book.logger, None)
+        queue[book.identifier + '_' + _class + '_' + function.__name__] = (function,
+                                                                           args,
+                                                                           book.logger, None)
         try:
             self.drain_queue(queue, 'async')
-            self.OCR.ImageOps.complete(book.identifier + '_ocr')
         except Exception as e:
             Util.bail(str(e))
 
 
+    """
     def derive_formats(self, book, formats):
         self.Derive = Derive(self, book)
         queue = self.new_queue()
@@ -340,3 +305,4 @@ class ProcessHandling:
             self.Derive.ImageOps.complete(book.identifier + '_derive')
         except Exception as e:
             Util.bail(str(e))
+            """

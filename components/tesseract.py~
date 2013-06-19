@@ -1,0 +1,17 @@
+from environment import Environment
+from component import Component
+
+class Tesseract(Component):
+    """
+    Tesseract
+    ---------
+
+    Performs OCR related tasks.
+
+    """
+
+    args = []
+    executable = ''
+
+    def __init__(self):
+        super(Tesseract, self).__init__(Tesseract.args)

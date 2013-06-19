@@ -11,34 +11,48 @@ def main(args):
         Util.bail(str(e))
 
     P = ProcessHandling()
-    #P.add_process(P.check_thread_exceptions,
-    #              'check_thread_exceptions',
-    #              None)
 
     for book in E.books:
         queue = P.new_queue()
-        queue[book.identifier + '_main'] = P.run_main, book, book.logger, None
+        queue[book.identifier + '_run_pipeline_FeatureDetection'] = (P.run_pipeline,
+                                                                     (book.identifier,
+                                                                      'FeatureDetection', 'pipeline',
+                                                                      book, None),
+                                                                      book.logger, None)
 
         if args.derive_all or args.derive:
             if book.settings['respawn']:
-                queue[book.identifier + '_run_cropper'] = (P.run_cropper,
-                                                           (book, args.active_crop),
-                                                           book.logger, None)
-                queue[book.identifier + '_run_ocr'] = (P.run_ocr,
-                                                       (book, args.language),
-                                                       book.logger, None)
-            if args.derive_all:
-                queue[book.identifier + '_derive'] = (P.derive_formats,
-                                                      (book, ('djvu', 'pdf', 'epub', 'text')),
-                                                      book.logger, None)
-            elif args.derive:
-                queue[book.identifier + '_derive'] = (P.derive_formats,
-                                                      (book, tuple(args.derive)),
-                                                      book.logger, None)
+                queue[book.identifier +
+                      '_run_cropper_pipeline_distributed'] = (P.run_pipeline_distributed,
+                                                              (book.identifier,
+                                                               'Crop', 'cropper_pipeline',
+                                                               book, 'cropBox'),
+                                                               book.logger, None)
+
+                queue[book.identifier +
+                      '_run_tesseract_hocr_pipeline_distributed'] = (P.run_pipeline_distributed,
+                                                                     (book.identifier,
+                                                                      'OCR', 'tesseract_hocr_pipeline',
+                                                                      book, args.language),
+                                                                      book.logger, None)
+            if 'djvu' in args.derive:
+                queue[book.identifier +
+                      '_run_make_djvu_with_c44'] = (P.run_pipeline,
+                                                    (book.identifier,
+                                                     'Derive', 'make_djvu_with_c44',
+                                                     book, (1, book.page_count-1)),
+                                                     book.logger, None)
+            if 'pdf' in args.derive:
+                queue[book.identifier +
+                      '_run_make_pdf_with_hocr2pdf'] = (P.run_pipeline,
+                                                        (book.identifier,
+                                                         'Derive', 'make_pdf_with_hocr2pdf',
+                                                         book, (1, book.page_count-1)),
+                                                         book.logger, None)
+
         P.add_process(P.drain_queue,
                       book.identifier + '_drain_queue',
                       (queue, 'sync'), book.logger)
-
 
 
 if __name__ == "__main__":
@@ -62,7 +76,7 @@ if __name__ == "__main__":
     derive.add_argument('--derive-all', action='store_true', help='Derive all formats')
 
     debug = parser.add_argument_group('Debug')
-    debug.add_argument('--make-cornered-thumbs', action='store_true', default=None)
+    debug.add_argument('--make-cornered-scaled', action='store_true', default=None)
     debug.add_argument('--draw-clusters', action='store_true', default=None)
     debug.add_argument('--draw-removed-clusters', action='store_true', default=None)
     debug.add_argument('--draw-invalid-clusters', action='store_true', default=None)

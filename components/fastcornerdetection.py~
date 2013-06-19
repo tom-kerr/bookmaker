@@ -1,0 +1,11 @@
+from environment import Environment
+from components import Component
+
+class FastCornerDetection(Component):
+    """
+    Fast Corner Detection
+    ---------------------
+
+    
+
+    """

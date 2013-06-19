@@ -7,6 +7,7 @@ import Image
 import yaml
 import datetime
 import time
+import shutil
 from collections import OrderedDict
 from lxml import etree
 
@@ -17,7 +18,7 @@ class Environment:
 
     settings = OrderedDict([('respawn', True),
                             ('autopaginate', False),
-                            ('make_cornered_thumbs', False),
+                            ('make_cornered_scaled', False),
                             ('draw_clusters', False),
                             ('draw_removed_clusters', False),
                             ('draw_invalid_clusters', False),
@@ -45,11 +46,10 @@ class Environment:
             book.start_time = time.time()
             book.settings = Environment.load_settings(book.root_dir, args)
             book.init_crops()
-            Environment.make_dirs(book.dirs)
             book.logger = Logger()
-            Environment.set_logs(book)
+            book.init_logs()
             Environment.log_settings(book)
-        
+
 
     @staticmethod
     def log_settings(book):
@@ -78,6 +78,7 @@ class Environment:
 
 
     def find_valid_subdirs(self, root_dir):
+        root_dir = root_dir.rstrip('/')
         subdirs = os.listdir(root_dir)
         for dir in subdirs:
             path = root_dir + '/' + dir
@@ -148,8 +149,8 @@ class Environment:
                 settings['respawn'] = True
             elif args.no_respawn:
                 settings['respawn'] = False
-            if args.make_cornered_thumbs is not None:
-                settings['make_cornered_thumbs'] = args.make_cornered_thumbs
+            if args.make_cornered_scaled is not None:
+                settings['make_cornered_scaled'] = args.make_cornered_scaled
             if args.draw_clusters is not None:
                 settings['draw_clusters'] = args.draw_clusters
             if args.draw_removed_clusters is not None:
@@ -185,40 +186,28 @@ class Environment:
 
 
     @staticmethod
-    def make_dirs(dirs):
-        for name, dir in dirs.items():
-            if name in ('book', 'raw_image'):
-                pass
-            else:
-                if not os.path.isdir(dir):
-                    try:
-                        os.mkdir(dir, Environment.dir_mode)
-                    except:
-                        Util.bail('failed to create ' + dir )
-
-
-    @staticmethod
-    def clean_dirs(dirs):
-        for name, dir in dirs.items():
-            if name in ('book', 'raw_image', 'log'):
-                pass
-            else:
-                if os.path.exists(dir):
-                    try:
-                        for f in os.listdir(dir):
-                            os.remove(dir + '/' + f)
-                    except:
-                        Util.bail('failed to clean ' + dir);
-
-
-    @staticmethod
-    def set_logs(book, mode='w'):
-        for log, key in book.logs.items():
+    def make_dir(dir):
+        if not os.path.isdir(dir):
             try:
-                book.logger.logs[str(log)] = open(key['file'], mode, 1)
-            except IOError:
-                Util.bail("could not open " + str(key['file']) + ' in mode ' + mode)
+                os.mkdir(dir, Environment.dir_mode)
+            except Exception as e:
+                raise e
 
+
+    @staticmethod
+    def clean_dir(dir):
+        if os.path.isdir(dir):
+            for f in os.listdir(dir):
+                if os.path.isdir(dir + '/' + f):
+                    try:
+                        shutil.rmtree(dir + '/' + f)
+                    except Exception as e:
+                        raise e
+                else:
+                    try:
+                        os.remove(dir + '/' + f)
+                    except Exception as e:
+                        raise e
 
 
 class BookData:
@@ -232,34 +221,38 @@ class BookData:
         self.raw_image_dimensions = raw_data['dimensions']
         self.scandata_file = self.root_dir + '/' + self.identifier + '_scandata.xml'
         self.scandata = Scandata(self.scandata_file)
-        self.thumb_rotation_point = {'x': (self.raw_image_dimensions[0]['height']/Environment.scale_factor)/2,
-                                     'y': (self.raw_image_dimensions[0]['width']/Environment.scale_factor)/2}
+        self.scaled_center_point = {}
+        for leaf in range(0, self.page_count):
+            self.scaled_center_point[leaf] = {'x': (self.raw_image_dimensions[leaf]['height']/
+                                                    Environment.scale_factor)/2,
+                                              'y': (self.raw_image_dimensions[leaf]['width']/
+                                                    Environment.scale_factor)/2}
         self.dirs = {
-            'book':         self.root_dir,
-            'raw_image':    self.raw_image_dir,
-            'log':          self.root_dir + '/' + self.identifier + '_logs',
-            'thumb':        self.root_dir + '/' + self.identifier + '_thumbs',
-            'corner':       self.root_dir + '/' + self.identifier + '_corners',
-            'corner_thumb': self.root_dir + '/' + self.identifier + '_corners_thumbs',
-            'cluster':      self.root_dir + '/' + self.identifier + '_clusters',
-            'window':       self.root_dir + '/' + self.identifier + '_windows',
-            'noise':        self.root_dir + '/' + self.identifier + '_noise',
-            #'pagination':   self.root_dir + '/' + self.identifier + '_pagination',
-            'cropped':      self.root_dir + '/' + self.identifier + '_cropped',
-            'ocr':          self.root_dir + '/' + self.identifier + '_ocr',
-            'derived':      self.root_dir + '/' + self.identifier + '_derived'
+            'book':          self.root_dir,
+            'raw_images':    self.raw_image_dir,
+            'logs':          self.root_dir + '/' + self.identifier + '_logs',
+            'scaled':        self.root_dir + '/' + self.identifier + '_scaled',
             }
+
+        for name, dir in self.dirs.items():
+            if not os.path.exists(dir):
+                Environment.make_dir(dir)
+
 
         self.logs = {
             'global': {
-                'file': str(self.dirs['log']) + '/' + self.identifier + '_0_global_log.txt'
+                'file': str(self.dirs['logs']) + '/' + self.identifier + '_global_log.txt'
                 },
             'processing': {
-                'file': str(self.dirs['log']) + '/' + self.identifier + '_1_processing_log.txt'
+                'file': str(self.dirs['logs']) + '/' + self.identifier + '_processing_log.txt'
                 },
             'featureDetection': {
-                'file': str(self.dirs['log']) + '/' + self.identifier + '_2_featureDetection_log.txt'
-                },
+                'file': str(self.dirs['logs']) + '/' + self.identifier + '_featureDetection_log.txt'
+                }
+        }
+
+        """
+
             'pageDetection': {
                 'file': str(self.dirs['log']) + '/' + self.identifier + '_3_pageDetection_log.txt'
                 },
@@ -282,21 +275,48 @@ class BookData:
                 'file': str(self.dirs['log']) + '/' + self.identifier + '_9_ocr_log.txt'
                 }
             }
+            """
+
+    def add_dirs(self, dirs):
+        for name, dir in dirs.items():
+            if not os.path.isdir(dir):
+                try:
+                    Environment.make_dir(dir)
+                except Exception as e:
+                    raise e
+            self.dirs[name] = dir
+
+
+    def clean_dirs(self):
+        for name, dir in self.dirs.items():
+            if name in ('book', 'raw_images', 'logs'):
+                pass
+            else:
+                try:
+                    Environment.clean_dir(dir)
+                except Exception as e:
+                    raise e
+
+
+    def init_logs(self, mode='w'):
+        for log, key in self.logs.items():
+            if log not in self.logger.logs:
+                try:
+                    self.logger.logs[log] = open(key['file'], mode, 1)
+                except IOError:
+                    Util.bail("could not open " + str(key['file']) + ' in mode ' + mode)
 
 
     def init_crops(self):
         import_scandata = True if not self.settings['respawn'] else False
-        self.pageCrop = Crop('pageCrop', 0, self.page_count,
-                             self.raw_image_dimensions[0]['height'],
-                             self.raw_image_dimensions[0]['width'],
+        self.pageCrop = Crop('pageCrop', self.page_count,
+                             self.raw_image_dimensions,
                              self.scandata, import_scandata)
-        self.standardCrop = Crop('standardCrop', 0, self.page_count,
-                                 self.raw_image_dimensions[0]['height'],
-                                 self.raw_image_dimensions[0]['width'],
+        self.standardCrop = Crop('standardCrop', self.page_count,
+                                 self.raw_image_dimensions,
                                  self.scandata, import_scandata)
-        self.contentCrop = Crop('contentCrop', 0, self.page_count,
-                                self.raw_image_dimensions[0]['height'],
-                                self.raw_image_dimensions[0]['width'],
+        self.contentCrop = Crop('contentCrop', self.page_count,
+                                self.raw_image_dimensions,
                                 self.scandata)
         self.crops = {'pageCrop': self.pageCrop,
                       'standardCrop': self.standardCrop,
@@ -304,21 +324,17 @@ class BookData:
 
 
     def import_crops(self):
-        self.cropBox = Crop('cropBox', 0, self.page_count,
-                             self.raw_image_dimensions[0]['height'],
-                             self.raw_image_dimensions[0]['width'],
+        self.cropBox = Crop('cropBox', self.page_count,
+                             self.raw_image_dimensions,
                              self.scandata, True)
-        self.pageCrop = Crop('pageCrop', 0, self.page_count,
-                             self.raw_image_dimensions[0]['height'],
-                             self.raw_image_dimensions[0]['width'],
+        self.pageCrop = Crop('pageCrop', self.page_count,
+                             self.raw_image_dimensions,
                              self.scandata, True)
-        self.standardCrop = Crop('standardCrop', 0, self.page_count,
-                                 self.raw_image_dimensions[0]['height'],
-                                 self.raw_image_dimensions[0]['width'],
+        self.standardCrop = Crop('standardCrop', self.page_count,
+                                 self.raw_image_dimensions,
                                  self.scandata, True)
-        self.contentCrop = Crop('contentCrop', 0, self.page_count,
-                                self.raw_image_dimensions[0]['height'],
-                                self.raw_image_dimensions[0]['width'],
+        self.contentCrop = Crop('contentCrop', self.page_count,
+                                self.raw_image_dimensions,
                                 self.scandata, True)
         self.crops = {'cropBox': self.cropBox,
                       'pageCrop': self.pageCrop,
@@ -331,9 +347,10 @@ class Scandata:
 
     def __init__(self, filename):
         self.filename = filename
-        self.file = open(filename, 'r+')
+        self.file = None
         self.tree = None
         try:
+            self.file = open(filename, 'r+')
             parser = etree.XMLParser(remove_blank_text=True)
             self.tree = etree.parse(self.file, parser)
         except:
@@ -342,7 +359,6 @@ class Scandata:
             self.file.close()
 
 
-    #@staticmethod
     def new(self, identifier, page_count,
             raw_image_dimensions,
             scandata_file):
@@ -371,7 +387,7 @@ class Scandata:
             skew_conf = etree.SubElement(page, 'skewConf')
             skew_conf.text = '0.0'
             skew_active = etree.SubElement(page, 'skewActive')
-            skew_active.text = 'false'
+            skew_active.text = 'False'
             orig_width = etree.SubElement(page, 'origWidth')
             orig_width.text = str(raw_image_dimensions[leaf]['width'])
             orig_height = etree.SubElement(page, 'origHeight')

@@ -53,9 +53,9 @@ class Process():
 
 
     def init_main(self):
-        self.main = Common.new_widget('VBox', 
+        self.main = Common.new_widget('VBox',
                                       {'size_request': (self.window.width, self.window.height)})
-        
+
 
     def init_tasklist(self):
         self.scroll_window = Common.new_widget('ScrolledWindow',
@@ -63,13 +63,13 @@ class Process():
                                                 'set_border_width':25,
                                                 'color':'gray'})
         self.scroll_window.set_policy(gtk.POLICY_AUTOMATIC, gtk.POLICY_ALWAYS)
-        
+
 
     def init_buttons(self):
-        self.button_menu = Common.new_widget('HBox', 
+        self.button_menu = Common.new_widget('HBox',
                                              {'size_request': (self.window.width, 50)})
 
-        self.add_button = Common.new_widget('Button', 
+        self.add_button = Common.new_widget('Button',
                                             {'label':'Add',
                                              'size_request':(100, 25),
                                              'set_can_focus': False,
@@ -77,7 +77,7 @@ class Process():
         self.add_button.set_events(gtk.gdk.BUTTON_PRESS_MASK)
         self.add_button.connect('button-press-event', self.get_book)
 
-        self.remove_button = Common.new_widget('Button', 
+        self.remove_button = Common.new_widget('Button',
                                                {'label':'Remove',
                                                 'size_request':(100, 25),
                                                 'set_can_focus': False,
@@ -85,23 +85,23 @@ class Process():
         self.remove_button.set_events(gtk.gdk.BUTTON_PRESS_MASK)
         self.remove_button.connect('button-press-event', self.remove_book)
 
-        self.options_button = Common.new_widget('Button', 
+        self.options_button = Common.new_widget('Button',
                                                 {'label':'Options',
                                                  'size_request':(100, 25),
                                                  'set_can_focus': False,
                                                  'color':'darkgray'})
         self.options_button.set_events(gtk.gdk.BUTTON_PRESS_MASK)
         self.options_button.connect('button-press-event', self.open_options)
-                
-        self.init_button = Common.new_widget('Button', 
+
+        self.init_button = Common.new_widget('Button',
                                              {'label':'Init',
                                               'size_request':(100, 25),
                                               'set_can_focus': False,
                                               'color':'darkgray'})
         self.init_button.set_events(gtk.gdk.BUTTON_PRESS_MASK)
         self.init_button.connect('button-press-event', self.init_processing)
-                
-        self.edit_button = Common.new_widget('Button', 
+
+        self.edit_button = Common.new_widget('Button',
                                              {'label':'Edit',
                                               'size_request':(100, 25),
                                               'set_can_focus': False,
@@ -115,9 +115,9 @@ class Process():
         self.button_menu.pack_start(self.init_button, expand=True, fill=False)
         self.button_menu.pack_start(self.edit_button, expand=True, fill=False)
 
-    
+
     def init_treeview(self):
-        self.model = gtk.ListStore(str, str, int, str, str, float) 
+        self.model = gtk.ListStore(str, str, int, str, str, float)
         self.treeview = gtk.TreeView(self.model)
         self.selector = self.treeview.get_selection()
         self.selector.set_mode(gtk.SELECTION_MULTIPLE)
@@ -161,8 +161,8 @@ class Process():
         self.main.pack_start(self.button_menu, expand=False, fill=False)
         self.main.pack_start(self.sys_bar, expand=False, fill=False)
         self.window.add(self.main)
-        
-        
+
+
     def set_system_bar(self):
         self.sys_bar = Common.new_widget('HBox',
                                          {'size_request': (-1, 25),
@@ -171,18 +171,18 @@ class Process():
         self.system_text = gtk.TextView(self.system_buffer)
         b = self.system_text.get_buffer()
         cpu_usage = psutil.cpu_percent(0.1)
-        b.set_text('Cores: ' + str(self.ProcessHandler.cores) + 
-                   '\t\t Threads: ' + str(self.ProcessHandler.processes) + ' of ' + str(self.ProcessHandler.cores) + 
+        b.set_text('Cores: ' + str(self.ProcessHandler.cores) +
+                   '\t\t Threads: ' + str(self.ProcessHandler.processes) + ' of ' + str(self.ProcessHandler.cores) +
                    '\t\t CPU Usage: ' + str(cpu_usage) + '%')
         self.system_text.set_size_request(-1, 25)
-        self.sys_bar.pack_start(self.system_text, expand=True, fill=False)        
-        
+        self.sys_bar.pack_start(self.system_text, expand=True, fill=False)
+
 
     def update_system_bar(self):
         b = self.system_text.get_buffer()
         cpu_usage = psutil.cpu_percent(0.1)
-        b.set_text('Cores: ' + str(self.ProcessHandler.cores) + 
-                   '\t\t Threads: ' + str(self.ProcessHandler.processes) + ' of ' + str(self.ProcessHandler.cores) + 
+        b.set_text('Cores: ' + str(self.ProcessHandler.cores) +
+                   '\t\t Threads: ' + str(self.ProcessHandler.processes) + ' of ' + str(self.ProcessHandler.cores) +
                    '\t\t CPU Usage: ' + str(cpu_usage) + '%')
         return True
 
@@ -196,7 +196,7 @@ class Process():
                 if book.identifier not in self.books:
                     self.add_book(book)
                 else:
-                    Common.dialog(None, gtk.MESSAGE_INFO, 
+                    Common.dialog(None, gtk.MESSAGE_INFO,
                                   str(book.identifier) + ' is already in queue...')
         self.add_button.set_child_visible(True)
 
@@ -204,8 +204,8 @@ class Process():
     def add_book(self, book):
         self.books[book.identifier] = book
         entry = [book.identifier, 'ready', book.page_count, '--', '--', 0]
-        self.books[book.identifier].entry = self.model.append(entry) 
-        
+        self.books[book.identifier].entry = self.model.append(entry)
+
 
     def get_selected(self):
         selected = []
@@ -216,7 +216,7 @@ class Process():
 
 
     #def check_item_state(self, book):
-    
+
 
 
     def remove_book(self, widget, data):
@@ -233,10 +233,10 @@ class Process():
             if rowiter is not None:
                 self.model.remove(rowiter)
                 del self.books[identifier]
-                
-    
+
+
     def open_editor(self, widget, data):
-        identifier = self.get_selected() 
+        identifier = self.get_selected()
         if len(identifier) > 1 or identifier is None:
             return
         identifier = identifier[0]
@@ -255,8 +255,8 @@ class Process():
             self.editing.append(identifier)
             path = self.model.get_path(self.books[identifier].entry)
             self.model[path][1] = 'editing'
-            
-            
+
+
     def close_editor(self, widget, identifier):
         self.editing.remove(identifier)
         path = self.model.get_path(self.books[identifier].entry)
@@ -269,13 +269,13 @@ class Process():
             return
         window = gtk.Window(gtk.WINDOW_TOPLEVEL)
         window.set_position(gtk.WIN_POS_CENTER_ALWAYS)
-        title = 'Processing Options for ' + ', '.join([`identifier` for identifier in ids]) 
+        title = 'Processing Options for ' + ', '.join([`identifier` for identifier in ids])
         window.set_title(title)
         books = {}
         for identifier in ids:
             books[identifier] = self.books[identifier]
         options = Options(window, books)
-        
+
 
     def init_processing(self, widget, data):
         ids = self.get_selected()
@@ -285,42 +285,46 @@ class Process():
             Common.run_in_background(self.ProcessHandler.monitor_thread_exceptions, 1000)
         queue = self.ProcessHandler.new_queue()
         for identifier in ids:
-            if self.ProcessHandler.add_process(self.ProcessHandler.run_main, 
-                                               identifier + '_main', self.books[identifier],
-                                               self.books[identifier].logger):
+            if self.ProcessHandler.add_process(self.ProcessHandler.run_pipeline,
+                                               identifier + '_run_pipeline_FeatureDetection',
+                                               (identifier, 'FeatureDetection', 'pipeline',
+                                                self.books[identifier], None),
+                                                self.books[identifier].logger):
                 self.books[identifier].start_time = Util.microseconds()
                 path = self.model.get_path(self.books[identifier].entry)
                 self.model[path][1] = 'processing'
                 self.follow_progress(identifier)
             else:
                 self.wait(identifier)
-            
+
 
     def wait(self, identifier):
         path = self.model.get_path(self.books[identifier].entry)
         self.model[path][1] = 'waiting...'
-        
+
 
     def follow_progress(self, identifier):
         gobject.timeout_add(300, self.update_progress, identifier)
 
-            
-    def update_progress(self, identifier):        
+
+    def update_progress(self, identifier):
         if identifier not in self.books:
             return False
-        if not identifier in self.ProcessHandler.item_queue:            
+        if not identifier in self.ProcessHandler.item_queue:
             path = self.model.get_path(self.books[identifier].entry)
-            if (identifier + '_main' in self.ProcessHandler.handled_exceptions or 
+            if (identifier + '_main' in self.ProcessHandler.handled_exceptions or
                 identifier + '_featuredetection' in self.ProcessHandler.handled_exceptions):
                 self.model[path][1] = 'ERROR'
                 self.model[path][3] = '--'
                 #self.model[path][4] = '--'
                 return True
             
-            completed = len(self.ProcessHandler.FeatureDetection.ImageOps.completed_ops)
-            fraction = float(completed) / float(self.books[identifier].page_count)  
-
-            avg_exec_time = self.ProcessHandler.FeatureDetection.ImageOps.avg_exec_time
+            op_obj = self.ProcessHandler.OperationObjects[identifier]['FeatureDetection']
+            completed = len(op_obj.completed)
+            if completed == 0:
+                return True
+            fraction = float(completed) / float(self.books[identifier].page_count)
+            avg_exec_time = op_obj.get_avg_exec_time()
             remaining_page_count = self.books[identifier].page_count - completed
             estimated_secs = int(avg_exec_time * remaining_page_count)
             estimated_mins = int(estimated_secs/60)
@@ -332,8 +336,8 @@ class Process():
             elapsed_mins = int(elapsed_secs/60)
             elapsed_secs -= elapsed_mins * 60
             self.model[path][4] = str(elapsed_mins) + ' min ' + str(elapsed_secs) + 'sec'
-            
-            self.model[path][5] = fraction*100                                            
+
+            self.model[path][5] = fraction*100
             if fraction == 1.0:
                 self.model[path][1] = 'finished'
                 return False

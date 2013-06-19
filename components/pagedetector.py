@@ -9,31 +9,34 @@ class PageDetector(Component):
     -------------
 
     Takes as input an image of a book page and outputs the
-    dimensions and skew information.
+    dimensions and skew information and writes a scaled version
+    of the input image.
 
 
     """
 
-    args = ['in_file', 'rotation_direction', 'out_file']
+    args = ['in_file', 'rotation_direction', 'scale_factor', 'scaled_out_file']
     executable = Environment.current_path + '/bin/pageDetector/./pageDetector'
 
 
     def __init__(self, book):
         super(PageDetector, self).__init__(PageDetector.args)
         self.book = book
-
+        dirs = {'scaled': self.book.root_dir + '/' + self.book.identifier + '_scaled'}
+        self.book.add_dirs(dirs)
+            
 
     def run(self, leaf):
         self.book.logger.message('Finding page for leaf ' + str(leaf) + '...', 'featureDetection')
         leafnum = '%04d' % leaf
+        self.in_file = self.book.raw_images[leaf]
+        self.scaled_out_file = (self.book.dirs['scaled'] + '/' +
+                                self.book.identifier + '_scaled_' +
+                                leafnum + '.jpg')
         if self.book.settings['respawn']:
-            self.in_file = self.book.raw_images[leaf]
             if not os.path.exists(self.in_file):
                 raise IOError(in_file + ' does not exist!')
-            self.out_file = (self.book.dirs['thumb'] + '/' +
-                             self.book.identifier + '_thumb_' +
-                             leafnum + '.jpg')
-
+            self.scale_factor = 0.25
             self.rotation_direction = -1 if leaf%2==0 else 1
             try:
                 output = self.execute(return_output=True)

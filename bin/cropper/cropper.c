@@ -1,11 +1,13 @@
 #ifndef _CROPPER_C_
 #define _CROPPER_C_
 
-#include "cropper.h"
-#include "constants.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+#include "common.c"
+#include "cropper.h"
+#include "constants.h"
 #include "allheaders.h"
 
 
@@ -18,8 +20,8 @@ int main(int argc, char* argv[]) {
 	 "(int) rot_dir (-1, 0, 1)\n\n"
 	 "(float) skew_angle\n\n"
 	 "(float) l (left edge of crop box)\n"
-	 "(float) r (right edge of crop box)\n"
 	 "(float) t (top edge of crop box)\n"
+	 "(float) r (right edge of crop box)\n"
 	 "(float) b (bottom edge of crop box)\n\n"	 
 	 "(char) out_file (destination of processed image)");
     exit(0);
@@ -38,11 +40,11 @@ int main(int argc, char* argv[]) {
   
   int rot_dir = atoi(argv[2]);
   float skew_angle = atof(argv[3]);
-  int l,r,t,b;
+  int l,t,r,b;
 
   l = atoi(argv[4]);
-  r = atoi(argv[5]);
-  t = atoi(argv[6]);
+  t = atoi(argv[5]);
+  r = atoi(argv[6]);
   b = atoi(argv[7]);
 
   FILE *in_stream, *out_stream;
@@ -108,30 +110,6 @@ int main(int argc, char* argv[]) {
   }
 
   return 0;
-}
-
-
-const char* get_file_ext(char* filename) {
-  char fname[1000];
-  strcpy(fname, filename);
-  char *ext = strrchr(fname, '.');
-  if (!ext) 
-    return NULL;
-  else {
-    ext = ext + 1;
-    if (strcasecmp(ext, "JPG") == 0 ||
-	strcasecmp(ext, "JPEG") == 0) {
-      const char *ret = "jpeg";
-      return ret;
-    } else if (strcasecmp(ext, "TIFF") == 0 ||
-	      strcasecmp(ext, "TIF") == 0) {
-      const char *ret = "tiff";
-      return ret;
-    } else if (strcasecmp(ext, "PNM") == 0) {
-      const char *ret = "png";
-      return ret;
-    }
-  }
 }
 
 

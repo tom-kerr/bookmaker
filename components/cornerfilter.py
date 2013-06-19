@@ -13,7 +13,7 @@ class CornerFilter(Component):
     """
 
     args = ['in_file', 'out_file',
-            'l', 't', 't', 'b',
+            'l', 't', 'r', 'b',
             'thumb_width', 'thumb_height']
     executable = Environment.current_path + '/bin/cornerFilter/cornerFilter'
 
@@ -29,12 +29,12 @@ class CornerFilter(Component):
             return
         self.book.logger.message('Filtering corners for leaf ' + str(leaf) + '...', 'featureDetection')
         leafnum = '%04d' % leaf
-        self.in_file = (self.book.dirs['corner'] + '/' +
+        self.in_file = (self.book.dirs['corners'] + '/' +
                         self.book.identifier + '_corners_' +
                         leafnum + '.txt')
         if not os.path.exists(self.in_file):
             raise IOError(self.in_file + ' does not exist!')
-        self.out_file = (self.book.dirs['window'] + '/' +
+        self.out_file = (self.book.dirs['windows'] + '/' +
                          self.book.identifier + '_window_' +
                          leafnum + '.txt')
         crop_filter.resize(-10)
@@ -42,8 +42,8 @@ class CornerFilter(Component):
         self.t = crop_filter.t
         self.r = crop_filter.r
         self.b = crop_filter.b
-        self.thumb_width = self.book.raw_image_dimensions[0]['height']/4
-        self.thumb_height = self.book.raw_image_dimensions[0]['width']/4
+        self.thumb_width = self.book.pageCropScaled.image_width[leaf]
+        self.thumb_height = self.book.pageCropScaled.image_height[leaf]
         try:
             self.execute()
             crop_filter.resize(10)

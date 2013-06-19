@@ -5,12 +5,13 @@
 
 void run(char *in_file,
 	 int rot_dir,
+	 float scale_factor,
 	 char *scaled_out_file);
 
 PIX* NormalizedGray(PIX* pix,
 		    int rot_dir);
 
-float getNonContentAvgLuma(PIX *pix_clipped_8_gray, 
+float getNonContentAvgLuma(PIX *pix_clipped_gray, 
 			   struct cluster *clusters);
 
 #endif

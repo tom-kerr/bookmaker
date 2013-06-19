@@ -3,10 +3,10 @@
 
 #include "allheaders.h"
 
-PIX* JpegScale(char *in_file, 
-	       int rot_dir,
-	       int scale_factor,
-	       char *scaled_out_file);
+PIX* ScaleAndRotated(char *in_file, 
+		     int rot_dir,
+		     float scale_factor,
+		     char *scaled_out_file);
 
 PIX* ConvertToGray(PIX *pix, 
 		   l_int32 *graychannel);

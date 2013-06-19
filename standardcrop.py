@@ -2,10 +2,11 @@ import os
 import sys
 import math
 from lxml import etree
+
 from util import Util
 from environment import Environment
 from datastructures import Crop
-#from imageprocessing import ImageProcessing
+
 
 class StandardCrop:
 

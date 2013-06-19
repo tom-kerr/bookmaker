@@ -1,0 +1,20 @@
+from environment import Environment
+from component import Component
+
+class PageDetector(Component):
+    """
+    Page Detector
+    -------------
+
+    Takes as input an image of a book page and outputs the
+    dimensions and skew information.
+
+
+    """
+
+    args = ['in_file','rotation_direction','out_file','debug_out']
+    executable = '/home/reklak/development/gits/bookmaker/bin/pageDetector/./pagedetector'
+
+
+    def __init__(self):
+        super(PageDetector, self).__init__(PageDetector.args)
