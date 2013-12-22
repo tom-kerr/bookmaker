@@ -281,8 +281,8 @@ class Process():
         ids = self.get_selected()
         if ids is None:
             return
-        if not self.ProcessHandler.monitor_threads:
-            Common.run_in_background(self.ProcessHandler.monitor_thread_exceptions, 1000)
+        if not self.ProcessHandler.polling_exceptions:
+            Common.run_in_background(self.ProcessHandler.check_ExceptionQueue, 1000)
         queue = self.ProcessHandler.new_queue()
         for identifier in ids:
             if self.ProcessHandler.add_process(self.ProcessHandler.run_pipeline,

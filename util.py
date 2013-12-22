@@ -4,13 +4,15 @@ import subprocess
 import re
 import math
 import time
+import traceback
 
 class Util:
 
-    active_procs = []
+    def __init__(self):
+        self.active_procs = {}
 
-    @staticmethod
-    def exec_cmd(cmd, stdout=None, stdin=None,
+
+    def exec_cmd(self, cmd, stdout=None, stdin=None,
                  retval=False, return_output=False, print_output=False,
                  current_wd=None, logger=None):
         devnull = open(os.devnull, 'w')
@@ -22,23 +24,26 @@ class Util:
             stdout = devnull
         if stdin:
             stdin = open(stdin, 'rb')
-            #print cmd
         try:
             start = Util.microseconds()
             if current_wd is not None:
                 p = subprocess.Popen(cmd, cwd=current_wd, stdout=stdout, stdin=stdin)
             else:
                 p = subprocess.Popen(cmd, stdout=stdout, stdin=stdin)
+            pid = p.pid
+            self.active_procs[pid] = p
 
             output = p.communicate()
-            
+
             if print_output:
                 print output
+
             end = Util.microseconds()
 
         except Exception as e:
-            fname, lineno = Util.exception_info()
-            raise Exception(str(e) + ' (' + fname + ', line ' + str(lineno) + ')')
+            raise e
+
+        del self.active_procs[pid]
 
         if retval:
             return p.returncode
@@ -46,38 +51,30 @@ class Util:
         if return_output:
             return {'output': output[0],
                     'exec_time': end - start,
-                    'pid': p.pid}
+                    'pid': pid}
         else:
             return {'exec_time': end - start,
-                    'pid': p.pid}
+                    'pid': pid}
 
 
-    @staticmethod
-    def end_active_processes():
-        for p in Util.active_procs:
+    def end_active_processes(self):
+        for pid, proc in self.active_procs.items():
             try:
-                p.terminate()
+                proc.terminate()
             except:
                 pass
 
-
+            
     @staticmethod
     def exception_info():
         exc_type, exc_obj, exc_tb = sys.exc_info()
-        fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
-        return (fname, exc_tb.tb_lineno)
-
-
-    @staticmethod
-    def halt(message=None, logger=None):
-        if logger is not None:
-            logger.message('Halting...', 'global')
-        sys.exit(0)
+        stack = traceback.format_exc()
+        return 'Type: '+ str(exc_type) + '\nValue: ' + str(exc_obj) + '\n' + str(stack)
 
 
     @staticmethod
     def bail(message, logger=None):
-        print 'Fatal Error: ' + str(message)
+        print 'Bookmaker Fatal Error: ' + str(message)
         if logger is not None:
             logger.message('Fatal Error: ' + str(message), 'global')
         sys.exit(1)

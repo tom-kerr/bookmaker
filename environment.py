@@ -229,7 +229,7 @@ class BookData:
                                                     Environment.scale_factor)/2}
         self.dirs = {
             'book':          self.root_dir,
-            'raw_images':    self.raw_image_dir,
+            'raw_images':    self.root_dir + '/' + self.raw_image_dir,
             'logs':          self.root_dir + '/' + self.identifier + '_logs',
             'scaled':        self.root_dir + '/' + self.identifier + '_scaled',
             }

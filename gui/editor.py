@@ -12,7 +12,7 @@ from environment import Environment
 from util import Util
 from datastructures import Crop, Box
 from processing import ProcessHandling
-from ocr import OCR
+#from ocr import OCR
 from history import History
 from metadata import Metadata
 from common import Common

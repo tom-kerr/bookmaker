@@ -2,6 +2,7 @@ import os
 from pyPdf import PdfFileReader, PdfFileWriter
 from lxml import etree
 
+from util import Util
 from operation import Operation
 
 
@@ -24,14 +25,14 @@ class Derive(Operation):
             self.init_components( [self.book,self.book,
                                    self.book,self.book,
                                    self.book] )
-        except Exception as e:
-            self.ProcessHandler.ThreadQueue.put((self.book.identifier + '_Derive_init',
-                                                 str(e),
-                                                 self.book.logger))
-            self.ProcessHandler.ThreadQueue.join()
+        except:
+            self.ProcessHandler.join((self.book.identifier + '_Derive_init',
+                                      Util.exception_info(),
+                                      self.book.logger))
 
 
     def make_djvu_with_c44(self, start, end, *args):
+        self.book.logger.message('Making DjVu with c44')
         djvu_files = self.c44_pipeline(start, end, args)
         self.djvused_add_ocr_pipeline(start, end)
         self.assemble_djvu_with_djvm(djvu_files)
@@ -103,11 +104,11 @@ class Derive(Operation):
 
             try:
                 self.C44.run()
-            except Exception as e:
-                self.ProcessHandler.ThreadQueue.put((self.book.identifier + '_Derive_c44_pipeline',
-                                                     str(e),
-                                                     self.book.logger))
-                self.ProcessHandler.ThreadQueue.join()
+            except:
+                self.ProcessHandler.join((self.book.identifier +
+                                          '_Derive_c44_pipeline',
+                                          Util.exception_info(),
+                                          self.book.logger))
             djvu_files.append(self.C44.out_file)
         return djvu_files
 
@@ -125,12 +126,11 @@ class Derive(Operation):
                     with open(tmpocrlisp, 'w') as f:
                         f.write(ocrlisp)
                         f.close()
-                except IOError as e:
-                    self.ProcessHandler.ThreadQueue.put((self.book.identifier +
-                                                         '_Derive_djvused_add_ocr_pipeline',
-                                                         str(e),
-                                                         self.book.logger))
-                    self.ProcessHandler.ThreadQueue.join()
+                except IOError:
+                    self.ProcessHandler.join((self.book.identifier +
+                                              '_Derive_djvused_add_ocr_pipeline',
+                                              Util.exception_info(),
+                                              self.book.logger))
 
                 set_text = self.book.dirs['derived'] +"/set_text"
                 if not os.path.exists(set_text):
@@ -138,12 +138,11 @@ class Derive(Operation):
                         with open(set_text, 'w') as f:
                             f.write("select 1; set-txt " + tmpocrlisp + "; save")
                             f.close()
-                    except IOError as e:
-                        self.ProcessHandler.ThreadQueue.put((self.book.identifier +
-                                                             '_Derive_djvused_add_ocr_pipeline',
-                                                             str(e),
-                                                             self.book.logger))
-                        self.ProcessHandler.ThreadQueue.join()
+                    except IOError:
+                        self.ProcessHandler.join((self.book.identifier +
+                                                  '_Derive_djvused_add_ocr_pipeline',
+                                                  Util.exception_info(),
+                                                  self.book.logger))
 
                 self.Djvused.options = '-f'
                 self.Djvused.script = set_text
@@ -154,12 +153,11 @@ class Derive(Operation):
 
                 try:
                     self.Djvused.run()
-                except Exception as e:
-                    self.ProcessHandler.ThreadQueue.put((self.book.identifier +
-                                                         '_Derive_djvused_add_ocr_pipeline',
-                                                         str(e),
-                                                         self.book.logger))
-                    self.ProcessHandler.ThreadQueue.join()
+                except:
+                    self.ProcessHandler.join((self.book.identifier +
+                                              '_Derive_djvused_add_ocr_pipeline',
+                                              Util.exception_info(),
+                                              self.book.logger))
         try:
             os.remove(tmpocrlisp)
         except:
@@ -177,16 +175,16 @@ class Derive(Operation):
         try:
             self.Djvm.run()
             self.Djvm.remove_in_files()
-        except Exception as e:
-            self.ProcessHandler.ThreadQueue.put((self.book.identifier +
-                                                 '_Derive_assemble_with_djvm',
-                                                 str(e),
-                                                 self.book.logger))
-            self.ProcessHandler.ThreadQueue.join()
+        except:
+            self.ProcessHandler.join((self.book.identifier +
+                                      '_Derive_assemble_with_djvm',
+                                      Util.exception_info(),
+                                      self.book.logger))
 
 
     def make_pdf_with_hocr2pdf(self, start, end,
                           no_image=None, sloppy=None, ppi=None):
+        self.book.logger.message('Making PDF with hocr2pdf')
         pdf_files = self.hocr2pdf_pipeline(start, end, no_image, sloppy, ppi)
         self.assemble_pdf_with_pypdf(pdf_files)
 
@@ -229,20 +227,18 @@ class Derive(Operation):
 
             try:
                 self.HOCR2Pdf.run(leaf)
-            except Exception as e:
-                self.ProcessHandler.ThreadQueue.put((self.book.identifier +
-                                                     '_Derive_make_pdf_hocr_pipeline',
-                                                     str(e),
-                                                     self.book.logger))
-                self.ProcessHandler.ThreadQueue.join()
+            except:
+                self.ProcessHandler.join((self.book.identifier +
+                                          '_Derive_make_pdf_hocr_pipeline',
+                                          Util.exception_info(),
+                                          self.book.logger))
 
             if not os.path.exists(self.HOCR2Pdf.out_file):
-                self.ProcessHandler.ThreadQueue.put((self.book.identifier +
-                                                     '_Derive_make_pdf_hocr_pipeline',
-                                                     'cannot make pdf: failed to create ' +
-                                                     self.HOCR2Pdf.out_file,
-                                                     self.book.logger))
-                self.ProcessHandler.ThreadQueue.join()
+                self.ProcessHandler.join((self.book.identifier +
+                                          '_Derive_make_pdf_hocr_pipeline',
+                                          'cannot make pdf: failed to create ' +
+                                          self.HOCR2Pdf.out_file,
+                                          self.book.logger))
             else:
                 pdf_files.append(self.HOCR2Pdf.out_file)
         try:
@@ -327,20 +323,20 @@ class Derive(Operation):
     def full_plain_text(self, ocr_data=None):
         self.book.logger.message('Creating Full Plain Text...')
         if ocr_data is None:
-            if self.OCR.parse_hocr_stack():
-                ocr_data = self.OCR.ocr_data
+            if self.Tesseract.parse_hocr_files():
+                ocr_data = self.Tesseract.ocr_data
             else:
-                self.ProcessHandler.ThreadQueue.put((self.book.identifier + '_text',
-                                                'Unable to derive full plain text: no ocr data found',
-                                                self.book.logger))
-                self.ProcessHandler.ThreadQueue.join()
+                self.ProcessHandler.join((self.book.identifier + '_text',
+                                          'Unable to derive full plain text: no ocr data found',
+                                          self.book.logger))
         try:
-            out_file = open(self.book.dirs['derived'] + '/' + self.book.identifier + '_full_plain_text.txt', 'w')
+            out_file = open(self.book.dirs['derived'] + '/' +
+                            self.book.identifier + '_full_plain_text.txt', 'w')
         except IOError:
-            self.ProcessHandler.ThreadQueue.put((self.book.identifier + '_text',
-                                            'Could not open full plain text for writing',
-                                            self.book.logger))
-            self.ProcessHandler.ThreadQueue.join()
+            self.ProcessHandler.join((self.book.identifier + '_text',
+                                      'Could not open full plain text for writing',
+                                      self.book.logger))
+
         string = ''
         for page in ocr_data:
             for paragraph in page.paragraphs:
@@ -350,10 +346,10 @@ class Derive(Operation):
         try:
             out_file.write(string)
         except:
-            self.ProcessHandler.ThreadQueue.put((self.book.identifier + '_text',
-                                            'failed to write full plain text',
-                                            self.book.logger))
-            self.ProcessHandler.ThreadQueue.join()
-        self.ImageOps.complete(self.book.identifier +'_text')
+            self.ProcessHandler.join((self.book.identifier + '_text',
+                                      'failed to write full plain text',
+                                      self.book.logger))
+ 
+            #self.ImageOps.complete(self.book.identifier +'_text')
         self.book.logger.message('Finished Text.')
 

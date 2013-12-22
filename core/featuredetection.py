@@ -1,9 +1,12 @@
 import os
 import math
+from collections import OrderedDict
 
+from util import Util
 from operation import Operation
 from environment import Environment
 from datastructures import Crop
+from standardcrop import StandardCrop
 
 class FeatureDetection(Operation):
     """
@@ -11,9 +14,9 @@ class FeatureDetection(Operation):
 
     """
 
-    components = {'pagedetector': 'PageDetector',
-                  'fastcornerdetection': 'FastCornerDetection',
-                  'swclustering': 'SWClustering'}
+    components = OrderedDict([('pagedetector','PageDetector'),
+                             ('fastcornerdetection', 'FastCornerDetection'),
+                             ('swclustering', 'SWClustering')])
 
     def __init__(self, ProcessHandler, book):
         self.ProcessHandler = ProcessHandler
@@ -30,12 +33,10 @@ class FeatureDetection(Operation):
             super(FeatureDetection, self).__init__(FeatureDetection.components)
             self.init_components([(self.book),(self.book),(self.book)])
             self.book.clean_dirs()
-        except Exception as e:
-            self.ProcessHandler.ThreadQueue.put((self.book.identifier + '_FeatureDetection_init',
-                                                 str(e),
-                                                 self.book.logger))
-            self.ProcessHandler.ThreadQueue.join()
-
+        except:
+            self.ProcessHandler.join((self.book.identifier +
+                                      '_FeatureDetection_init',
+                                      Util.exception_info(), self.book.logger))
 
 
     def pipeline(self):
@@ -54,11 +55,10 @@ class FeatureDetection(Operation):
                     component.run(leaf)
                     exec_time = component.get_last_exec_time()
                     leaf_exec_time += exec_time
-                except Exception as e:
-                    self.ProcessHandler.ThreadQueue.put((self.book.identifier +
-                                                         '_FeatureDetection_pipeline',
-                                                         str(e), self.book.logger))
-                    self.ProcessHandler.ThreadQueue.join()
+                except:
+                    self.ProcessHandler.join((self.book.identifier +
+                                              '_FeatureDetection_pipeline',
+                                              Util.exception_info(), self.book.logger))
                 else:
                     self.book.logger.message('\t\t\t\t\t\t{}: {} Seconds'.
                                              format( str(component.__class__.__name__),

@@ -8,14 +8,14 @@ class Operation(object):
 
     def __init__(self, components):
         try:
-            self.__import_components(components)
-        except ImportError:
-            raise ImportError('Failed to import components')
+            self._import_components(components)
+        except ImportError as e:
+            raise e
         self.completed = {}
         self.exec_times = []
 
 
-    def __import_components(self, components):
+    def _import_components(self, components):
         for component, _class  in components.items():
             globals()[_class] = __import__('components.'+component,
                                            globals(), locals(),
@@ -30,6 +30,11 @@ class Operation(object):
             self.components.append(instance)
             setattr(self, _class, instance)
 
+            
+    def terminate_child_processes(self):
+        for component in self.components:
+            component.Util.end_active_processes()
+
 
     def complete_process(self, leaf, exec_time):
         self.completed[leaf] = exec_time
@@ -38,3 +43,5 @@ class Operation(object):
 
     def get_avg_exec_time(self):
         return sum(self.exec_times)/len(self.exec_times)
+
+

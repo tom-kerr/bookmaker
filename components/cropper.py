@@ -24,7 +24,6 @@ class Cropper(Component):
     def run(self, leaf, crop):
         if not self.book.crops[crop].box[leaf].is_valid():
             return False
-        self.book.logger.message('Cropping leaf ' + str(leaf))
         leafnum = '%04d' % leaf
         self.in_file = self.book.raw_images[leaf]
         if not os.path.exists(self.in_file):
@@ -42,5 +41,3 @@ class Cropper(Component):
             self.execute()
         except Exception as e:
             raise e
-        else:
-            self.book.logger.message('Finished cropping leaf ' + str(leaf) )

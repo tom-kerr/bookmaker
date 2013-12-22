@@ -14,6 +14,7 @@ class Component(object):
             else:
                 setattr(self, arg, None)
         self.exec_times = []
+        self.Util = Util()
 
 
     def set_property(self, arg):
@@ -44,18 +45,18 @@ class Component(object):
                     value = getattr(self, arg)
                 if value:
                     if not isinstance(value, list):
-                        value = [value]
+                        value = [value,]
                     for v in value:
                         if v is not None:
                             cmd.append(str(v))
-
         try:
-            output = Util.exec_cmd(cmd, stdout=stdout, stdin=stdin,
-                                   retval=retval, return_output=return_output,
-                                   print_output=print_output,
-                                   current_wd=current_wd, logger=logger)
+            output = self.Util.exec_cmd(cmd, stdout=stdout, stdin=stdin,
+                                        retval=retval, return_output=return_output,
+                                        print_output=print_output,
+                                        current_wd=current_wd, logger=logger)
             self.exec_times.append( output['exec_time'] )
         except Exception as e:
+            e.traceback = self.Util.exception_info()
             raise e
         else:
             return output

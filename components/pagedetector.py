@@ -24,7 +24,7 @@ class PageDetector(Component):
         self.book = book
         dirs = {'scaled': self.book.root_dir + '/' + self.book.identifier + '_scaled'}
         self.book.add_dirs(dirs)
-            
+
 
     def run(self, leaf):
         self.book.logger.message('Finding page for leaf ' + str(leaf) + '...', 'featureDetection')
@@ -40,10 +40,10 @@ class PageDetector(Component):
             self.rotation_direction = -1 if leaf%2==0 else 1
             try:
                 output = self.execute(return_output=True)
+                self.parse_output(leaf, output['output'])
             except Exception as e:
                 raise e
-            else:
-                self.parse_output(leaf, output['output'])
+
         self.book.pageCropScaled.box[leaf] = self.book.pageCrop.scale_box(leaf, scale_factor = 4)
 
 
