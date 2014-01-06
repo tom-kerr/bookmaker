@@ -1,9 +1,11 @@
 from operator import attrgetter, itemgetter
 from copy import copy
-from util import Util
-from lxml import etree
-import Image, ImageDraw
 import math
+
+from lxml import etree
+from PIL import Image, ImageDraw
+
+from util import Util
 
 
 class StructuralMetadata(object):
@@ -21,9 +23,8 @@ class StructuralMetadata(object):
         self.skew_active =           dict.fromkeys(range(0, self.page_count), None)
 
 
-
 class Crop(StructuralMetadata):
-
+    
     def __init__(self, name, page_count,
                  raw_image_dimensions, scandata=None,
                  import_scandata=False, scale_factor=1):
@@ -31,14 +32,13 @@ class Crop(StructuralMetadata):
         self.page_count = page_count
         self.scale_factor = scale_factor
         self.scandata = scandata
-
-        super(Crop, self).__init__()
-
         self.meta ={}
         self.box = {}
         self.box_with_skew_padding = {}
         self.image_height = {}
         self.image_width = {}
+
+        super(Crop, self).__init__()
 
         for leaf in range(0, self.page_count):
             self.box[leaf] = Box()
@@ -55,7 +55,6 @@ class Crop(StructuralMetadata):
             self.xml_io('import')
             self.update_pagination()
 
-
     def return_state(self, leaf):
         state = {'box': copy(self.box[leaf]),
                  'box_with_skew_padding': copy(self.box_with_skew_padding[leaf]),
@@ -68,18 +67,16 @@ class Crop(StructuralMetadata):
                  'skew_active': copy(self.skew_active[leaf])}
         return state
 
-
     def get_box_metadata(self):
         for dimension in Box.dimensions:
             self.meta[dimension] = {'stats': None, 'stats_hist': None}
             p = []
             for leaf, box in self.box.items():
-                if box.dimensions[dimension] is not None:
-                    p.append(box.dimensions[dimension])
+                if box.dim[dimension] is not None:
+                    p.append(box.dim[dimension])
             if len(p) > 0:
                 self.meta[dimension]['stats'] = Util.stats(p)
                 self.meta[dimension]['stats_hist'] = Util.stats_hist(p, self.meta[dimension]['stats'])
-
 
     def set_all_active(self):
         page_data = self.scandata.tree.find('pageData')
@@ -89,23 +86,19 @@ class Crop(StructuralMetadata):
                 cropBox = page.find('cropBox')
                 if cropBox is None:
                     raise LookupError('Missing essential item \'cropBox\' in scandata')
-                for dimension, value in self.box[leaf].dimensions.items():
+                for dimension, value in self.box[leaf].dim.items():
                     if value is not None:
                         cropBox.find(dimension).text = str(int(value))
                 self.active[leaf] = True
         #self.write_to_scandata()
 
-
     def write_to_scandata(self):
         try:
-            f = open(self.scandata.filename, 'r+')
+            with open(self.scandata.filename, 'r+b') as f:
+                self.scandata.tree.write(f, pretty_print=True)
         except Exception as e:
             Util.bail('failed to open scandata for writing')
-        else:
-            self.scandata.tree.write(f, pretty_print=True)
-            f.close()
-
-
+        
     def xml_io(self, mode):
         page_data = self.scandata.tree.find('pageData')
         pages = page_data.findall('page')
@@ -116,15 +109,14 @@ class Crop(StructuralMetadata):
                     xmlcrop = page.find(self.name)
                     if xmlcrop is None:
                         raise LookupError('Missing essential item \'' + self.name  + '\' in scandata')
-                    try:
-                        active = xmlcrop.get('active')
-                        if active=='True':
-                            self.active[leaf] = True
-                        elif active=='False':
-                            self.active[leaf] = False
-                    except:
-                        pass
-                    for dimension, value in self.box[leaf].dimensions.items():
+                    
+                    active = xmlcrop.get('active')
+                    if active=='True':
+                        self.active[leaf] = True
+                    elif active=='False':
+                        self.active[leaf] = False
+    
+                    for dimension, value in self.box[leaf].dim.items():
                         p = xmlcrop.find(dimension)
                         if p is not None and p.text is not None:
                             self.box[leaf].set_dimension(dimension, int(p.text))
@@ -168,7 +160,7 @@ class Crop(StructuralMetadata):
                     if xmlcrop is None:
                         xmlcrop = Crop.new_crop_element(page, self.name)
                     xmlcrop.set('active', str(self.active[leaf]))
-                    for dimension, value in self.box[leaf].dimensions.items():
+                    for dimension, value in self.box[leaf].dim.items():
                         if value is not None:
                             xmlcrop.find(dimension).text = str(int(value))
                     pagetype = page.find('pageType')
@@ -196,7 +188,6 @@ class Crop(StructuralMetadata):
         if mode is 'export':
             self.write_to_scandata()
 
-
     def delete_assertion(self, leaf):
         bookdata = self.scandata.tree.find('bookData')
         page_num_data = bookdata.find('pageNumData')
@@ -215,7 +206,6 @@ class Crop(StructuralMetadata):
             assertions[remove].getparent().remove(assertions[remove])
             self.write_to_scandata()
             self.update_pagination()
-
 
     def assert_page_number(self, leaf, number):
         bookdata = self.scandata.tree.find('bookData')
@@ -248,7 +238,6 @@ class Crop(StructuralMetadata):
         pagenum.text = str(number)
         self.write_to_scandata()
         self.update_pagination()
-
 
     def update_pagination(self):
         bookdata = self.scandata.tree.find('bookData')
@@ -284,25 +273,22 @@ class Crop(StructuralMetadata):
                         self.pagination[leaf] = str(start_pagenum + num) + '?'
                 #print leaf, self.pagination[leaf]
 
-
     @staticmethod
     def new_crop_element(root, name):
         crop_box = etree.SubElement(root, name)
-        crop_box.set('active', 'false')
+        crop_box.set('active', 'False')
         for dimension in Box.dimensions:
             etree.SubElement(crop_box, dimension)
         return crop_box
 
-
     def scale_box(self, leaf, scale_factor):
         scaled = Box()
         for dimension in Box.dimensions:
-            if self.box[leaf].dimensions[dimension] is not None:
-                value = int(self.box[leaf].dimensions[dimension]/scale_factor)
+            if self.box[leaf].dim[dimension] is not None:
+                value = int(self.box[leaf].dim[dimension]/scale_factor)
                 scaled.set_dimension(dimension, value)
         #scaled.skew_angle = self.skew_angle[leaf]
         return scaled
-
 
     def skew(self, mx, my, leaf, factor=1, deskew=False, mode='contract'):
         if (self.classification[leaf] is 'blank' or
@@ -346,7 +332,6 @@ class Crop(StructuralMetadata):
                 self.box[leaf].update_dimension('r', int(new_rb['x']))
                 self.box[leaf].update_dimension('b', int(new_lb['y']))
 
-
     def calculate_box_with_skew_padding(self, leaf, factor=1, deskew=False):
         self.box_with_skew_padding[leaf] = Box()
         #self.padding[leaf] = {}
@@ -380,13 +365,11 @@ class Crop(StructuralMetadata):
         self.box_with_skew_padding[leaf].set_dimension('r', self.box[leaf].r + padding_x)
         self.box_with_skew_padding[leaf].set_dimension('b', self.box[leaf].b + padding_y)
 
-
     def apply_box_with_skew_padding(self, leaf):
         self.box[leaf].set_dimension('l', self.box_with_skew_padding[leaf].l)
         self.box[leaf].set_dimension('t', self.box_with_skew_padding[leaf].t)
         self.box[leaf].set_dimension('r', self.box_with_skew_padding[leaf].r)
         self.box[leaf].set_dimension('b', self.box_with_skew_padding[leaf].b)
-
 
     def skew_translation(self, mx, my, leaf, factor=1, deskew=False):
         if (self.classification[leaf] is 'blank' or
@@ -404,164 +387,161 @@ class Crop(StructuralMetadata):
         self.box[leaf].update_dimension('x', int(new_lt['x']))
         self.box[leaf].update_dimension('y', int(new_lt['y']))
 
-
     @staticmethod
     def calculate_skew(px, py, mx, my, angle):
         x = ( ((px - mx) * math.cos(math.radians(angle)) ) -
               ((py - my) * math.sin(math.radians(angle)) ) + mx)
         y = ( ((px - mx) * math.sin(math.radians(angle)) ) +
               ((py - my) * math.cos(math.radians(angle)) ) + my)
-
         return {'x':x ,'y':y}
 
 
+class ImageLayer(object):
 
-class Box:
+    def draw(self, canvas, outline="blue", fill=None, annotate=True):
+        img = Image.open(canvas)
+        draw = ImageDraw.Draw(img)
+        draw.rectangle([self.l, self.t,
+                        self.r, self.b],
+                       outline = str(outline), fill = fill )
+        if annotate:
+            if self.name is not None:
+                draw.text([self.l-10, self.t-10],
+                          str(self.name),
+                          fill = 'black')
+        del draw
+        img.save(canvas)
+
+    @staticmethod
+    def new_image(filename, height, width, color):
+        img = Image.new('RGB', (height, width), str(color))
+        img.save(filename)
+
+
+class Box(ImageLayer):
 
     dimensions = ('x','y','w','h',
                   'l','t','r','b')
 
     def __init__(self):
-
         self.name = None
         self.size = None
+        for dim in Box.dimensions:
+            setattr(self, dim, None)         
+        self.dim = {d: None for d in Box.dimensions}
 
-        self.x = None
-        self.y = None
-        self.w = None
-        self.h = None
-
-        self.l = None
-        self.t = None
-        self.r = None
-        self.b = None
-
-        self.dimensions = {'x': None,
-                           'y': None,
-                           'w': None,
-                           'h': None,
-                           'l': None,
-                           't': None,
-                           'r': None,
-                           'b': None}
-
-
-    def set_dimension(self, dimension, value):
+    def set_dimension(self, dim, value):
         if value is None:
             return
-        if dimension in Box.dimensions:
-            if dimension in ('l', 'x'):
+        if dim in Box.dimensions:
+            if dim in ('l', 'x'):
                 self.l = self.x = value
-                self.dimensions['l'] = self.dimensions['x'] = value
-                if dimension is 'l':
+                self.dim['l'] = self.dim['x'] = value
+                if dim is 'l':
                     if self.r is not None and self.w is None:
                         self.w = self.r - self.l
-                        self.dimensions['w'] = self.w
+                        self.dim['w'] = self.w
                     elif self.r is None and self.w is not None:
                         self.r = self.x + self.w
-                        self.dimensions['r'] = self.r
-                elif dimension is 'x':
+                        self.dim['r'] = self.r
+                elif dim is 'x':
                     if self.w is not None:
                         self.r = self.x + self.w
-                        self.dimensions['r'] = self.r
+                        self.dim['r'] = self.r
 
-            elif dimension in ('t', 'y'):
+            elif dim in ('t', 'y'):
                 self.t = self.y = value
-                self.dimensions['t'] = self.dimensions['y'] = value
-                if dimension is 't':
+                self.dim['t'] = self.dim['y'] = value
+                if dim is 't':
                     if self.b is not None and self.h is None:
                         self.h = self.b - self.t
-                        self.dimensions['h'] = self.h
+                        self.dim['h'] = self.h
                     elif self.b is None and self.h is not None:
                         self.b = self.y + self.h
-                        self.dimensions['b'] = self.b
-                elif dimension is 'y':
+                        self.dim['b'] = self.b
+                elif dim is 'y':
                     if self.h is not None:
                         self.b = self.y + self.h
-                        self.dimensions['b'] = self.b
+                        self.dim['b'] = self.b
 
-            elif dimension == 'r':
-                self.r = self.dimensions['r'] = value
+            elif dim == 'r':
+                self.r = self.dim['r'] = value
                 if self.l is not None and self.w is None:
                     self.w = self.r - self.l
-                    self.dimensions['w'] = self.w
+                    self.dim['w'] = self.w
                 elif self.l is None and self.w is not None:
                     self.l = self.r - self.w
-                    self.dimensions['l'] = self.l
+                    self.dim['l'] = self.l
 
-            elif dimension == 'b':
-                self.b = self.dimensions['b'] = value
+            elif dim == 'b':
+                self.b = self.dim['b'] = value
                 if self.t is not None and self.h is None:
                     self.h = self.b - self.t
-                    self.dimensions['h'] = self.h
+                    self.dim['h'] = self.h
                 elif self.t is None and self.h is not None:
                     self.t = self.b - self.h
-                    self.dimensions['t'] = self.t
+                    self.dim['t'] = self.t
 
-            elif dimension == 'w':
-                self.w = self.dimensions['w'] = value
+            elif dim == 'w':
+                self.w = self.dim['w'] = value
                 if self.l is not None:
                     self.r = self.l + self.w
-                    self.dimensions['r'] = self.r
+                    self.dim['r'] = self.r
                 elif self.x is not None:
                     self.r = self.x + self.w
-                    self.dimensions['r'] = self.r
+                    self.dim['r'] = self.r
 
                 #if self.l is not None and self.r is None:
                 #    self.r = self.l + self.w
-                #    self.dimensions['r'] = self.r
+                #    self.dim['r'] = self.r
                 #elif self.l is None and self.r is not None:
                 #    self.l = self.r - self.w
-                #    self.dimensions['l'] = self.l
+                #    self.dim['l'] = self.l
 
-            elif dimension == 'h':
-                self.h = self.dimensions['h'] = value
+            elif dim == 'h':
+                self.h = self.dim['h'] = value
                 if self.y is not None:
                     self.b = self.y + self.h
-                    self.dimensions['b'] = self.b
+                    self.dim['b'] = self.b
                 elif self.t is not None:
                     self.b = self.t + self.h
-                    self.dimensions['b'] = self.b
+                    self.dim['b'] = self.b
 #if self.t is not None and self.b is None:
                 #    self.b = self.t + self.h
-                #    self.dimensions['b'] = self.b
+                #    self.dim['b'] = self.b
                 #elif self.t is None and self.b is not None:
                 #    self.t = self.b - self.h
-                #    self.dimensions['t'] = self.t
+                #    self.dim['t'] = self.t
 
-
-    def update_dimension(self, dimension, value):
+    def update_dimension(self, dim, value):
         if value is None:
             return
-        if dimension is 'x':
-            self.x = self.dimensions['x'] = self.l = self.dimensions['l'] = value
-            self.r = self.dimensions['r'] = self.l + self.w
-        elif dimension is 'y':
-            self.y = self.dimensions['y'] = self.t = self.dimensions['t'] = value
-            self.b = self.dimensions['b'] = self.t + self.h
-        elif dimension is 'w':
-            self.w = self.dimensions['w'] = value
-            self.r = self.dimensions['r'] = self.l + self.w
-        elif dimension is 'h':
-            self.h = self.dimensions['h'] = value
-            self.b = self.dimensions['b'] = self.t + self.h
-        elif dimension is 'l':
-            self.l = self.dimensions['l'] = self.x = self.dimensions['x'] = value
-            self.w = self.dimensions['w'] = self.r - self.l
-        elif dimension is 't':
-            self.t = self.dimensions['t'] = self.y = self.dimensions['y'] = value
-            self.h = self.dimensions['h'] = self.b - self.t
-        elif dimension is 'r':
-            self.r = self.dimensions['r'] = value
-            self.w = self.dimensions['w'] = self.r - self.l
-        elif dimension is 'b':
-            self.b = self.dimensions['b'] = value
-            self.h = self.dimensions['h'] = self.b - self.t
-
-
+        if dim is 'x':
+            self.x = self.dim['x'] = self.l = self.dim['l'] = value
+            self.r = self.dim['r'] = self.l + self.w
+        elif dim is 'y':
+            self.y = self.dim['y'] = self.t = self.dim['t'] = value
+            self.b = self.dim['b'] = self.t + self.h
+        elif dim is 'w':
+            self.w = self.dim['w'] = value
+            self.r = self.dim['r'] = self.l + self.w
+        elif dim is 'h':
+            self.h = self.dim['h'] = value
+            self.b = self.dim['b'] = self.t + self.h
+        elif dim is 'l':
+            self.l = self.dim['l'] = self.x = self.dim['x'] = value
+            self.w = self.dim['w'] = self.r - self.l
+        elif dim is 't':
+            self.t = self.dim['t'] = self.y = self.dim['y'] = value
+            self.h = self.dim['h'] = self.b - self.t
+        elif dim is 'r':
+            self.r = self.dim['r'] = value
+            self.w = self.dim['w'] = self.r - self.l
+        elif dim is 'b':
+            self.b = self.dim['b'] = value
+            self.h = self.dim['h'] = self.b - self.t
 
     def rotate(self, rot_dir, image_width, image_height):
-
         l = x = self.l
         t = y = self.t
         r = self.r
@@ -576,8 +556,6 @@ class Box:
             self.update_dimension('b', l)
             self.update_dimension('w', h)
             self.update_dimension('h', w)
-
-
         if rot_dir == 90:
             self.update_dimension('l', abs(b - image_height))
             self.update_dimension('t', l)
@@ -586,27 +564,18 @@ class Box:
             self.update_dimension('w', h)
             self.update_dimension('h', w)
 
-
-
     def resize(self, amount):
         self.set_dimension('l', self.l - amount)
         self.set_dimension('t', self.t - amount)
         self.set_dimension('r', self.r + amount)
         self.set_dimension('b', self.b + amount)
 
-
     def is_valid(self):
-        if (self.x < 0 or self.x is None or
-            self.y < 0 or self.y is None or
-            self.w < 0 or self.w is None or
-            self.h < 0 or self.h is None or
-            self.l < 0 or self.l is None or
-            self.t < 0 or self.t is None or
-            self.r < 0 or self.r is None or
-            self.b < 0 or self.b is None):
-            return False
+        for dim in Box.dimensions:
+            attr = getattr(self, dim)
+            if attr is None or attr < 0:
+                return False
         return True
-
 
     def is_contained_by(self, container, padding = -5):
         if (self.l < container.l + padding or
@@ -616,14 +585,12 @@ class Box:
             return False
         return True
 
-
     def contains_point(self, x, y):
         if ((x >= self.l and x <= self.r) and
             (y >= self.t and y <= self.b)):
             return True
         else:
             return False
-
 
     def touches(self, other_box):
         if (((self.l >= other_box.l and
@@ -642,7 +609,6 @@ class Box:
         else:
             return False
 
-
     def detect_orientation(self, container):
         if self.t < container.b - container.h/2:
             if self.b > container.b - container.h/2:
@@ -651,7 +617,6 @@ class Box:
                 else:
                     return 'floor'
         return 'head'
-
 
     def center_within(self, container):
         x = (container.x +
@@ -666,7 +631,6 @@ class Box:
             self.set_dimension('y', y)
         else:
             self.update_dimension('y', y)
-
 
     def position_around(self, anchor, head=None, floor=None):
         x = anchor.x - (self.w - anchor.w)/2
@@ -684,7 +648,6 @@ class Box:
             self.set_dimension('y', y)
         else:
             self.update_dimension('y', y)
-
 
     def fit_within(self, container):
         if self.x < container.x:
@@ -721,34 +684,12 @@ class Box:
                 self.update_dimension('h', self.h - abs(delta - space))
 
 
-    def draw(self, canvas, outline="blue", fill=None, annotate=True):
-        img = Image.open(canvas)
-        draw = ImageDraw.Draw(img)
-        draw.rectangle([self.l, self.t,
-                        self.r, self.b],
-                       outline = str(outline), fill = fill )
-        if annotate:
-            if self.name is not None:
-                draw.text([self.l-10, self.t-10],
-                          str(self.name),
-                          fill = 'black')
-        del draw
-        img.save(canvas)
-
-
-    @staticmethod
-    def new_image(filename, height, width, color):
-        img = Image.new('RGB', (height, width), str(color))
-        img.save(filename)
-
-
-class Clusters:
+class Clusters(object):
 
     def __init__(self, leaf):
         self.leaf = leaf
         self.cluster = {}
         self.position = 0
-
 
     def new_cluster(self, position=None):
         if position is None:
@@ -756,7 +697,6 @@ class Clusters:
         self.cluster[position] = Box()
         self.cluster[position].name = str(position)
         self.position = len(self.cluster)
-
 
     def search(self, container, size_limit=None):
         results = {}
@@ -770,7 +710,6 @@ class Clusters:
             return False
         else:
             return results
-
 
     def find_by_orientation(self, container):
         self.top_left = None

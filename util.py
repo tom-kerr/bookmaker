@@ -1,4 +1,5 @@
 import os
+import signal
 import sys
 import subprocess
 import re
@@ -6,11 +7,10 @@ import math
 import time
 import traceback
 
-class Util:
+class Util(object):
 
     def __init__(self):
         self.active_procs = {}
-
 
     def exec_cmd(self, cmd, stdout=None, stdin=None,
                  retval=False, return_output=False, print_output=False,
@@ -18,72 +18,63 @@ class Util:
         devnull = open(os.devnull, 'w')
         if stdout:
             stdout = open(stdout, 'wb')
-        elif return_output:
+        elif return_output or print_output:
             stdout = subprocess.PIPE
         else:
             stdout = devnull
         if stdin:
             stdin = open(stdin, 'rb')
-        try:
-            start = Util.microseconds()
-            if current_wd is not None:
-                p = subprocess.Popen(cmd, cwd=current_wd, stdout=stdout, stdin=stdin)
-            else:
-                p = subprocess.Popen(cmd, stdout=stdout, stdin=stdin)
-            pid = p.pid
-            self.active_procs[pid] = p
 
-            output = p.communicate()
-
-            if print_output:
-                print output
-
-            end = Util.microseconds()
-
-        except Exception as e:
-            raise e
-
+        start = Util.microseconds()
+        if current_wd is not None:
+            p = subprocess.Popen(cmd, cwd=current_wd, 
+                                 stdout=stdout, stdin=stdin)
+        else:
+            p = subprocess.Popen(cmd, stdout=stdout, stdin=stdin)
+        pid = p.pid
+        self.active_procs[pid] = p
+        output = p.communicate()
+        end = Util.microseconds()
+        if print_output:
+            for o in output:
+                if o:
+                    print (o.decode('utf-8'))            
         del self.active_procs[pid]
 
         if retval:
             return p.returncode
-
         if return_output:
-            return {'output': output[0],
+            return {'output': output[0].decode('utf-8'),
                     'exec_time': end - start,
                     'pid': pid}
         else:
             return {'exec_time': end - start,
                     'pid': pid}
 
-
     def end_active_processes(self):
         for pid, proc in self.active_procs.items():
-            try:
-                proc.terminate()
-            except:
-                pass
-
-            
+            proc.terminate()
+            time.sleep(0.5)
+            alive = proc.poll()
+            if alive is None:
+                os.kill(pid, signal.SIGINT)
+                
     @staticmethod
     def exception_info():
         exc_type, exc_obj, exc_tb = sys.exc_info()
         stack = traceback.format_exc()
-        return 'Type: '+ str(exc_type) + '\nValue: ' + str(exc_obj) + '\n' + str(stack)
-
+        return str(stack)
 
     @staticmethod
     def bail(message, logger=None):
-        print 'Bookmaker Fatal Error: ' + str(message)
+        print ('Bookmaker Fatal Error: ' + str(message))
         if logger is not None:
-            logger.message('Fatal Error: ' + str(message), 'global')
+            logger.error('Fatal Error: ' + str(message))
         sys.exit(1)
-
 
     @staticmethod
     def microseconds():
         return time.time()
-
 
     @staticmethod
     def stats(data):
@@ -107,7 +98,6 @@ class Util:
                 'sd': sd,
                 'min': min,
                 'max': max}
-
 
     @staticmethod
     def stats_hist(data, statobj):

@@ -1,275 +1,174 @@
 import os
-from pyPdf import PdfFileReader, PdfFileWriter
+import glob
+import re
+
+from PyPDF2 import PdfFileReader, PdfFileWriter
 from lxml import etree
 
 from util import Util
-from operation import Operation
+from .operation import Operation
 
 
 class Derive(Operation):
+    """ Handles the processing for various export formats.
     """
-    Handles the processing for various export formats.
 
-    """
-    components = {'tesseract': 'Tesseract',
-                  'c44': 'C44',
-                  'djvused': 'Djvused',
-                  'djvm': 'Djvm',
-                  'hocr2pdf': 'HOCR2Pdf'}
+    components = {'tesseract': {'class': 'Tesseract',
+                                'callback': None},
+                  'c44': {'class': 'C44',
+                          'callback': None},
+                  'djvused': {'class': 'Djvused',
+                              'callback': None},
+                  'djvm': {'class': 'Djvm',
+                           'callback': None},
+                  'hocr2pdf': {'class': 'HOCR2Pdf',
+                               'callback': None}}
 
     def __init__(self, ProcessHandler, book):
         self.ProcessHandler = ProcessHandler
         self.book = book
         try:
             super(Derive, self).__init__(Derive.components)
-            self.init_components( [self.book,self.book,
-                                   self.book,self.book,
-                                   self.book] )
+            self.init_components(self.book)
         except:
-            self.ProcessHandler.join((self.book.identifier + '_Derive_init',
-                                      Util.exception_info(),
-                                      self.book.logger))
+            pid = self.make_pid_string('__init__')
+            self.ProcessHandler.join((pid, Util.exception_info()))
 
+    def make_djvu_with_c44(self, start=None, end=None, **kwargs):
+        if None in (start, end):
+            start, end = 1, self.book.page_count-1
+        self.c44_pipeline(start=start, end=end, **kwargs)
+        self.djvused_add_ocr_pipeline(start=start, end=end, **kwargs)
 
-    def make_djvu_with_c44(self, start, end, *args):
-        self.book.logger.message('Making DjVu with c44')
-        djvu_files = self.c44_pipeline(start, end, args)
-        self.djvused_add_ocr_pipeline(start, end)
-        self.assemble_djvu_with_djvm(djvu_files)
-
-
-    def c44_pipeline(self, start, end, slices=None, size=None,
-                     bpp=None, percent=None, dpi=None, gamma=None, decibel=None,
-                     dbfrac=None, crcbnorm=None, crcbhalf=None, crcbfull=None,
-                     crcbnone=None, crcbdelay=None, mask=None):
-        djvu_files = []
+    def c44_pipeline(self, start=None, end=None, **kwargs):
+        if None in (start, end):
+            start, end = 1, self.book.page_count-1
         for leaf in range(start, end):
-            if slices:
-                self.C44.slice = '-slice ' + str(slices)
-            else:
-                self.C44.slice = None
-            if size:
-                self.C44.size = '-size ' + str(size)
-            else:
-                self.C44.size = None
-            if bpp:
-                self.C44.bpp = '-bpp ' + str(bpp)
-            else:
-                self.C44.bpp = None
-            if percent:
-                self.C44.percent = '-percent ' + str(percent)
-            else:
-                self.C44.percent = None
-            if dpi:
-                self.C44.dpi = '-dpi ' + str(dpi)
-            else:
-                self.C44.dpi = None
-            if gamma:
-                self.C44.gamma = '-gamma ' + str(gamma)
-            else:
-                self.C44.gamma = None
-            if decibel:
-                self.C44.decibel = '-decibel ' + str(decibel)
-            else:
-                self.C44.decibel = None
-            if dbfrac:
-                self.C44.dbfrac = '-dbfrac ' + str(dbfrac)
-            else:
-                self.C44.dbfrac = None
-            if crcbnorm:
-                self.C44.crcb = '-crcbnormal'
-            elif crcbhalf:
-                self.C44.crcb = '-crcbhalf'
-            elif crcbfull:
-                self.C44.crcb = '-crcbfull'
-            elif crcbnone:
-                self.C44.crcb = '-crcbnone'
-            else:
-                self.C44.crcb = None
-            if crcbnorm or crcbhalf:
-                if crcbdelay:
-                    self.C44.crcbdelay = '-crcbdelay ' + str(crcbdelay)
-                else:
-                    self.C44.crcbdelay = None
-            if mask:
-                self.C44.mask = '-mask ' + str(mask)
-            else:
-                self.C44.mask = None
-
-            leafnum = "%04d" % leaf
-            self.C44.in_file = (self.book.dirs['cropped'] + '/' +
-                                self.book.identifier + '_' + leafnum + '.JPG')
-            self.C44.out_file =( self.book.dirs['derived'] + '/' +
-                                 self.book.identifier + '_' + leafnum + '.djvu')
-
             try:
-                self.C44.run()
+                self.C44.run(leaf, **kwargs)
             except:
-                self.ProcessHandler.join((self.book.identifier +
-                                          '_Derive_c44_pipeline',
-                                          Util.exception_info(),
-                                          self.book.logger))
-            djvu_files.append(self.C44.out_file)
-        return djvu_files
-
-
-    def djvused_add_ocr_pipeline(self, start, end):
+                pid = self.make_pid_string('c44_pipeline')
+                self.ProcessHandler.join((pid, Util.exception_info()))
+        
+    def djvused_add_ocr_pipeline(self, start=None, end=None, **kwargs):
+        if None in (start, end):
+            start, end = 1, self.book.page_count-1
         hocr_files = self.Tesseract.get_hocr_files()
+        tmpocrlisp = self.book.dirs['derived'] + '/tmpocrlisp.txt'
+        set_text = self.book.dirs['derived'] +"/set_text"
         for leaf in range(start, end):
             if leaf in hocr_files:
                 hocr = self.Tesseract.parse_hocr(hocr_files[leaf])
+                #print (hocr, hocr_files[leaf])
                 if hocr is None:
                     continue
+                self.book.logger.debug('djvused: leaf ' + str(leaf))
                 ocrlisp = self.Tesseract.hocr2lisp(hocr)
-                tmpocrlisp = self.book.dirs['derived'] + '/tmpocrlisp.txt'
+                #print (ocrlisp)
+                
                 try:
                     with open(tmpocrlisp, 'w') as f:
                         f.write(ocrlisp)
-                        f.close()
                 except IOError:
-                    self.ProcessHandler.join((self.book.identifier +
-                                              '_Derive_djvused_add_ocr_pipeline',
-                                              Util.exception_info(),
-                                              self.book.logger))
+                    pid = self.make_pid_string('djvused_add_ocr_pipeline')
+                    self.ProcessHandler.join((pid, Util.exception_info()))
 
-                set_text = self.book.dirs['derived'] +"/set_text"
                 if not os.path.exists(set_text):
                     try:
                         with open(set_text, 'w') as f:
                             f.write("select 1; set-txt " + tmpocrlisp + "; save")
-                            f.close()
                     except IOError:
-                        self.ProcessHandler.join((self.book.identifier +
-                                                  '_Derive_djvused_add_ocr_pipeline',
-                                                  Util.exception_info(),
-                                                  self.book.logger))
+                        pid = self.make_pid_string('djvused_add_ocr_pipeline')
+                        self.ProcessHandler.join((pid, Util.exception_info()))
 
-                self.Djvused.options = '-f'
-                self.Djvused.script = set_text
-
-                leafnum = "%04d" % leaf
-                self.Djvused.djvu_file = (self.book.dirs['derived'] + '/' +
-                                          self.book.identifier + '_' + leafnum + '.djvu')
-
+                kwargs.update({'options': '-f',
+                               'script': set_text})                
                 try:
-                    self.Djvused.run()
+                    self.Djvused.run(leaf, **kwargs)
                 except:
-                    self.ProcessHandler.join((self.book.identifier +
-                                              '_Derive_djvused_add_ocr_pipeline',
-                                              Util.exception_info(),
-                                              self.book.logger))
-        try:
-            os.remove(tmpocrlisp)
-        except:
-            pass
-        try:
-            os.remove(set_text)
-        except:
-            pass
+                    pid = self.make_pid_string('djvused_add_ocr_pipeline')
+                    self.ProcessHandler.join((pid, Util.exception_info()))
 
-
-    def assemble_djvu_with_djvm(self, djvu_files):
-        self.Djvm.out_file = self.book.dirs['derived'] + '/' + self.book.identifier + '.djvu '
-        self.Djvm.options = '-c'
-        self.Djvm.in_files = djvu_files
+        for f in (tmpocrlisp, set_text):
+            try:
+                if os.path.exists(f):
+                    os.remove(f)
+            except Exception as e:
+                self.book.logger.warning('Failed to remove ' + f +'; ' + str(e))
+        
+    def assemble_djvu_with_djvm(self, **kwargs):
+        self.book.logger.debug('assembling djvu with djvm')
+        kwargs['options'] = '-c'
         try:
-            self.Djvm.run()
+            self.Djvm.run(**kwargs)
             self.Djvm.remove_in_files()
         except:
-            self.ProcessHandler.join((self.book.identifier +
-                                      '_Derive_assemble_with_djvm',
-                                      Util.exception_info(),
-                                      self.book.logger))
+            pid = self.make_pid_string('assemble_with_djvm')
+            self.ProcessHandler.join((pid, Util.exception_info()))
+        
+    def make_pdf_with_hocr2pdf(self, start=None, end=None, **kwargs):
+        if None in (start, end):
+            start, end = 1, self.book.page_count-1
+        self.hocr2pdf_pipeline(start, end, **kwargs)
 
-
-    def make_pdf_with_hocr2pdf(self, start, end,
-                          no_image=None, sloppy=None, ppi=None):
-        self.book.logger.message('Making PDF with hocr2pdf')
-        pdf_files = self.hocr2pdf_pipeline(start, end, no_image, sloppy, ppi)
-        self.assemble_pdf_with_pypdf(pdf_files)
-
-
-    def hocr2pdf_pipeline(self, start, end,
-                          no_image=None, sloppy=None, ppi=None):
+    def hocr2pdf_pipeline(self, start=None, end=None, **kwargs):
+        if None in (start, end):
+            start, end = 1, self.book.page_count-1
         hocr_files = self.Tesseract.get_hocr_files()
-        pdf_files = []
+        dummy_hocr = self.book.dirs['derived'] + '/html.hocr'
         for leaf in range(start, end):
+            self.book.logger.debug('hocr2pdf: leaf ' + str(leaf))
+            leafnum = '%04d' % leaf
             if leaf in hocr_files:
                 hocr = hocr_files[leaf]
+                self.book.logger.debug('found hocr: leaf ' + str(leaf))
             else:
-                dummy_hocr = self.book.dirs['derived'] + '/html.hocr'
+                self.book.logger.debug('dummy hocr: leaf ' + str(leaf))
                 if not os.path.exists(dummy_hocr):
                     hocr = open(dummy_hocr, 'w')
                     hocr.write('<html/>')
                     hocr.close()
                 hocr = dummy_hocr
 
-            if no_image:
-                self.HOCR2Pdf.no_image = '-n'
-            else:
-                self.HOCR2Pdf.no_image = None
-            if sloppy:
-                self.HOCR2Pdf.sloppy = '-s'
-            else:
-                self.HOCR2Pdf.sloppy = None
-            if ppi:
-                self.HOCR2Pdf.resolution = '-r ' + str(ppi)
-            else:
-                self.HOCR2Pdf.resolution = None
-
-            self.HOCR2Pdf.hocr_file = hocr
-
-            leafnum = '%04d' % leaf
-            self.HOCR2Pdf.in_file = (self.book.dirs['cropped'] + '/' +
-                                     self.book.identifier + '_' + leafnum + '.JPG')
-            self.HOCR2Pdf.out_file = (self.book.dirs['derived'] + '/' +
-                                      self.book.identifier + '_' + leafnum + '.pdf')
-
+            out_file = self.book.dirs['derived'] + '/' + \
+                self.book.identifier + '_' + leafnum + '.pdf'
+            
+            kwargs.update({'hocr_file': hocr,
+                           'out_file': out_file})
             try:
-                self.HOCR2Pdf.run(leaf)
+                self.HOCR2Pdf.run(leaf, **kwargs)
             except:
-                self.ProcessHandler.join((self.book.identifier +
-                                          '_Derive_make_pdf_hocr_pipeline',
-                                          Util.exception_info(),
-                                          self.book.logger))
-
-            if not os.path.exists(self.HOCR2Pdf.out_file):
-                self.ProcessHandler.join((self.book.identifier +
-                                          '_Derive_make_pdf_hocr_pipeline',
-                                          'cannot make pdf: failed to create ' +
-                                          self.HOCR2Pdf.out_file,
-                                          self.book.logger))
-            else:
-                pdf_files.append(self.HOCR2Pdf.out_file)
+                pid = self.make_pid_string('make_pdf_hocr_pipeline')
+                self.ProcessHandler.join((pid, Util.exception_info()))
+                
+            if not os.path.exists(out_file):
+                pid = self.make_pid_string('make_pdf_hocr_pipeline')
+                self.ProcessHandler.join((pid, 'cannot make pdf: failed to create ' +
+                                          out_file,))
         try:
-            os.remove(dummy_hocr)
-        except:
-            pass
-        return pdf_files
-
-
-    def assemble_pdf_with_pypdf(self, pdf_files):
+            if os.path.exists(dummy_hocr):
+                os.remove(dummy_hocr)
+        except Exception as e:
+            self.book.logger.warning('Failed to remove dummy hocr; ' + str(e))
+            
+    def assemble_pdf_with_pypdf(self, **kwargs):
+        self.book.logger.debug('assembling pdf with pypdf')
+        pdf_files = glob.glob(self.book.dirs['derived'] + '/*.pdf')
+        pdf_files = sorted([p for p in pdf_files 
+                            if re.search('_[0-9]+.pdf$', p)])
         pdf_out = PdfFileWriter()
         for pdf_file in pdf_files:
-            pdf_page = PdfFileReader(file(pdf_file, 'rb'))
+            self.book.logger.debug('pypdf adding ' + pdf_file)
+            pdf_page = PdfFileReader(open(pdf_file, 'rb'))
             pdf_out.addPage(pdf_page.getPage(0))
             os.remove(pdf_file)
-        pdf = file(self.book.dirs['derived'] + '/' + self.book.identifier + '.pdf', 'wb')
+        pdf = open(self.book.dirs['derived'] + '/' + 
+                   self.book.identifier + '.pdf', 'wb')
         pdf_out.write(pdf)
         pdf.close()
 
 
-
-
-
-
-
-
-
-
-
-
-
+    """
     def epub(self):
         self.book.logger.message('Creating EPUB...')
         #self.write_mimetype()
@@ -279,7 +178,7 @@ class Derive(Operation):
 
     def write_container(self):
         try:
-            os.mkdir(self.book.dirs['derived'] + '/META-INF', 0755)
+            os.mkdir(self.book.dirs['derived'] + '/META-INF', 0o755)
         except Exception as e:
             self.ProcessHandler.ThreadQueue.put((self.book.identifier + '_epub_container',
                                                  'Failed to create META-INF.',
@@ -353,3 +252,4 @@ class Derive(Operation):
             #self.ImageOps.complete(self.book.identifier +'_text')
         self.book.logger.message('Finished Text.')
 
+        """

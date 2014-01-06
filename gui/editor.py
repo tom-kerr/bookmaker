@@ -12,7 +12,7 @@ from environment import Environment
 from util import Util
 from datastructures import Crop, Box
 from processing import ProcessHandling
-#from ocr import OCR
+from components.tesseract import Tesseract
 from history import History
 from metadata import Metadata
 from common import Common
@@ -1984,7 +1984,7 @@ class ExportHandler:
                                               'color': 'gray',
                                               'show': True})
         self.ProcessHandler = ProcessHandling()
-        Common.run_in_background(self.ProcessHandler.monitor_thread_exceptions)
+        #Common.run_in_background(self.ProcessHandler.monitor_thread_exceptions)
         self.build_stack_controls()
         self.build_derivative_controls()
         self.build_global_controls()
@@ -2139,7 +2139,7 @@ class ExportHandler:
                                            'show': True})
 
         self.ocr_lang_options = gtk.combo_box_new_text()
-        for num, lang in enumerate(OCR.languages):
+        for num, lang in enumerate(Tesseract.languages):
             self.ocr_lang_options.insert_text(int(num), str(lang))
         self.ocr_lang_options.insert_text(0, 'choose a language')
         self.ocr_lang_options.set_active(0)

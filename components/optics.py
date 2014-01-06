@@ -1,6 +1,6 @@
 import os
 from environment import Environment
-from component import Component
+from .component import Component
 
 class Optics(Component):
     """

@@ -116,7 +116,7 @@ class Common:
                 try:
                     Common.set_widget_properties(widget, args)
                 except Exception as E:
-                    print 'failed to set widget ' + str(widget) + ' properties: ' + str(E)
+                    print ('failed to set widget ' + str(widget) + ' properties: ' + str(E))
                     return None
         return widget
 

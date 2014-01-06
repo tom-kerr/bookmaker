@@ -1,6 +1,6 @@
 import os, sys, platform
 import glob
-import urllib2
+import urllib
 import zipfile
 import tarfile
 import re
@@ -8,8 +8,8 @@ import re
 from util import Util
 
 py_version = sys.version_info
-if py_version[0] < 2 or py_version[0] == 2 and py_version[1] != 7:
-    Util.bail('Python 2.7 required')
+if py_version[0] < 3:
+    Util.bail('Python 3+ required')
 
 plat = sys.platform
 if re.search('linux', plat):
@@ -19,26 +19,26 @@ if re.search('darwin', plat):
 if re.search('win', plat):
     dist = platform.win32_ver()[0]
 
-print 'Environment: ' + dist, plat
+print ('Environment: ' + dist, plat)
 
-py_dep = {'yaml':   {'Ubuntu': {'method':'pkg-manager',
-                                'pkg': 'python-yaml'}},
-          'lxml':   {'Ubuntu': {'method':'pkg-manager',
-                                'pkg': 'python-lxml'}},
-          'psutil': {'Ubuntu': {'method':'pkg-manager',
-                                'pkg': 'python-psutil'}},
-          'pypdf':  {'Ubuntu': {'method':'pkg-manager',
-                                'pkg': 'python-pypdf'}},
-          'pil':    {'Ubuntu': {'method':'pkg-manager',
-                                'pkg': 'python-imaging'}},
-          'pygtk':  {},
+py_dep = {'yaml':   {'Ubuntu': {'method':'pip',
+                                'pkg': 'pyaml'}},
+          'lxml':   {'Ubuntu': {'method':'pip',
+                                'pkg': 'lxml'}},
+          'psutil': {'Ubuntu': {'method':'pip',
+                                'pkg': 'psutil'}},
+          'PyPDF2':  {'Ubuntu': {'method':'distutils',
+                                 'url': 'https://github.com/mstamy2/PyPDF2/archive/master.zip'}},
+          'PIL':    {'Ubuntu': {'method':'pip',
+                                'pkg': 'pillow'}},
+          #'pygtk':  {},
 
           'xmltodict':    {'Ubuntu': {'method':'pip',
-                                'pkg': 'xmltodict'}},
+                                      'pkg': 'xmltodict'}},
           'dicttoxml':    {'Ubuntu': {'method':'pip',
                                       'pkg': 'dicttoxml'}},
-          'bibs':   {dist: {'method':'distutils',
-                            'url': 'https://github.com/reklaklislaw/bibs/archive/master.zip'}}
+          #'bibs':   {dist: {'method':'distutils',
+          #                  'url': 'https://github.com/reklaklislaw/bibs/archive/master.zip'}}
           }
 
 sys_dep = { 'make':       {'Ubuntu': 'make'},
@@ -54,7 +54,7 @@ sys_dep = { 'make':       {'Ubuntu': 'make'},
 
 def check_py_dep():
     for module, dists in py_dep.items():
-        print 'Checking for ' + module
+        print ('Checking for ' + module)
         try:
             __import__(module)
         except ImportError:
@@ -69,16 +69,19 @@ def check_py_dep():
                     if not install_with_distutils(path):
                         Util.bail('Failed to install ' + module)
                 elif method == 'pip':
-                    install_with_pip(dists[dist]['pkg'])
+                    if not install_with_pip(dists[dist]['pkg']):
+                        Util.bail('Failed to install ' + module)
             else:
-                Util.bail('Distribution ' + str(dist) + ' is not supported by this script')
+                Util.bail('Distribution ' + str(dist) + 
+                          ' is not supported by this script')
         else:
-            print 'Already Installed.'
+            print ('Already Installed.')
 
 
 def install_with_pip(mod):
-    cmd = 'pip^ install^ ' + mod
-    retval = Util.cmd(cmd, retval=True, print_output=True)
+    pip = 'pip-3.2'
+    cmd = [pip, 'install', mod]
+    retval = Util.exec_cmd(cmd, retval=True, print_output=True)
     if retval != 0:
         return False
     else:
@@ -87,8 +90,8 @@ def install_with_pip(mod):
 
 def install_with_package_manager(mod):
     if dist in ('Ubuntu', 'Debian'):
-        cmd = 'apt-get^ -y^ install^ ' + mod + '^'
-    retval = Util.cmd(cmd, retval=True, print_output=True)
+        cmd = ['apt-get', '-y', 'install', mod]
+    retval = Util.exec_cmd(cmd, retval=True, print_output=True)
     if retval != 0:
         return False
     else:
@@ -96,8 +99,10 @@ def install_with_package_manager(mod):
 
 
 def install_with_distutils(path):
-    cmd = 'python^ setup.py^ install^'
-    retval = Util.cmd(cmd, current_wd=path, retval=True, print_output=True)
+    python = 'python3.' + str(py_version[1])
+    cmd = [python, 'setup.py', 'install']
+    retval = Util.exec_cmd(cmd, current_wd=path, 
+                           retval=True, print_output=True)
     if retval != 0:
         return False
     else:
@@ -110,7 +115,8 @@ def check_sys_dep():
             if not install_with_package_manager(dists[dist]):
                 Util.bail('Failed to install ' + pkg)
         else:
-            Util.bail('Distribution ' + str(dist) + ' is not supported by this script')
+            Util.bail('Distribution ' + str(dist) + 
+                      ' is not supported by this script')
 
 
 def download_and_extract(source):
@@ -118,17 +124,16 @@ def download_and_extract(source):
         os.mkdir('packages')
     basename = os.path.basename(source)
     if not os.path.exists('packages/' + basename):
-        print 'Downloading ' + source
+        print ('Downloading ' + source)
         try:
-            fp = urllib2.urlopen(source)
-            f = open('packages/' + basename, 'w')
-            f.write(fp.read())
-            f.close()
+            fp = urllib.request.urlopen(source)
+            with open('packages/' + basename, 'w+b') as f:
+                f.write(fp.read())
         except Exception as e:
-            print 'Error opening ' + source
+            print ('Error opening ' + source)
             Util.bail(str(e))
 
-    print 'Extracting...'
+    print ('Extracting...')
     for extension in ('.zip','.tar','.tar.gz', '.tar.bz2', '.tgz'):
         if re.search(extension + '$', basename):
             ext = extension
@@ -143,7 +148,7 @@ def download_and_extract(source):
             archive = tarfile.open('packages/' + basename)
             archive.extractall('packages/')
     except Exception as e:
-        print 'Error downloading and extracting ' + basename
+        print ('Error downloading and extracting ' + basename)
         Util.bail(str(e))
 
     match = glob.glob('packages/'+filename+'/*')
@@ -157,14 +162,18 @@ def download_and_extract(source):
 
 
 def build_bookmaker_executables():
+    print('Building bookmaker executables')
     cmd = './build.sh'
     cwd = 'bin/'
     try:
-        Util.cmd(cmd, current_wd=cwd, print_output=True)
+        Util.exec_cmd(cmd, current_wd=cwd, print_output=True)
     except Exception as e:
-        print 'Error building bookmaker executables'
+        print ('Error building bookmaker executables')
         Util.bail(str(e))
 
+Util = Util()
+if not install_with_package_manager('python3-pip'):
+    Util.bail('Failed to install pip')
 check_py_dep()
 check_sys_dep()
 build_bookmaker_executables()

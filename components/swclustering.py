@@ -1,8 +1,9 @@
 import os
+import logging
 
 from util import Util
 from environment import Environment
-from component import Component
+from .component import Component
 from datastructures import Clusters
 
 class SWClustering(Component):
@@ -42,52 +43,72 @@ class SWClustering(Component):
     executable = Environment.current_path + '/bin/clusterAnalysis/slidingWindow/./slidingWindow'
 
     def __init__(self, book):
-        super(SWClustering, self).__init__(SWClustering.args)
+        super(SWClustering, self).__init__()
         self.book = book
-        dirs = {'clusters': self.book.root_dir + '/' + self.book.identifier + '_clusters',
-                'windows':  self.book.root_dir + '/' + self.book.identifier + '_windows',
-                'noise':    self.book.root_dir + '/' + self.book.identifier + '_noise',}
+        dirs = {'clusters': self.book.root_dir + '/' + \
+                    self.book.identifier + '_clusters',
+                'windows':  self.book.root_dir + '/' + \
+                    self.book.identifier + '_windows',
+                'noise':    self.book.root_dir + '/' + \
+                    self.book.identifier + '_noise',}
         self.book.add_dirs(dirs)
         self.book.clusters = {}
         self.filtered_clusters = {}
-
         
-    def run(self, leaf):
-        self.book.logger.message('Getting clusters for leaf ' + str(leaf) + '...', 'featureDetection')
-        leafnum = '%04d' % leaf
-        self.in_file = (self.book.dirs['corners'] + '/' +
-                        self.book.identifier + '_corners_' +
-                        leafnum + '.txt')
-        self.out_file = (self.book.dirs['clusters'] + '/' +
-                         self.book.identifier + '_clusters_' +
-                         leafnum + '.txt')
-
+    def run(self, leaf, in_file=None, out_file=None, window_width=None, 
+            window_height=None, skew_angle=None, center_x=None, center_y=None,
+            callback=None, **kwargs):        
         if not self.book.corner_data[leaf]:
             self.book.contentCropScaled.classification[leaf] = 'Blank'
             return
-        
-        if not os.path.exists(self.in_file):
-            raise IOError(self.in_file + ' does not exist!')
+        leafnum = '%04d' % leaf
+        if not in_file:
+            in_file = (self.book.dirs['corners'] + '/' +
+                       self.book.identifier + '_corners_' +
+                       leafnum + '.txt')        
+        if not os.path.exists(in_file):
+            raise IOError(in_file + ' does not exist!')
 
-        self.window_width = self.book.corner_data[leaf]['window_width']
-        self.window_height = self.book.corner_data[leaf]['window_height']
-        self.skew_angle = self.book.pageCropScaled.skew_angle[leaf]
-        self.center_x = self.book.scaled_center_point[leaf]['x']
-        self.center_y = self.book.scaled_center_point[leaf]['y']
+        if not out_file:
+            out_file = (self.book.dirs['clusters'] + '/' +
+                        self.book.identifier + '_clusters_' +
+                        leafnum + '.txt')
+        
+        if not window_width:
+            window_width = self.book.corner_data[leaf]['window_width']
+        if not window_height:
+            window_height = self.book.corner_data[leaf]['window_height']
+        if not skew_angle:
+            skew_angle = self.book.pageCropScaled.skew_angle[leaf]
+        if not center_x:
+            center_x = self.book.scaled_center_point[leaf]['x']
+        if not center_y:
+            center_y = self.book.scaled_center_point[leaf]['y']
+
+        kwargs.update({'in_file': in_file,
+                       'out_file': out_file,
+                       'window_width': window_width,
+                       'window_height': window_height,
+                       'center_x': center_x,
+                       'center_y': center_y,
+                       'skew_angle': skew_angle})
 
         if self.book.settings['respawn']:
-            try:
-                self.execute()
-            except Exception as e:
-                raise e
-        try:
-            self.parse_cluster_data(leaf, self.out_file)
-            self.filter_clusters(leaf)
-            self.get_content_dimensions(leaf)
-        except Exception as e:
-            raise e
+            output = self.execute(kwargs, return_output=True)
+        else:
+            output = None
+        if callback:
+            self.execute_callback(callback, leaf, output, **kwargs)
+        else:
+            return output
 
-
+    def post_process(self, *args, **kwargs):
+        leaf = args[0]
+        out_file = kwargs['out_file']
+        self.parse_cluster_data(leaf, out_file)
+        self.filter_clusters(leaf)
+        self.get_content_dimensions(leaf)
+        
     @staticmethod
     def get_cluster_data(cluster_file):
         if not os.path.exists(cluster_file):
@@ -104,7 +125,6 @@ class SWClustering(Component):
             data.cluster[num].set_dimension('b', int(components[3]))
             data.cluster[num].s =                int(components[4])
         return data
-
 
     def parse_cluster_data(self, leaf, cluster_file):
         self.book.clusters[leaf] = Clusters(leaf)
@@ -133,12 +153,12 @@ class SWClustering(Component):
                     try:
                         self.book.clusters[leaf].cluster[cluster_count].draw(self.book.clusters[leaf].thumb)
                     except Exception as e:
-                        print str(e)
+                        print (str(e))
 
                 cluster_count += 1
             else:
-                self.book.logger.message('cluster ' + str(num) + ' dimensions are invalid on leaf ' +
-                                         str(leaf) + '-- ignoring...', 'featureDetection')
+                self.book.logger.debug('cluster ' + str(num) + ' dimensions are invalid on leaf ' +
+                                  str(leaf) + '-- ignoring...')
 
                 if self.book.settings['draw_invalid_clusters'] and self.book.settings['respawn']:
                     tmp_cluster.thumb = (self.book.dirs['cornered_scaled'] + '/' +
@@ -170,9 +190,10 @@ class SWClustering(Component):
                 if self.book.settings['draw_removed_clusters'] and self.book.settings['respawn']:
                     self.filtered_clusters[leaf].cluster[num].draw(self.book.clusters[leaf].thumb,
                                                                    outline="orange")
-                    self.book.logger.message('noise filter removed cluster ' +
-                                             str(num) + ' ('+ str(cluster.size) +' corners) on leaf ' + str(leaf),
-                                             'featureDetection')
+                    self.book.logger.debug('noise filter removed cluster ' +
+                                           str(num) + ' ('+ str(cluster.size) +
+                                           ' corners) on leaf ' + str(leaf))
+                                          
 
         if cluster_count is 0:
             #self.book.logger.message('all clusters filtered on leaf ' + str(leaf) + ' -- marking page as blank', log)
@@ -180,7 +201,7 @@ class SWClustering(Component):
 
 
     def get_content_dimensions(self, leaf):
-        self.book.logger.message('getting content dimensions...', 'featureDetection')
+        self.book.logger.debug('getting content dimensions for leaf ' + str(leaf))
 
         if self.book.contentCropScaled.classification[leaf] is not 'Blank':
             l = t = r = b = None
@@ -216,10 +237,10 @@ class SWClustering(Component):
                 try:
                     self.book.contentCropScaled.box[leaf].draw(self.book.clusters[leaf].thumb, outline='green')
                 except Exception as e:
-                    print str(e)
+                    print (str(e))
 
     def analyse_noise(self, log='noiseAnalysis'):
-        self.book.logger.message('analysing noise...', 'featureDetection')
+        self.book.logger.debug('analysing noise...')
         if not self.get_reference_leafs():
             return
 
@@ -227,7 +248,7 @@ class SWClustering(Component):
             Box.new_image(self.book.dirs['noise'] + '/left_noise.jpg',
                           self.book.raw_image_dimensions[0]['height']/4,
                           self.book.raw_image_dimensions[0]['width']/4,
-                                'black')
+                          'black')
             Box.new_image(self.book.dirs['noise'] + '/right_noise.jpg',
                           self.book.raw_image_dimensions[0]['height']/4,
                           self.book.raw_image_dimensions[0]['width']/4,
@@ -251,19 +272,19 @@ class SWClustering(Component):
         self.left_reference_leaf = None
         self.right_reference_leaf = None
         self.book.pageCropScaled.get_box_metadata()
-        for leaf, box in self.book.pageCropScaled.box.iteritems():
+        for leaf, box in self.book.pageCropScaled.box.items():
             if ((box.w in self.book.pageCropScaled.meta['w']['stats_hist']['above_mean'] or
                  box.w in self.book.pageCropScaled.meta['w']['stats_hist']['below_mean']) and
                 (box.h in self.book.pageCropScaled.meta['h']['stats_hist']['above_mean'] or
                  box.h in self.book.pageCropScaled.meta['h']['stats_hist']['below_mean'])):
                 if leaf%2==0 and self.left_reference_leaf is None:
-                    self.book.logger.message('left reference leaf is ' + str(leaf), 'featureDetection')
+                    self.book.logger.debug('left reference leaf is ' + str(leaf))
                     self.left_reference_leaf = self.book.pageCropScaled.box[leaf]
                 elif leaf%2==0 and self.right_reference_leaf is None:
-                    self.book.logger.message('right reference leaf is ' + str(leaf), 'featureDetection')
+                    self.book.logger.debug('right reference leaf is ' + str(leaf))
                     self.right_reference_leaf = self.book.pageCropScaled.box[leaf]
         if self.left_reference_leaf is None and self.right_reference_leaf is None:
-            self.book.logger.message('could not find suitable reference leafs...aborting noise analysis', 'featureDetection')
+            self.book.logger.debug('could not find suitable reference leafs...aborting noise analysis')
             return False
         return True
 
@@ -299,11 +320,11 @@ class SWClustering(Component):
                             cluster.draw(self.book.dirs['noise'] + '/right_noise.jpg', outline='gray')
 
         left_corners = zip(left['t'], left['l'])
-        left_corners.sort()
+        left_corners = sorted(left_corners)
         left_noise_file = self.book.dirs['noise'] + '/left_noise.txt'
 
         right_corners = zip(right['t'], right['l'])
-        right_corners.sort()
+        right_corners = sorted(right_corners)
         right_noise_file = self.book.dirs['noise'] + '/right_noise.txt'
 
         if self.book.settings['respawn']:
@@ -315,7 +336,7 @@ class SWClustering(Component):
                 for corner in right_corners:
                     rnf.write(str(corner[1]) + ' ' + str(corner[0]) + "\n")
             except IOError:
-                self.book.logger.message('failed to generate noise files... aborting', 'featureDetection')
+                self.book.logger.debug('failed to generate noise files... aborting')
                 return False
         return True
 
@@ -325,18 +346,18 @@ class SWClustering(Component):
                                     log='noiseAnalysis'):
         if not os.path.exists(in_file):
             return False
+        kwargs = {}
+        kwargs['in_file'] = in_file
+        kwargs['out_file'] = out_file
+        kwargs['window_width'] = 10
+        kwargs['window_height'] = 10
+        kwargs['skew_angle'] = 0.0
 
-        self.in_file = in_file
-        self.out_file = out_file
-        self.window_width = 10
-        self.window_height = 10
-        self.skew_angle = 0.0
-
-        self.center_x = self.book.scaled_center_point[0]['x']
-        self.center_y = self.book.scaled_center_point[0]['y']
+        kwargs['center_x'] = self.book.scaled_center_point[0]['x']
+        kwargs['center_y'] = self.book.scaled_center_point[0]['y']
 
         if self.book.settings['respawn']:
-            self.execute()
+            self.execute(kwargs)
 
         resurrect = {}
         contents = SWClustering.get_cluster_data(out_file)
@@ -392,4 +413,4 @@ class SWClustering(Component):
             self.get_content_dimensions(leaf)
             self.book.contentCrop.box[leaf] = self.book.contentCropScaled.scale_box(leaf,
                                                                                     scale_factor=0.25)
-            print self.book.contentCrop.box[leaf]
+            #print (self.book.contentCrop.box[leaf])

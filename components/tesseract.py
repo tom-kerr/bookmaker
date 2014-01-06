@@ -1,18 +1,15 @@
 import os
+import json
+
 from lxml import html
 from collections import OrderedDict
 
 from environment import Environment
-from component import Component
+from .component import Component
 from datastructures import Box
 
 class Tesseract(Component):
-    """
-    Tesseract
-    ---------
-
-    Performs OCR related tasks.
-
+    """ Performs OCR related tasks.
     """
 
     languages = OrderedDict([
@@ -55,31 +52,51 @@ class Tesseract(Component):
     executable = 'tesseract'
 
     def __init__(self, book):
-        super(Tesseract, self).__init__(Tesseract.args)
+        super(Tesseract, self).__init__()
         self.book = book
-        dirs = {'tesseract_ocr': self.book.root_dir + '/' + self.book.identifier + '_tesseract_ocr',
-                'cropped': self.book.root_dir + '/' + self.book.identifier + '_cropped'}
+        dirs = {'tesseract_ocr': self.book.root_dir + '/' + \
+                    self.book.identifier + '_tesseract_ocr',
+                'cropped': self.book.root_dir + '/' + \
+                    self.book.identifier + '_cropped'}
         self.book.add_dirs(dirs)
 
+    def run(self, leaf, in_file=None, out_base=None, 
+            lang='eng', psm='-psm 3', hocr='hocr', callback=None, **kwargs):
+        leafnum = '%04d' % leaf
+        if not in_file:
+            in_file = (self.book.dirs['cropped'] + '/' +
+                       self.book.identifier + '_' + str(leafnum) + '.JPG')
+        if not os.path.exists(in_file):
+            raise IOError(in_file + ' does not exist.')
 
-    def run(self):
-        if not os.path.exists(self.in_file):
-            raise IOError(self.in_file + ' does not exist.')
-        try:
-            self.execute()
-        except Exception as e:
-            raise e
+        if not out_base:
+            out_base = (self.book.dirs['tesseract_ocr'] + '/' +
+                        self.book.identifier + '_' + str(leafnum))
 
+        lang = '-l ' + str(lang)
 
+        kwargs.update({'in_file': in_file,
+                       'out_base': out_base,
+                       'language': lang,
+                       'psm': psm, 
+                       'hocr': hocr})
+        
+        output = self.execute(kwargs, return_output=True)
+        if callback:
+            self.execute_callback(callback, leaf, output, **kwargs)
+        else:
+            return output
+
+    """
     def parse_hocr_files(self):
         hocr_files = self.get_hocr_files()
         if not hocr_files:
-            raise IOError('Could not parse hocr files: no files found.')
+            raise IOError('Could not parse hocr files; no files found.')
         self.ocr_data = []
         for leaf, hocr in hocr_files.items():
             self.ocr_data.append(OCR.parse_hocr(hocr))
         return True
-
+        """
 
     def get_hocr_files(self):
         files = {}
@@ -95,19 +112,16 @@ class Tesseract(Component):
                 files[leaf] = base + '.hocr'
         return files
 
-
-    @staticmethod
-    def parse_hocr(filename):
+    def parse_hocr(self, filename):
         try:
             hocr = open(filename, 'r')
         except IOError:
-            print 'failed to open ' + filename
+            self.book.logger.warning('Failed to open ' + filename)
             return None
-
         try:
             parsed = html.parse(hocr)
-        except Exception as e:
-            print 'lxml failed to parse file ' + filename
+        except:
+            self.book.logger.warning('lxml failed to parse file ' + filename)
             return None
 
         root = parsed.getroot()
@@ -137,12 +151,13 @@ class Tesseract(Component):
                     line.words[num].set_dimension('t', int(dims[2]))
                     line.words[num].set_dimension('r', int(dims[3]))
                     line.words[num].set_dimension('b', int(dims[4]))
-                    if word.text:
-                        line.words[num].text = word.text.replace("\"", "'").encode('utf-8')
+                    xword = word.find_class('ocrx_word')
+                    if xword and xword[0].text:
+                        txt = xword[0].text
+                        line.words[num].text = json.dumps(txt)
                     else:
                         line.words[num].text = ''
         return page[0]
-
 
     @staticmethod
     def hocr2lisp(hocr_page):
@@ -151,14 +166,18 @@ class Tesseract(Component):
         string = ''
         page = hocr_page
         #for page in hocr:
-        string += '\n(page %s %s %s %s' % (page.box.l, page.box.t, page.box.r, page.box.b)
+        string += '\n(page %s %s %s %s' % (page.box.l, page.box.t, 
+                                           page.box.r, page.box.b)
         for par in page.paragraphs:
             for line in par.lines:
-                string += '\n (line %s %s %s %s' % (line.box.l, (page.box.b - line.box.b),
-                                                    line.box.r, (page.box.b - line.box.t))
+                string += '\n (line %s %s %s %s' % \
+                    (line.box.l, (page.box.b - line.box.b),
+                     line.box.r, (page.box.b - line.box.t))
                 for word in line.words:
-                    string += '\n  (word %s %s %s %s \"%s\")' % (word.l, (page.box.b - word.b),
-                                                                 word.r, (page.box.b - word.t), word.text)
+                    string += '\n  (word %s %s %s %s %s)' % \
+                        (word.l, (page.box.b - word.b),
+                         word.r, (page.box.b - word.t), word.text)
                 string += ')'
         string += ')'
+        #print (string)
         return string

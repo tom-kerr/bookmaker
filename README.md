@@ -1,8 +1,10 @@
 bookmaker
 =========
-A tool for capturing, processing, editing, and deriving physical books into electronic media such as PDF, DjVu and Epub.
+A tool for capturing, processing, editing, and converting physical books into electronic media such as PDF, DjVu and Epub.
 
-This project has seen a lot of development and needs a heck of a lot more. The gui should be re-written flat-out (it was never finished anyway) and upgraded to PyGObject, not to mention the whole project should be upgraded to python 3+ (currently stuck at 2.7), and though they get the job done, the low-level page detection and content detection algorithms need some serious work (particularly the latter, as it will sometimes perform very slowly, depending on the data (recursion-hell + poor design = cache misses). 
+
+Note:
+Currently undergoing lots of rewriting/refactoring/upgrades; much is broken, including the gui.
 
 
 Installation
@@ -39,8 +41,7 @@ One can also pass more than one book at time, with a space between each entry, o
 
     ./bookmaker.py --root-dir /path/to/my/bookprojects
 
-When processing multiple books, one book will be processed per core, and any books over that limit will wait until a slot opens up and begin processing automatically.
- 
+When processing multiple books, one book will be processed at a time, with each operation split across multiple cores. 
 
 If one does not care to edit the computer generated crop boxes, one can pass the following combination of arguments to derive the digital formats immediately after processing:
 
