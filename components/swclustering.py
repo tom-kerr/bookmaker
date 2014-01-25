@@ -92,7 +92,7 @@ class SWClustering(Component):
                        'center_x': center_x,
                        'center_y': center_y,
                        'skew_angle': skew_angle})
-
+        
         if self.book.settings['respawn']:
             output = self.execute(kwargs, return_output=True)
         else:

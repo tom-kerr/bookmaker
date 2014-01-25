@@ -128,11 +128,14 @@ class ProcessHandling(object):
             self._inactive_threads[pid] = thread
             del self._active_threads[pid]
 
-    def finish(self, identifier):
+    def finish(self, identifier=None):
         destroy = []
         for pid, thread in self._active_threads.items():
-            if pid.startswith(identifier):
+            if not identifier:
                 destroy.append(pid)
+            else:
+                if pid.startswith(identifier):
+                    destroy.append(pid)
         for pid in destroy:
             self.destroy_thread(pid)
         #self.item_queue = self.new_queue()
@@ -274,8 +277,6 @@ class ProcessHandling(object):
         chunksize = pagecount/self.cores
         start = chunksize * chunk
         end = start + chunksize
-        if chunk == 0:
-            start += 1
         if chunk == self.cores-1:
             end += remainder
         return int(start), int(end)
@@ -290,7 +291,7 @@ class ProcessHandling(object):
                                                        mth, book)
             queue = self.new_queue()
             for chunk in range(0, self.cores):
-                start, end = self.get_chunk(book.page_count-1, chunk)
+                start, end = self.get_chunk(book.page_count, chunk)
                 kwargs['start'], kwargs['end'] = start, end
                 pid = '.'.join((book.identifier, cls, mth, str(start)))
                 queue[pid] = {'func': function,

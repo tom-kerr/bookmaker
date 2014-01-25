@@ -1,8 +1,8 @@
-#!/usr/bin/env python
-from gui.bookmaker import Bookmaker
+#!/usr/bin/env python3
+from gui.main import BookmakerGUI
 
 def init_session():
-    i = Bookmaker()
+    i = BookmakerGUI()
     
 if __name__ == "__main__":
     init_session()

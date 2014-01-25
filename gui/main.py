@@ -1,18 +1,20 @@
 import sys, os, re
 from lxml import etree
-import pygtk
-pygtk.require("2.0")
-import gtk
 
-from environment import Environment, BookData, Logger
+import gi
+gi.require_version("Gtk", "3.0")
+gi.require_version("Gdk", "3.0")
+from gi.repository import Gtk, Gdk
+
+from environment import Environment, BookData
 from datastructures import Crop
 
-from common import Common
-from process import Process
-from editor import Editor
+from .common import CommonActions as ca
+from .process import ProcessingGui
+from .editor import Editor
 
 
-class Bookmaker:
+class BookmakerGUI:
 
     essential = {'raw':      {'regex': '[_raw_jpg$]'},
                  'scandata': {'regex': '[_scandata.xml$]'},
@@ -30,15 +32,15 @@ class Bookmaker:
         
 
     def run(self):
-        gtk.main()
+        Gtk.main()
 
 
     def init_window(self):
-        self.window = gtk.Window(gtk.WINDOW_TOPLEVEL)
-        self.window.set_position(gtk.WIN_POS_CENTER_ALWAYS)        
+        self.window = Gtk.Window(Gtk.WindowType.TOPLEVEL)
+        self.window.set_position(Gtk.WindowPosition.CENTER_ALWAYS)        
         self.window.set_title('Main Menu')
-        Bookmaker.colormap = self.window.get_colormap()
-        self.window.connect('delete-event', gtk.main_quit)
+        #Bookmaker.colormap = self.window.get_colormap()
+        self.window.connect('delete-event', Gtk.main_quit)
         self.window.show()
 
 
@@ -47,78 +49,79 @@ class Bookmaker:
         
 
     def set_operation_toggle(self):
-        self.op_toggle = gtk.VBox()
-        capture_button = gtk.Button(label='capture')
+        self.op_toggle = Gtk.VBox()
+        capture_button = Gtk.Button(label='capture')
         #capture_button.set_can_focus(False)
         #capture_button.set_sensitive(False)
         capture_handle = capture_button.connect('clicked', self.capture_book)
-        self.op_toggle.pack_start(capture_button, expand=True, fill=True)
-        process_button = gtk.Button(label='process')
+        self.op_toggle.pack_start(capture_button, True, True, 0)
+        process_button = Gtk.Button(label='process')
         process_handle = process_button.connect('clicked', self.process_book)
-        self.op_toggle.pack_start(process_button, expand=True, fill=True)
-        edit_button = gtk.Button(label='edit')
+        self.op_toggle.pack_start(process_button, True, True, 0)
+        edit_button = Gtk.Button(label='edit')
         edit_handle = edit_button.connect('clicked', self.edit_book)
-        self.op_toggle.pack_start(edit_button, expand=True, fill=True)
+        self.op_toggle.pack_start(edit_button, True, True, 0)
         self.window.add(self.op_toggle)
         
 
     def capture_book(self, widget):
-        Common.dialog(None, gtk.MESSAGE_INFO, 
+        ca.dialog(None, Gtk.MessageType.INFO, 
                       'can\'t do this yet...', 
-                      {gtk.STOCK_OK: gtk.RESPONSE_OK})
+                      {Gtk.STOCK_OK: Gtk.ResponseType.OK})
 
 
     def process_book(self, widget):
-        window = gtk.Window(gtk.WINDOW_TOPLEVEL)
-        window.set_position(gtk.WIN_POS_CENTER_ALWAYS)
+        window = Gtk.Window(Gtk.WindowType.TOPLEVEL)
+        window.set_position(Gtk.WindowPosition.CENTER_ALWAYS)
         window.set_title('Processing Queue')
         window.connect('destroy', self.return_to_op_toggle)
-        Common.set_window_size(window,
-                               (2*gtk.gdk.screen_width())/3, 
-                               (2*gtk.gdk.screen_height())/3)
-        self.process = Process(window)
+        ca.set_window_size(window,
+                               (2*Gdk.Screen.width())/3, 
+                               (2*Gdk.Screen.height())/3)
+        self.processing_gui = ProcessingGui(window)
         self.window.hide()
 
 
     def edit_book(self, widget, window=None, selected=None):
         if selected is None:
-            selected = Common.get_user_selection()
+            selected = ca.get_user_selection()
             if not selected:
                 return
         if window is None:
-            window = gtk.Window(gtk.WINDOW_TOPLEVEL)
-            window.set_position(gtk.WIN_POS_CENTER_ALWAYS)
+            window = Gtk.Window(Gtk.WindowType.TOPLEVEL)
+            window.set_position(Gtk.WindowPosition.CENTER_ALWAYS)
             window.connect('destroy', self.return_to_op_toggle)
-            raw_data = self.select_book(selected, 'edit')
+            raw_dir, raw_data = self.select_book(selected, 'edit')
             if raw_data:
-                book_data = BookData(selected, raw_data)
-                book_data.logger = Logger()
-                book_data.init_logs()
+                book_data = BookData(selected, raw_dir, raw_data)
+                #book_data.logger = Logger()
+                #book_data.init_logs()
                 try:
                     book_data.import_crops()
                 except Exception as e:
-                    Common.dialog(None, gtk.MESSAGE_ERROR, str(e))
+                    ca.dialog(None, Gtk.MessageType.ERROR, str(e))
                     return
-                Common.set_window_size(window,
-                                       gtk.gdk.screen_width()-1,
-                                       gtk.gdk.screen_height()-25)
+                ca.set_window_size(window,
+                                   Gdk.Screen.width()-1,
+                                   Gdk.Screen.height()-25)
             #try:
             self.editor = Editor(window, book_data)
             #except Exception as E:
-            #    d = gtk.MessageDialog(message_format=str(E))
+            #    d = Gtk.MessageDialog(message_format=str(E))
             #    d.run()
             #    return
             self.window.hide()
 
         
-    def select_book(self, item, op):
-        data = Environment.is_sane(item)
-        if data:
-            return data
+    def select_book(self, root_dir, op):
+        raw_dir = Environment.is_sane(root_dir)
+        if raw_dir:
+            raw_data = Environment.get_raw_data(root_dir, raw_dir)
+            return (raw_dir, raw_data)
         else:
-            Common.dialog(None, gtk.MESSAGE_ERROR, 
-                          str(item) + ' does not exist!', 
-                          {gtk.STOCK_OK: gtk.RESPONSE_OK})
+            ca.dialog(None, Gtk.MessageType.ERROR, 
+                      str(root_dir) + ' does not exist!', 
+                      {Gtk.STOCK_OK: Gtk.ResponseType.OK})
         return False
 
 
@@ -139,9 +142,9 @@ class Bookmaker:
                     exists = True
                     break
             if exists is False:
-                Common.dialog(None, gtk.MESSAGE_ERROR, 
+                ca.dialog(None, Gtk.MessageType.ERROR, 
                               'Did not find essential item ' + str(essential),
-                              {gtk.STOCK_OK: gtk.RESPONSE_OK})
+                              {Gtk.STOCK_OK: Gtk.ResponseType.OK})
                 return False
         return True
             

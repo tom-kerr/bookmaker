@@ -1,10 +1,11 @@
 import os, sys
-import pygtk
-pygtk.require("2.0")
-import gtk
+
+import gi
+gi.require_version("Gtk", "3.0")
+from gi.repository import Gtk
 
 from environment import Environment
-from common import Common
+from .common import CommonActions as ca
 
 
 class Options:
@@ -18,22 +19,22 @@ class Options:
 
 
     def build_selector(self):
-        Common.set_window_size(self.window, 450, 210)
-        self.main_layout = gtk.Layout(None, None)
-        self.vbox = gtk.VBox()
+        ca.set_window_size(self.window, 450, 210)
+        self.main_layout = Gtk.Layout(None, None)
+        self.vbox = Gtk.VBox()
         self.vbox.set_size_request(self.window.width, -1)
         self.radio_buttons = {}
         for identifier, book in self.books.items():
             for setting, value in book.settings.items():
                 self.radio_buttons[setting] = {}
-                self.radio_buttons[setting]['hbox'] = gtk.HBox()
-                buff = gtk.TextBuffer()
-                self.radio_buttons[setting]['text'] = gtk.TextView(buff)
+                self.radio_buttons[setting]['hbox'] = Gtk.HBox()
+                buff = Gtk.TextBuffer()
+                self.radio_buttons[setting]['text'] = Gtk.TextView(buff)
                 self.radio_buttons[setting]['text'].set_size_request(self.window.width/3 ,-1)
                 buff.set_text(str(setting))
             
-                self.radio_buttons[setting][1] = gtk.RadioButton(group=None, label='True')
-                self.radio_buttons[setting][0] = gtk.RadioButton(self.radio_buttons[setting][1], label='False')
+                self.radio_buttons[setting][1] = Gtk.RadioButton(group=None, label='True')
+                self.radio_buttons[setting][0] = Gtk.RadioButton(self.radio_buttons[setting][1], label='False')
             
                 if value is True:
                     self.radio_buttons[setting][1].set_active(True)
@@ -43,10 +44,10 @@ class Options:
                 self.radio_buttons[setting][1].connect('toggled', self.modify_setting, setting)
                 self.radio_buttons[setting][0].connect('toggled', self.modify_setting, setting)
 
-                self.radio_buttons[setting]['hbox'].pack_start(self.radio_buttons[setting]['text'])
-                self.radio_buttons[setting]['hbox'].pack_start(self.radio_buttons[setting][1])
-                self.radio_buttons[setting]['hbox'].pack_start(self.radio_buttons[setting][0])
-                self.vbox.pack_start(self.radio_buttons[setting]['hbox'])
+                self.radio_buttons[setting]['hbox'].pack_start(self.radio_buttons[setting]['text'], True, True, 0)
+                self.radio_buttons[setting]['hbox'].pack_start(self.radio_buttons[setting][1], True, True, 0)
+                self.radio_buttons[setting]['hbox'].pack_start(self.radio_buttons[setting][0], True, True, 0)
+                self.vbox.pack_start(self.radio_buttons[setting]['hbox'], True, True, 0)
             break
         self.main_layout.put(self.vbox, 0, 0)
 

@@ -1,60 +1,68 @@
 import sys, os, re, math, time
 from copy import copy, deepcopy
-import StringIO
-import Image
+from io import StringIO, BytesIO
+
+from PIL import Image
 from lxml import etree
-import pygtk
-pygtk.require("2.0")
-import gtk, cairo, gobject
-gobject.threads_init()
+
+import gi
+gi.require_version("Gtk", "3.0")
+gi.require_version("Gdk", "3.0")
+from gi.repository import Gtk, Gdk, GdkPixbuf
+from gi.repository import GObject
+GObject.threads_init()
+
+import cairo
+
+#import gtk, cairo, gobject
+#GObject.threads_init()
 
 from environment import Environment
 from util import Util
 from datastructures import Crop, Box
 from processing import ProcessHandling
 from components.tesseract import Tesseract
-from history import History
-from metadata import Metadata
-from common import Common
-from bibs.bibs import Bibs
+from .history import History
+from .metadata import Metadata
+from .common import CommonActions as ca
+#from bibs.bibs import Bibs
 
-class Editor:
+
+class Editor(object):
 
     def __init__(self, window, book):
         self.window = window
         self.window.connect('key-press-event', self.key_press)
         self.window.connect('delete-event', self.quit)
-        self.window.colormap = window.get_colormap()
         self.init_data(book)
         Environment.set_current_path()
         self.window.set_title('Editing ' + self.book.identifier)
         self.init_image_window()
-        self.init_meta_window()
-        self.init_export_window()
+        #self.init_meta_window()
+        #self.init_export_window()
         self.init_notebook()
         self.window.add(self.notebook)
         self.window.show()
 
-
     def quit(self, widget, data):
+        return False
         if (self.ImageEditor.save_needed['l'][0] or self.ImageEditor.save_needed['r'][0] or
             (self.ExportHandler.ProcessHandler.processes != 0)):
-            if Common.dialog(None, gtk.MESSAGE_QUESTION,
+            if ca.dialog(None, Gtk.MessageType.QUESTION,
                              'There are unsaved changes/running processes, are you sure you want to quit?',
-                             {gtk.STOCK_OK: gtk.RESPONSE_OK,
-                              gtk.STOCK_CANCEL: gtk.RESPONSE_CANCEL}):
+                             {Gtk.STOCK_OK: Gtk.ResponseType.OK,
+                              Gtk.STOCK_CANCEL: Gtk.ResponseType.CANCEL}):
                 try:
                     self.ExportHandler.ProcessHandler.finish()
                 except Exception as e:
-                    Common.dialog(None, gtk.MESSAGE_ERROR,
+                    ca.dialog(None, Gtk.MessageType.ERROR,
                                   'Failed to stop processes! \nException: ' + str(e),
-                                  {gtk.STOCK_OK: gtk.RESPONSE_OK})
+                                  {Gtk.STOCK_OK: Gtk.ResponseType.OK})
                     return True
                 else:
                     return False
             else:
                 return True
-
 
     def init_data(self, book):
         self.book = book
@@ -63,7 +71,6 @@ class Editor:
                 if self.book.crops[crop].box[leaf].is_valid():
                     self.book.crops[crop].calculate_box_with_skew_padding(leaf)
         self.book.cropBox.update_pagination()
-
 
     def key_press(self, widget, data):
         key = data.keyval
@@ -83,7 +90,7 @@ class Editor:
             self.ImageEditor.paste_crop()
         elif key is 102:
             self.ImageEditor.fit_crop()
-        elif (gtk.gdk.MOD1_MASK & data.state) and key in (65361, 65363):
+        elif (Gdk.ModifierType.MOD1_MASK & data.state) and key in (65361, 65363):
             if key == 65361:
                 rot_dir = -90
             elif key == 65363:
@@ -92,40 +99,34 @@ class Editor:
         elif key is 97:
             self.ImageEditor.assert_pagination()
 
-
     def init_meta_window(self):
         self.MetaEditor = MetaEditor(self)
-
 
     def init_image_window(self):
         self.ImageEditor = ImageEditor(self, self.book)
 
-
     def init_export_window(self):
         self.ExportHandler = ExportHandler(self)
 
-
     def init_notebook(self):
-        self.notebook = Common.new_widget('Notebook',
-                                          {'size_request': (self.window.width,
-                                                            self.window.height),
-                                           'set_tab_position': gtk.POS_RIGHT,
-                                           'set_show_border': False,
-                                           'append_page': { self.ImageEditor.main_layout:
-                                                            (' I\nM\nA\nG\nE\n\n\nE\nD\n I\nT\nO\nR','black', 'gray', 'medium',
-                                                             (15, self.window.height/3)),
-                                                            self.MetaEditor.main_layout:
-                                                            ('M\nE\nT\nA\nD\nA\nT\nA', 'black', 'gray', 'medium',
-                                                             (15, self.window.height/3)),
-                                                            self.ExportHandler.main_layout:
-                                                            ('E\nX\nP\nO\nR\nT', 'black', 'gray', 'medium',
-                                                             (15, self.window.height/3))},
-                                           'color': 'gray',
-                                           'show': True})
-
-
-
-class ImageEditor:
+        kwargs = {'tab_pos': Gtk.PositionType.RIGHT,
+                  'show_border': False,
+                  'visible': True}
+        self.notebook = Gtk.Notebook(**kwargs)
+        self.notebook.set_size_request(self.window.width, self.window.height)
+        label = Gtk.Label(label="Image Editor", angle=270.0)
+        w, h = 25, self.window.height/3
+        label.set_size_request(w, h)
+        self.notebook.append_page(self.ImageEditor.main_layout, label)
+        return
+        self.notebook.append_page(self.MetaEditor.main_layout,
+                                  'M\nE\nT\nA\nD\nA\nT\nA')
+        self.notebook.append_page(self.ExportHandler.main_layout,
+                                  'E\nX\nP\nO\nR\nT')
+                                  
+                                  
+        
+class ImageEditor(object):
 
     vspace = 250
     hspace = 175
@@ -163,6 +164,7 @@ class ImageEditor:
         self.zoom_box.set_dimension('w', ImageEditor.vspace-40)
         self.zoom_box.set_dimension('h', ImageEditor.hspace-15)
         self.zoom_box.image = None
+        self.loading_zoom = False
 
         self.cursor = None
         self.cursor_pos = {'x':None,
@@ -182,106 +184,107 @@ class ImageEditor:
         self.build_controls()
         self.main_layout.show()
 
-
     def init_main_layout(self):
-        self.main_layout = Common.new_widget('Layout',
-                                             {'size': (self.editor.window.width,
-                                                       self.editor.window.height),
-                                              'color': 'black',
-                                              'show': True})
-        self.main_layout.set_events(gtk.gdk.BUTTON_PRESS_MASK
-                                    | gtk.gdk.POINTER_MOTION_MASK
-                                    | gtk.gdk.POINTER_MOTION_HINT_MASK)
+        kwargs = {'height': self.editor.window.height,
+                  'width': self.editor.window.height,
+                  'visible': True}
+        self.main_layout = Gtk.Layout(**kwargs)
+        self.main_layout.set_events(Gdk.EventMask.BUTTON_PRESS_MASK
+                                    | Gdk.EventMask.POINTER_MOTION_MASK
+                                    | Gdk.EventMask.POINTER_MOTION_HINT_MASK)
         self.main_layout.connect('button-press-event', self.clicked)
         self.main_layout.connect('motion-notify-event', self.motion_capture)
         self.main_layout.connect('button-release-event', self.release)
         self.main_layout.connect('leave-notify-event', self.left)
-
 
     def init_history(self):
         self.history = History(self.book)
         self.save_needed = {'l': (False, None),
                             'r': (False, None)}
 
-
     def build_controls(self):
         self.build_vertical_controls()
         self.build_horizontal_controls()
-        self.main_layout.put(self.vertical_controls_layout,
-                              int(self.editor.window.width - ImageEditor.vspace), 0)
-        self.main_layout.put(self.horizontal_controls_layout,
-                              0, int(self.editor.window.height - ImageEditor.hspace))
-
+        x, y = int(self.editor.window.width - ImageEditor.vspace), 0
+        self.main_layout.put(self.vertical_controls_layout, x, y)
+        x, y = 0, int(self.editor.window.height - ImageEditor.hspace)
+        self.main_layout.put(self.horizontal_controls_layout, x, y)               
 
     def build_vertical_controls(self):
-        self.vertical_controls_layout = Common.new_widget('Layout',
-                                                          {'size_request': (ImageEditor.vspace-25,
-                                                                            int(self.editor.window.height - ImageEditor.hspace)),
-                                                           'color': 'lightgray',
-                                                           'show': True})
+        kwargs = {'visible': True}
+        self.vertical_controls_layout = Gtk.Layout(**kwargs)
+        w = ImageEditor.vspace - 25
+        h = int(self.editor.window.height - ImageEditor.hspace)        
+        self.vertical_controls_layout.set_size_request(w, h)
         self.build_display_controls()
-        self.vertical_controls_layout.put(self.frame,
-                                          0, int(self.editor.window.height - ImageEditor.hspace) - 260)
-
+        x, y = 0, int(self.editor.window.height - ImageEditor.hspace) - 260
+        self.vertical_controls_layout.put(self.frame, x, y)
 
     def build_display_controls(self):
-        self.display_controls_eventbox = Common.new_widget('EventBox',
-                                                           {'size_request': (ImageEditor.vspace-40, 260),
-                                                            'color': 'lightgray',
-                                                            'show': True})
-        self.display_controls = Common.new_widget('VBox',
-                                                  {'size_request': (ImageEditor.vspace, 260),
-                                                   'show': True})
+        kwargs = {'visible': True}
+        self.display_controls_eventbox = Gtk.EventBox(**kwargs)
+        w, h = -1, 260
+        self.display_controls_eventbox.set_size_request(w, h)
+        
+        kwargs = {'orientation': Gtk.Orientation.VERTICAL,
+                  'visible': True}
+        self.display_controls = Gtk.Box(**kwargs)
+        w, h = -1, 260
+        self.display_controls.set_size_request(w, h)
         self.display_controls_eventbox.add(self.display_controls)
 
         #self.init_nav_controls()
 
         self.init_draw_options()
-        self.draw_options_frame = Common.new_widget('Frame',
-                                                    {'label': 'Drawing',
-                                                     'set_shadow_type': gtk.SHADOW_ETCHED_IN,
-                                                     'set_label_align': (0.7,0.5),
-                                                     'show': True})
+
+        kwargs = {'label': 'Drawing',
+                  'shadow_type': Gtk.ShadowType.ETCHED_IN,
+                  'label_xalign': 0.7,
+                  'label_yalign': 0.5,
+                  'visible': True}
+        self.draw_options_frame = Gtk.Frame(**kwargs)
         self.draw_options_frame.add(self.draw_options)
 
         self.init_active_crop_options()
-        self.active_crop_frame = Common.new_widget('Frame',
-                                                   {'label': 'Active Crop',
-                                                    'set_shadow_type': gtk.SHADOW_ETCHED_IN,
-                                                    'set_label_align': (0.7,0.5),
-                                                    'show': True})
+
+        kwargs = {'label': 'Active Crop',
+                  'shadow_type': Gtk.ShadowType.ETCHED_IN,
+                  'label_xalign': 0.7,
+                  'label_yalign': 0.5,
+                  'visible': True}
+        self.active_crop_frame = Gtk.Frame(**kwargs)
         self.active_crop_frame.add(self.active_crop_options)
 
-        self.display_controls.pack_start(self.draw_options_frame, expand=False, padding=10)
-        self.display_controls.pack_start(self.active_crop_frame, expand=False, padding=10)
-        self.frame = Common.new_widget('Frame',
-                                       {'label': 'Display Controls',
-                                        'set_shadow_type': gtk.SHADOW_ETCHED_IN,
-                                        'set_label_align': (0.5,0.5),
-                                        'show':True})
+        self.display_controls.pack_start(self.draw_options_frame, False, False, 10)
+        self.display_controls.pack_start(self.active_crop_frame, False, False, 10)
+
+        kwargs = {'label': 'Display Controls',
+                  'label_xalign': 0.5,
+                  'label_yalign': 0.5,
+                  'shadow_type': Gtk.ShadowType.ETCHED_IN,
+                  'visible': True}
+        self.frame = Gtk.Frame(**kwargs)
         self.frame.add(self.display_controls_eventbox)
 
-
     def init_nav_controls(self):
-        self.step_seek = gtk.HButtonBox()
-        self.prev_button = gtk.Button(label='Previous Spread')
+        self.step_seek = Gtk.HButtonBox()
+        self.prev_button = Gtk.Button(label='Previous Spread')
         self.prev_button.connect('clicked', self.walk_stack, 'prev')
-        self.next_button = gtk.Button(label='Next Spread')
+        self.next_button = Gtk.Button(label='Next Spread')
         self.next_button.connect('clicked', self.walk_stack, 'next')
         self.step_seek.add(self.prev_button)
         self.step_seek.add(self.next_button)
-        self.step_seek.set_child_visible(False)
-
+        self.step_seek.hide()
 
     def toggle_active_crop(self, widget):
         buttons={'Apply to all pages?': 0,
                  'Apply to all pages going forward?': 1,
-                 gtk.STOCK_CANCEL: gtk.RESPONSE_NO}
+                 Gtk.STOCK_CANCEL: Gtk.ResponseType.NO}
         if self.selected is None:
             buttons['Apply to this spread only?'] = 2
         else:
             buttons['Apply to this leaf only?'] = 3
-        response = Common.dialog(message='Do you want to...', Buttons=buttons)
+        response = ca.dialog(message='Do you want to...', Buttons=buttons)
         if response is False:
             return
         selection = widget.crop
@@ -327,90 +330,92 @@ class ImageEditor:
             self.update_scandata()
             self.update_state()
 
-
     def init_draw_options(self):
-        self.draw_options = Common.new_widget('VBox',
-                                              {'size_request': (ImageEditor.vspace, -1),
-                                               'show': True})
-
-        #self.toggle_bg = Common.new_widget('CheckButton',
+        kwargs = {'orientation': Gtk.Orientation.VERTICAL,
+                  'visible': True}
+        self.draw_options = Gtk.Box(**kwargs)
+        w, h = ImageEditor.vspace - 50, -1
+        self.draw_options.set_size_request(w, h)
+                                           
+        #self.toggle_bg = ca.new_widget('CheckButton',
         #                                   {'label': 'background',
         #                                    'can_set_focus': False,
         #                                    'set_active': self.show_background,
         #                                    'show': True})
         #self.toggle_bg.connect('clicked', self.toggle_background)
 
-        self.toggle_content_crop = Common.new_widget('CheckButton',
-                                                     {'label': 'contentCrop',
-                                                      'can_set_focus': False,
-                                                      'set_active': self.show_crop['contentCrop'],
-                                                      'show': True})
+        kwargs = {'label': 'contentCrop',
+                  'can_focus': False,
+                  'active': self.show_crop['contentCrop'],
+                  'visible': True}
+        self.toggle_content_crop = Gtk.CheckButton(**kwargs)
         self.toggle_content_crop.connect('clicked', self.toggle_crop, 'contentCrop')
 
-        self.toggle_standard_crop = Common.new_widget('CheckButton',
-                                                      {'label': 'standardCrop',
-                                                       'can_set_focus': False,
-                                                       'set_active': self.show_crop['standardCrop'],
-                                                       'show': True})
+        kwargs = {'label': 'standardCrop',
+                  'can_focus': False,
+                  'active': self.show_crop['standardCrop'],
+                  'visible': True}
+        self.toggle_standard_crop = Gtk.CheckButton(**kwargs)
         self.toggle_standard_crop.connect('clicked', self.toggle_crop, 'standardCrop')
 
-        self.toggle_page_crop = Common.new_widget('CheckButton',
-                                                  {'label': 'pageCrop',
-                                                   'can_set_focus': False,
-                                                   'set_active': self.show_crop['pageCrop'],
-                                                   'show': True})
+        kwargs = {'label': 'pageCrop',
+                  'can_focus': False,
+                  'active': self.show_crop['pageCrop'],
+                  'visible': True}
+        self.toggle_page_crop = Gtk.CheckButton(**kwargs)
         self.toggle_page_crop.connect('clicked', self.toggle_crop, 'pageCrop')
 
         self.crop_toggles = {'pageCrop': self.toggle_page_crop,
                              'standardCrop': self.toggle_standard_crop,
                              'contentCrop': self.toggle_content_crop}
 
-        #self.draw_options.pack_start(self.toggle_bg)
-        self.draw_options.pack_start(self.toggle_page_crop)
-        self.draw_options.pack_start(self.toggle_standard_crop)
-        self.draw_options.pack_start(self.toggle_content_crop)
+        #self.draw_options.pack_start(self.toggle_bg, True, True, 0)
+        self.draw_options.pack_start(self.toggle_page_crop, True, True, 0)
+        self.draw_options.pack_start(self.toggle_standard_crop, True, True, 0)
+        self.draw_options.pack_start(self.toggle_content_crop, True, True, 0)
 
 
     def init_active_crop_options(self):
-
-        self.active_crop_options = Common.new_widget('VBox',
-                                                     {'set_size': (ImageEditor.vspace, -1),
-                                                      'show': True})
-
-        self.pageCrop_selector = Common.new_widget('Button',
-                                                   {'label': 'Page Crop',
-                                                    'show': True})
+        kwargs = {'orientation': Gtk.Orientation.VERTICAL,
+                  'visible': True}
+        self.active_crop_options = Gtk.Box(**kwargs)
+        w, h = ImageEditor.vspace - 50, -1
+        self.active_crop_options.set_size_request(w, h)
+                                                  
+        kwargs = {'label': 'Page Crop',
+                  'visible': True}
+        self.pageCrop_selector = Gtk.Button(**kwargs)
         self.pageCrop_selector.crop = 'pageCrop'
 
-        self.standardCrop_selector = Common.new_widget('Button',
-                                                       {'label': 'Standard Crop',
-                                                        'show': True})
+        kwargs = {'label': 'Standard Crop',
+                  'visible': True}
+        self.standardCrop_selector = Gtk.Button(**kwargs)
         self.standardCrop_selector.crop = 'standardCrop'
 
-        self.contentCrop_selector = Common.new_widget('Button',
-                                                      {'label': 'Content Crop',
-                                                       'show': True})
+        kwargs = {'label': 'Content Crop',
+                  'visible': True}
+        self.contentCrop_selector = Gtk.Button(**kwargs)
         self.contentCrop_selector.crop = 'contentCrop'
 
         self.pageCrop_selector.connect('clicked', self.toggle_active_crop)
         self.standardCrop_selector.connect('clicked', self.toggle_active_crop)
         self.contentCrop_selector.connect('clicked', self.toggle_active_crop)
 
-        self.active_crop_options.pack_start(self.pageCrop_selector, expand=False)
-        self.active_crop_options.pack_start(self.standardCrop_selector, expand=False)
-        self.active_crop_options.pack_start(self.contentCrop_selector, expand=False)
+        self.active_crop_options.pack_start(self.pageCrop_selector, False, True, 0)
+        self.active_crop_options.pack_start(self.standardCrop_selector, False, True, 0)
+        self.active_crop_options.pack_start(self.contentCrop_selector, False, True, 0)
 
-
-    def build_horizontal_controls(self):
-        self.horizontal_controls_layout = Common.new_widget('Layout',
-                                                            {'size_request': (self.editor.window.width,
-                                                                              ImageEditor.hspace),
-                                                             'show': True})
-        self.horizontal_controls = Common.new_widget('Layout',
-                                                     {'size_request': (self.editor.window.width,
-                                                                       ImageEditor.hspace),
-                                                      'color': 'lightgray',
-                                                      'show': True})
+    def build_horizontal_controls(self):       
+        kwargs = {'visible': True}
+        self.horizontal_controls_layout = Gtk.Layout(**kwargs)
+        w, h = self.editor.window.width, ImageEditor.hspace
+        self.horizontal_controls_layout.set_size_request(w, h)
+        
+        kwargs = {'visible': True}
+        self.horizontal_controls = Gtk.Layout(**kwargs)
+        w, h = self.editor.window.width, ImageEditor.hspace
+        self.horizontal_controls.set_size_request(w, h)
+                                                                                  
         self.init_spread_slider()
         self.init_skew_slider()
         self.init_skew_toggle()
@@ -419,18 +424,20 @@ class ImageEditor:
         self.init_copy_buttons()
         self.init_capture_buttons()
 
-        self.horizontal_controls.put(self.spread_slider, 0, 0)
-
+        self.horizontal_controls.put(self.spread_slider, 0, 0)        
         self.horizontal_controls.put(self.skew_toggle, 0, 30)
-        self.skew_toggle_x_left = self.left_canvas.w/2 - self.skew_toggle.width/2
-        self.skew_toggle_x_right = self.left_canvas.w + (self.right_canvas.w/2 - self.skew_toggle.width/2)
 
+        self.skew_toggle_x_left = self.left_canvas.w/2 - self.skew_toggle.get_size_request()[0]/2
+        self.skew_toggle_x_right = self.left_canvas.w + \
+            (self.right_canvas.w/2 - self.skew_toggle.get_size_request()[0]/2)
+        
         x = self.left_canvas.w/2 - (self.left_page_type_menu.width/2)
         y = 40
         self.horizontal_controls.put(self.left_page_type_menu, x, y)
         w,h = self.left_page_type_menu.get_size_request()
+        
         self.horizontal_controls.put(self.skew_slider, x, 60)
-
+        
         x = self.left_canvas.w + (self.right_canvas.w/2 - (self.right_page_type_menu.width/2))
         self.horizontal_controls.put(self.right_page_type_menu, x, y)
 
@@ -438,183 +445,184 @@ class ImageEditor:
         self.horizontal_controls.put(self.copy_from_button, x, 40)
         self.horizontal_controls.put(self.apply_forward_button, x, 65)
 
-        x = self.left_canvas.w - (self.reshoot_spread_button.width/2)
+        x = self.left_canvas.w - (self.reshoot_spread_button.get_size_request()[0]/2)
         self.horizontal_controls.put(self.reshoot_spread_button, x, 100)
         self.horizontal_controls.put(self.insert_spread_button, x, 125)
-
+        
         self.horizontal_controls.put(self.save_button, 0, 60)
         self.horizontal_controls.put(self.undo_button, 0, 90)
         self.horizontal_controls_layout.put(self.horizontal_controls, 0, 0)
 
-
     def init_capture_buttons(self):
-        self.reshoot_spread_button = Common.new_widget('Button',
-                                                       {'label': 'reshoot spread',
-                                                        'size_request': (125, -1),
-                                                        'is_sensitive': False,
-                                                        'show': True})
-
-        self.insert_spread_button = Common.new_widget('Button',
-                                                      {'label':'insert spread',
-                                                       'size_request': (125, -1),
-                                                       'is_sensitive': False,
-                                                       'show': True})
-
-
+        kwargs = {'label': 'reshoot spread',
+                  'sensitive': False,
+                  'visible': True}
+        self.reshoot_spread_button = Gtk.Button(**kwargs)
+        w, h = 125, -1
+        self.reshoot_spread_button.set_size_request(w, h )
+                                                        
+        kwargs = {'label':'insert spread',
+                  'sensitive': False,
+                  'visible': True}
+        self.insert_spread_button = Gtk.Button(**kwargs)
+        w, h = 125, -1
+        self.insert_spread_button.set_size_request(w, h)
+        
     def init_copy_buttons(self):
-        self.copy_from_button = Common.new_widget('Button',
-                                                  {'size_request': (150, -1),
-                                                   'set_child_visible': False,
-                                                   'show': True})
+        kwargs = {'visible': False}
+        self.copy_from_button = Gtk.Button(**kwargs)
+        w, h = 150, -1
+        self.copy_from_button.set_size_request(w, h)
         self.copy_from_button.connect('button-press-event', self.copy_crop_from_opposite)
 
-        self.apply_forward_button = Common.new_widget('Button',
-                                                      {'size_request': (150, -1),
-                                                       'set_child_visible': False,
-                                                       'is_sensitive': True,
-                                                       'show': True})
+        kwargs = {'visible': False,
+                  'sensitive': True}
+        self.apply_forward_button = Gtk.Button(**kwargs)
+        w, h = 150, -1
+        self.apply_forward_button.set_size_request(w, h)
         self.apply_forward_button.connect('button-press-event', self.apply_crop_forward)
 
-
     def init_save_undo_buttons(self):
-        self.save_button = Common.new_widget('Button',
-                                             {'label': 'save',
-                                              'is_sensitive': False,
-                                              'show': True})
+        kwargs = {'label': 'save',
+                  'sensitive': False,
+                  'visible': True}
+        self.save_button = Gtk.Button(**kwargs)
         self.save_button.connect('button-press-event', self.save_changes)
-        self.undo_button = Common.new_widget('Button',
-                                             {'label':'undo',
-                                              'is_sensitive':False,
-                                              'show': True})
+
+        kwargs = {'label':'undo',
+                  'sensitive': False,
+                  'visible': True}
+        self.undo_button = Gtk.Button(**kwargs)
         self.undo_button.connect('button-press-event', self.undo_changes)
 
-
     def init_meta_widgets(self):
-        self.left_page_type_menu = gtk.combo_box_new_text()
+        self.left_page_type_menu = Gtk.ComboBoxText()
         self.left_page_type_menu.show()
-        self.right_page_type_menu = gtk.combo_box_new_text()
+        self.right_page_type_menu = Gtk.ComboBoxText()
         self.right_page_type_menu.show()
-        gtk.rc_parse_string("""style "menulist" { GtkComboBox::appears-as-list = 1 } class "GtkComboBox" style "menulist" """)
+        Gtk.rc_parse_string("""style "menulist" { GtkComboBox::appears-as-list = 1 } class "GtkComboBox" style "menulist" """)
         self.init_page_type_menu()
-
 
     def init_page_type_menu(self):
         self.left_page_type_menu.set_size_request(150, -1)
         self.left_page_type_menu.width = 150
         self.left_page_type_menu.side = 'left'
-        for num, struct in Metadata.book_structure.iteritems():
+        for num, struct in Metadata.book_structure.items():
             self.left_page_type_menu.insert_text(int(num), str(struct))
         self.right_page_type_menu.set_size_request(150, -1)
         self.right_page_type_menu.width = 150
         self.right_page_type_menu.side = 'right'
-        for num, struct in Metadata.book_structure.iteritems():
+        for num, struct in Metadata.book_structure.items():
             self.right_page_type_menu.insert_text(int(num), str(struct))
         self.update_meta_widgets()
         self.left_page_type_menu.connect('changed', self.set_page_type)
         self.right_page_type_menu.connect('changed', self.set_page_type)
-
-
+            
     def init_skew_slider(self):
-        self.skew_slider = Common.new_widget('HScale',
-                                             {'size_request': (190, -1),
-                                              'set_child_visible': False,
-                                              'set_range': (-4.00, 4.00),
-                                              'set_increments': (0.1, 0.1),
-                                              'set_digits': 2,
-                                              'set_value_pos': gtk.POS_BOTTOM,
-                                              'set_update_policy': gtk.UPDATE_DISCONTINUOUS,
-                                              'show': True})
+        kwargs = {'lower': -4.00,
+                  'upper': 4.00,
+                  'step_increment': 0.1,
+                  'value': 0.0}
+        adj = Gtk.Adjustment(**kwargs)
+
+        kwargs = {'orientation': Gtk.Orientation.HORIZONTAL,
+                  'adjustment': adj,
+                  'digits': 2,
+                  'value_pos': Gtk.PositionType.BOTTOM,
+                  'visible': False}
+        self.skew_slider = Gtk.Scale(**kwargs)
+        w, h = 190, -1
+        self.skew_slider.set_size_request(w, h)
         self.skew_slider.connect('value-changed', self.adjust_skew)
 
-
     def init_skew_toggle(self):
-        self.skew_toggle = Common.new_widget('Button',
-                                             {'size_request': (100, -1),
-                                              'set_child_visible': False,
-                                              'show': True})
+        kwargs = {'label': '',
+                  'visible': False}
+        self.skew_toggle = Gtk.Button(**kwargs)
+        w, h = 100, -1
+        self.skew_toggle.set_size_request(w, h)
         self.skew_toggle.connect('button-press-event', self.toggle_skew)
 
-
     def init_spread_slider(self):
-        self.spread_slider = Common.new_widget('HScale',
-                                               {'size_request': (self.editor.window.width-ImageEditor.vspace, -1),
-                                                'set_can_focus': False,
-                                                'set_range': (0, self.book.page_count-1),
-                                                'set_increments': (2, 2),
-                                                'set_digits': 0,
-                                                'set_value_pos': gtk.POS_BOTTOM,
-                                                'set_update_policy': gtk.UPDATE_DISCONTINUOUS,
-                                                'set_value': 0,
-                                                'show': True})
-        self.spread_slider.connect('value-changed', self.select_spread)
+        kwargs = {'lower': 0,
+                  'upper': self.book.page_count-1,
+                  'step_increment': 2,
+                  'value': 2,}
+                  #'update_policy': Gtk.UPDATE_DISCONTINUOUS,}
+        adj = Gtk.Adjustment(**kwargs)
 
+        kwargs = {'orientation': Gtk.Orientation.HORIZONTAL,
+                  'adjustment': adj,
+                  'digits': 0,
+                  'value_pos': Gtk.PositionType.BOTTOM,
+                  'can_focus': False,
+                  'visible': True}
+        self.spread_slider = Gtk.Scale(**kwargs)
+        w, h = self.editor.window.width-ImageEditor.vspace, -1
+        self.spread_slider.set_size_request(w, h)
+        self.spread_slider.set_events(Gdk.EventMask.BUTTON_RELEASE_MASK)
+        self.spread_slider.connect('button-release-event', self.select_spread)
 
     def init_zoom(self, leaf):
         if leaf is None:
             return
-
         raw = Image.open(self.book.raw_images[leaf])
         raw_width, raw_height = raw.size[0], raw.size[1]
-        rot_const = Common.get_rotation_constant(self.book.cropBox.rotate_degree[leaf])
+        rot_const = ca.get_rotation_constant(self.book.cropBox.rotate_degree[leaf])
         rotated = self.get_rotated(raw, leaf,
                                    rot_const + (0-self.book.cropBox.skew_angle[leaf]),
                                    output='pixbuf')
-        #raw = gtk.gdk.pixbuf_new_from_file(self.book.raw_images[leaf])
+        #raw = GdkPixbuf.Pixbuf.new_from_file(self.book.raw_images[leaf])
         #raw_width, raw_height = raw.get_width(), raw.get_height()
-        #self.zoom_raw = gtk.gdk.Pixbuf(gtk.gdk.COLORSPACE_RGB,
+        #self.zoom_raw = GdkPixbuf.Pixbuf(GdkPixbuf.Colorspace.RGB,
         #                               1,
         #                               8,
         #                               raw_width,
         #                               raw_height)
 
-        #rot_const = Common.get_rotation_constant(self.book.cropBox.rotate_degree[leaf])
+        #rot_const = ca.get_rotation_constant(self.book.cropBox.rotate_degree[leaf])
         #rotated = self.zoom_raw.rotate_simple(rot_const)
 
-        self.zoom_raw = self.render_image(rotated, raw_height, raw_width, leaf, 1, 1, output='pixbuf')
+        self.zoom_raw = self.render_image(rotated, raw_height, raw_width, 
+                                          leaf, 1, 1, output='pixbuf')
 
-        area = gtk.gdk.Pixbuf(gtk.gdk.COLORSPACE_RGB,
-                              1,
-                              8,
-                              self.zoom_box.w,
-                              self.zoom_box.h)
+        area = GdkPixbuf.Pixbuf.new(GdkPixbuf.Colorspace.RGB,
+                                    1, 8,
+                                    self.zoom_box.w,
+                                    self.zoom_box.h)
 
         self.zoom_raw.copy_area(0,0, self.zoom_box.w, self.zoom_box.h, area, 0,0)
-        self.zoom_box.image = gtk.image_new_from_pixbuf(area)
+        self.zoom_box.image = Gtk.Image.new_from_pixbuf(area)
         self.zoom_box.image.show()
         self.horizontal_controls.put(self.zoom_box.image,
                                      self.editor.window.width-ImageEditor.vspace,0)
 
-
     def toggle_zoom(self):
         if self.zoom_box.image is None:
-            self.set_cursor(cursor_style = gtk.gdk.WATCH)
+            self.loading_zoom = True
+            self.set_cursor(cursor_style=Gdk.CursorType.WATCH)
             self.init_zoom(self.selected)
-            self.set_cursor(cursor_style = None)
+            self.loading_zoom = False
+            #self.set_cursor(cursor_style = None)
         else:
             self.destroy_zoom()
-
 
     def destroy_zoom(self):
         if self.zoom_box.image is not None:
             self.zoom_box.image.destroy()
             self.zoom_box.image = None
 
-
     def update_zoom(self, x, y):
         if self.selected is None:
             return
-
         if self.selected%2==0:
             scale_factor = self.left_scale_factor
         else:
             scale_factor = self.right_scale_factor
-
-        area = gtk.gdk.Pixbuf(gtk.gdk.COLORSPACE_RGB,
-                              1,
-                              8,
-                              self.zoom_box.w,
-                              self.zoom_box.h)
-
+        area = GdkPixbuf.Pixbuf.new(GdkPixbuf.Colorspace.RGB,
+                                    1, 8,
+                                    self.zoom_box.w,
+                                    self.zoom_box.h)
         x = (x * scale_factor)*4
         y = (y * scale_factor)*4
 
@@ -636,11 +644,10 @@ class ImageEditor:
 
         self.zoom_raw.copy_area(center_x, center_y, self.zoom_box.w, self.zoom_box.h, area, 0,0)
         self.zoom_box.image.destroy()
-        self.zoom_box.image = gtk.image_new_from_pixbuf(area)
+        self.zoom_box.image = Gtk.Image.new_from_pixbuf(area)
         self.zoom_box.image.show()
         self.horizontal_controls.put(self.zoom_box.image,
                                      self.editor.window.width-ImageEditor.vspace,0)
-
 
     def update_meta_widgets(self):
         left = self.current_spread * 2
@@ -654,20 +661,18 @@ class ImageEditor:
                         self.right_page_type_menu.set_active(key)
                     break
 
-
     def update_horizontal_control_widgets(self):
         if self.selected is None:
-            self.skew_slider.set_child_visible(False)
-            self.skew_toggle.set_child_visible(False)
-            self.copy_from_button.set_child_visible(False)
-            self.apply_forward_button.set_child_visible(False)
+            self.skew_slider.hide()
+            self.skew_toggle.hide()
+            self.copy_from_button.hide()
+            self.apply_forward_button.hide()
             return
 
         leaf = self.selected
 
-        Common.set_widget_properties(self.skew_slider,
-                                     {'set_value':self.book.cropBox.skew_angle[leaf],
-                                      'set_child_visible':True})
+        self.skew_slider.set_value(self.book.cropBox.skew_angle[leaf])
+        self.skew_slider.show()
         self.set_skew_toggle()
 
         if self.history.has_history(self.selected):
@@ -682,10 +687,9 @@ class ImageEditor:
             side = 'recto'
             facing_side = 'verso'
         self.copy_from_button.set_label('copy crop from ' + facing_side)
-        self.copy_from_button.set_child_visible(True)
+        self.copy_from_button.show()
         self.apply_forward_button.set_label('apply ' + side + ' forward')
-        self.apply_forward_button.set_child_visible(True)
-
+        self.apply_forward_button.show()
 
     def set_page_type(self, widget):
         if widget.side == 'left':
@@ -702,18 +706,17 @@ class ImageEditor:
         self.update_canvas(leaf)
         self.update_scandata()
 
-
     def assert_pagination(self):
         if self.selected is None:
             return
-        response = Common.dialog(message='Enter page number:',
-                                 Buttons={gtk.STOCK_OK: gtk.RESPONSE_APPLY,
-                                          gtk.STOCK_CANCEL: gtk.RESPONSE_CANCEL,
-                                          'Delete': gtk.RESPONSE_DELETE_EVENT},
-                                 get_input=True)
+        response = ca.dialog(message='Enter page number:',
+                             Buttons={Gtk.STOCK_OK: Gtk.ResponseType.APPLY,
+                                      Gtk.STOCK_CANCEL: Gtk.ResponseType.CANCEL,
+                                      'Delete': Gtk.ResponseType.DELETE_EVENT},
+                             get_input=True)
         if not response:
             return
-        elif response is gtk.RESPONSE_DELETE_EVENT.real:
+        elif response is Gtk.ResponseType.DELETE_EVENT.real:
             self.book.cropBox.delete_assertion(self.selected)
             self.draw_spread(self.current_spread)
             return
@@ -723,25 +726,22 @@ class ImageEditor:
             self.book.cropBox.assert_page_number(self.selected, number)
             self.draw_spread(self.current_spread)
 
-
     def copy_crop(self):
         if self.selected is None:
             return
         self.crop_copy = copy(self.book.cropBox.box[self.selected])
         self.released = True
 
-
     def paste_crop(self):
         if self.selected is None:
             return
         if self.crop_copy is not None:
-            for dimension, value in self.crop_copy.dimensions.items():
+            for dimension, value in self.crop_copy.dim.items():
                 self.book.cropBox.box[self.selected].update_dimension(dimension, value)
                 self.book.cropBox.box_with_skew_padding[self.selected].update_dimension(dimension, value)
             self.set_save_needed(self.selected)
             self.update_canvas(self.selected)
             self.released = True
-
 
     def fit_crop(self):
         if self.selected is None:
@@ -770,14 +770,13 @@ class ImageEditor:
         self.released = True
         self.update_canvas(self.selected)
 
-
     def copy_crop_from_opposite(self, widget, data):
         if self.selected%2==0:
             opposite = self.selected + 1
         else:
             opposite = self.selected - 1
-        new_width = self.book.cropBox.box[opposite].dimensions['w']
-        new_height = self.book.cropBox.box[opposite].dimensions['h']
+        new_width = self.book.cropBox.box[opposite].dim['w']
+        new_height = self.book.cropBox.box[opposite].dim['h']
         self.book.cropBox.box[self.selected].update_dimension('w', new_width)
         self.book.cropBox.box[self.selected].update_dimension('h', new_height)
         self.book.cropBox.box_with_skew_padding[self.selected].update_dimension('w', new_width)
@@ -786,7 +785,6 @@ class ImageEditor:
         self.update_canvas(self.selected)
         self.update_scandata()
         self.set_save_needed(self.selected)
-
 
     def apply_crop_forward(self, widget, data):
         if not self.selected:
@@ -810,7 +808,6 @@ class ImageEditor:
         self.update_scandata()
         self.set_save_needed(self.selected, affected)
 
-
     def adjust_skew(self, widget):
         new_skew_value = widget.get_value()
         if new_skew_value != self.book.cropBox.skew_angle[self.selected]:
@@ -821,7 +818,6 @@ class ImageEditor:
             self.set_save_needed(self.selected)
             #self.draw_select()
 
-
     def set_skew_toggle(self):
         if self.selected is None:
             return
@@ -831,8 +827,7 @@ class ImageEditor:
         else:
             self.skew_toggle.set_label('enable skew')
             self.skew_slider.set_sensitive(False)
-        self.skew_toggle.set_child_visible(True)
-
+        self.skew_toggle.show()
 
     def toggle_background(self, widget):
         if self.show_background:
@@ -841,7 +836,6 @@ class ImageEditor:
             self.show_background = True
         self.draw_spread(self.current_spread)
         #self.draw_select()
-
 
     def toggle_skew_button_move(self, leaf):
         w,h = self.skew_toggle.get_size_request()
@@ -852,8 +846,7 @@ class ImageEditor:
             x = self.skew_toggle_x_right
             rect = self.right_page_type_menu.get_allocation()
         self.horizontal_controls.move(self.skew_toggle, x, 90)
-        self.horizontal_controls.move(self.skew_slider, rect[0], 120)
-
+        self.horizontal_controls.move(self.skew_slider, rect.x, 120)
 
     def toggle_skew(self, widget, data):
         if self.book.cropBox.skew_active[self.selected]:
@@ -868,7 +861,6 @@ class ImageEditor:
         self.update_canvas(self.selected)
         #self.draw_select()
 
-
     def toggle_crop(self, widget, crop):
         if self.show_crop[crop]:
             self.show_crop[crop] = False
@@ -876,14 +868,12 @@ class ImageEditor:
             self.show_crop[crop] = True
         self.draw_spread(self.current_spread)
 
-
-    def select_spread(self, widget):
+    def select_spread(self, widget, event):
         leaf = int(widget.get_value())
         new_spread = int(math.floor(leaf/2))
         if new_spread != self.current_spread:
             self.current_spread = new_spread
             self.update_state()
-
 
     def walk_stack(self, widget, direction):
         self.save_changes()
@@ -899,7 +889,6 @@ class ImageEditor:
                 return
         self.update_state()
 
-
     def update_state(self):
         self.selected = None
         self.update_horizontal_control_widgets()
@@ -910,8 +899,7 @@ class ImageEditor:
         self.destroy_zoom()
         self.save_changes()
         self.draw_spread(self.current_spread)
-
-
+        
     def clicked(self, widget, data):
         self.drag_root = {'x':data.x_root, 'y': data.y_root}
         if self.left_canvas.contains_point(self.cursor_pos['x'], self.cursor_pos['y']):
@@ -949,22 +937,19 @@ class ImageEditor:
             if self.active_zone == None:
                 self.active_zone = 'all'
 
-
     def selector(self):
         self.released = not self.released
         if self.released:
             self.active_zone = None
-            self.editor.window.window.set_cursor(None)
+            self.editor.window.get_window().set_cursor(None)
             self.cursor = None
-
 
     def release(self, widget, data):
         #print 'released'
         self.released = True
         self.active_zone = None
-        self.editor.window.window.set_cursor(None)
+        self.editor.window.get_window().set_cursor(None)
         self.cursor = None
-
 
     def entered(self, widget, data):
         pass
@@ -974,15 +959,13 @@ class ImageEditor:
         #self.drag_pos = None
         #widget.selected = True
 
-
     def left(self, widget, data):
         #print "left " + str(widget.crop) + 'on leaf ' + str(widget.leaf)
         self.active_zone = None
-        self.editor.window.window.set_cursor(None)
+        self.editor.window.get_window().set_cursor(None)
         self.cursor = None
         #pass
         #return False
-
 
     def motion_capture(self, widget, data):
         #print data.x, data.y
@@ -1021,7 +1004,6 @@ class ImageEditor:
         self.set_save_needed(self.selected)
         self.update_canvas(self.selected)
 
-
     def calc_deltas(self, canvas, event_box, x_pos, y_pos):
         x_delta = int(x_pos - self.drag_root['x'])
         y_delta = int(y_pos - self.drag_root['y'])
@@ -1038,104 +1020,132 @@ class ImageEditor:
 
         return x_delta, y_delta
 
-
     def set_cursor(self, x=None, y=None, cursor_style=None):
         if cursor_style:
-            self.cursor = gtk.gdk.Cursor(cursor_style)
-            self.editor.window.window.set_cursor(self.cursor)
+            self.cursor = Gdk.Cursor.new(cursor_style)
+            self.editor.window.get_window().set_cursor(self.cursor)
             return
+        if not x:
+            x = self.cursor_pos['x']
+        if not y:
+            y = self.cursor_pos['y']
         for side in (self.left_zones, self.right_zones):
             if side is not None:
                 for zone, rect in side.items():
                     if rect.contains_point(x, y):
                         if zone == 'top_left':
-                            self.cursor = gtk.gdk.Cursor(gtk.gdk.TOP_LEFT_CORNER)
-                            self.editor.window.window.set_cursor(self.cursor)
+                            self.cursor = Gdk.Cursor.new(Gdk.CursorType.TOP_LEFT_CORNER)
+                            self.editor.window.get_window().set_cursor(self.cursor)
                             return
                         elif zone == 'top_right':
-                            self.cursor = gtk.gdk.Cursor(gtk.gdk.TOP_RIGHT_CORNER)
-                            self.editor.window.window.set_cursor(self.cursor)
+                            self.cursor = Gdk.Cursor.new(Gdk.CursorType.TOP_RIGHT_CORNER)
+                            self.editor.window.get_window().set_cursor(self.cursor)
                             return
                         elif zone == 'bottom_left':
-                            self.cursor = gtk.gdk.Cursor(gtk.gdk.BOTTOM_LEFT_CORNER)
-                            self.editor.window.window.set_cursor(self.cursor)
+                            self.cursor = Gdk.Cursor.new(Gdk.CursorType.BOTTOM_LEFT_CORNER)
+                            self.editor.window.get_window().set_cursor(self.cursor)
                             return
                         elif zone == 'bottom_right':
-                            self.cursor = gtk.gdk.Cursor(gtk.gdk.BOTTOM_RIGHT_CORNER)
-                            self.editor.window.window.set_cursor(self.cursor)
-                            return
-        self.cursor = None
-        self.editor.window.window.set_cursor(self.cursor)
-
+                            self.cursor = Gdk.Cursor.new(Gdk.CursorType.BOTTOM_RIGHT_CORNER)
+                            self.editor.window.get_window().set_cursor(self.cursor)
+                            return        
+        if not self.loading_zoom:
+            self.cursor = None
+            self.editor.window.get_window().set_cursor(self.cursor)
 
     def move_crop(self, x_delta, y_delta):
         self.destroy_zoom()
         self.adjust_crop_position(x_delta, y_delta)
-
 
     def adjust_crop_size(self, x_delta, y_delta):
         self.destroy_zoom()
         leaf = self.selected
         scale_factor = 7
         if self.active_zone == 'top_left':
-            self.book.cropBox.box_with_skew_padding[leaf].set_dimension(
-                'x', self.book.cropBox.box_with_skew_padding[leaf].x + (x_delta * scale_factor))
-            self.book.cropBox.box_with_skew_padding[leaf].set_dimension(
-                'y', self.book.cropBox.box_with_skew_padding[leaf].y + (y_delta * scale_factor))
-            self.book.cropBox.box_with_skew_padding[leaf].set_dimension(
-                'w', self.book.cropBox.box_with_skew_padding[leaf].w - (x_delta * scale_factor))
-            self.book.cropBox.box_with_skew_padding[leaf].set_dimension(
-                'h', self.book.cropBox.box_with_skew_padding[leaf].h - (y_delta * scale_factor))
+            self.book.cropBox.box_with_skew_padding[leaf].set_dimension\
+                ('x', self.book.cropBox.box_with_skew_padding[leaf].x + 
+                 (x_delta * scale_factor))
+            self.book.cropBox.box_with_skew_padding[leaf].set_dimension\
+                ('y', self.book.cropBox.box_with_skew_padding[leaf].y + 
+                 (y_delta * scale_factor))
+            self.book.cropBox.box_with_skew_padding[leaf].set_dimension\
+                ('w', self.book.cropBox.box_with_skew_padding[leaf].w - 
+                 (x_delta * scale_factor))
+            self.book.cropBox.box_with_skew_padding[leaf].set_dimension\
+                ('h', self.book.cropBox.box_with_skew_padding[leaf].h - 
+                 (y_delta * scale_factor))
 
-            self.book.cropBox.box[leaf].set_dimension('x', self.book.cropBox.box[leaf].x + (x_delta * scale_factor))
-            self.book.cropBox.box[leaf].set_dimension('y', self.book.cropBox.box[leaf].y + (y_delta * scale_factor))
-            self.book.cropBox.box[leaf].set_dimension('w', self.book.cropBox.box[leaf].w - (x_delta * scale_factor))
-            self.book.cropBox.box[leaf].set_dimension('h', self.book.cropBox.box[leaf].h - (y_delta * scale_factor))
+            self.book.cropBox.box[leaf].set_dimension\
+                ('x', self.book.cropBox.box[leaf].x + (x_delta * scale_factor))
+            self.book.cropBox.box[leaf].set_dimension\
+                ('y', self.book.cropBox.box[leaf].y + (y_delta * scale_factor))
+            self.book.cropBox.box[leaf].set_dimension\
+                ('w', self.book.cropBox.box[leaf].w - (x_delta * scale_factor))
+            self.book.cropBox.box[leaf].set_dimension\
+                ('h', self.book.cropBox.box[leaf].h - (y_delta * scale_factor))
 
         if self.active_zone == 'top_right':
-            self.book.cropBox.box_with_skew_padding[leaf].set_dimension(
-                'y', self.book.cropBox.box_with_skew_padding[leaf].y +(y_delta * scale_factor))
-            self.book.cropBox.box_with_skew_padding[leaf].set_dimension(
-                'w', self.book.cropBox.box_with_skew_padding[leaf].w +(x_delta * scale_factor))
-            self.book.cropBox.box_with_skew_padding[leaf].set_dimension(
-                'h', self.book.cropBox.box_with_skew_padding[leaf].h -(y_delta * scale_factor))
+            self.book.cropBox.box_with_skew_padding[leaf].set_dimension\
+                ('y', self.book.cropBox.box_with_skew_padding[leaf].y +
+                 (y_delta * scale_factor))
+            self.book.cropBox.box_with_skew_padding[leaf].set_dimension\
+                ('w', self.book.cropBox.box_with_skew_padding[leaf].w +
+                 (x_delta * scale_factor))
+            self.book.cropBox.box_with_skew_padding[leaf].set_dimension\
+                ('h', self.book.cropBox.box_with_skew_padding[leaf].h -
+                 (y_delta * scale_factor))
 
-            self.book.cropBox.box[leaf].set_dimension('y', self.book.cropBox.box[leaf].y + (y_delta * scale_factor))
-            self.book.cropBox.box[leaf].set_dimension('w', self.book.cropBox.box[leaf].w + (x_delta * scale_factor))
-            self.book.cropBox.box[leaf].set_dimension('h', self.book.cropBox.box[leaf].h - (y_delta * scale_factor))
+            self.book.cropBox.box[leaf].set_dimension\
+                ('y', self.book.cropBox.box[leaf].y + (y_delta * scale_factor))
+            self.book.cropBox.box[leaf].set_dimension\
+                ('w', self.book.cropBox.box[leaf].w + (x_delta * scale_factor))
+            self.book.cropBox.box[leaf].set_dimension\
+                ('h', self.book.cropBox.box[leaf].h - (y_delta * scale_factor))
 
         if self.active_zone == 'bottom_left':
-            self.book.cropBox.box_with_skew_padding[leaf].set_dimension(
-                'x', self.book.cropBox.box_with_skew_padding[leaf].x +(x_delta * scale_factor))
-            self.book.cropBox.box_with_skew_padding[leaf].set_dimension(
-                'w', self.book.cropBox.box_with_skew_padding[leaf].w -(x_delta * scale_factor))
-            self.book.cropBox.box_with_skew_padding[leaf].set_dimension(
-                'h', self.book.cropBox.box_with_skew_padding[leaf].h +(y_delta * scale_factor))
+            self.book.cropBox.box_with_skew_padding[leaf].set_dimension\
+                ('x', self.book.cropBox.box_with_skew_padding[leaf].x +
+                 (x_delta * scale_factor))
+            self.book.cropBox.box_with_skew_padding[leaf].set_dimension\
+                ('w', self.book.cropBox.box_with_skew_padding[leaf].w -
+                 (x_delta * scale_factor))
+            self.book.cropBox.box_with_skew_padding[leaf].set_dimension\
+                ('h', self.book.cropBox.box_with_skew_padding[leaf].h +
+                 (y_delta * scale_factor))
 
-            self.book.cropBox.box[leaf].set_dimension('x', self.book.cropBox.box[leaf].x + (x_delta * scale_factor))
-            self.book.cropBox.box[leaf].set_dimension('w', self.book.cropBox.box[leaf].w - (x_delta * scale_factor))
-            self.book.cropBox.box[leaf].set_dimension('h', self.book.cropBox.box[leaf].h + (y_delta * scale_factor))
+            self.book.cropBox.box[leaf].set_dimension\
+                ('x', self.book.cropBox.box[leaf].x + (x_delta * scale_factor))
+            self.book.cropBox.box[leaf].set_dimension\
+                ('w', self.book.cropBox.box[leaf].w - (x_delta * scale_factor))
+            self.book.cropBox.box[leaf].set_dimension\
+                ('h', self.book.cropBox.box[leaf].h + (y_delta * scale_factor))
 
         if self.active_zone == 'bottom_right':
-            self.book.cropBox.box_with_skew_padding[leaf].set_dimension(
-                'w', self.book.cropBox.box_with_skew_padding[leaf].w +(x_delta * scale_factor))
-            self.book.cropBox.box_with_skew_padding[leaf].set_dimension(
-                'h', self.book.cropBox.box_with_skew_padding[leaf].h +(y_delta * scale_factor))
+            self.book.cropBox.box_with_skew_padding[leaf].set_dimension\
+                ('w', self.book.cropBox.box_with_skew_padding[leaf].w +
+                 (x_delta * scale_factor))
+            self.book.cropBox.box_with_skew_padding[leaf].set_dimension\
+                ('h', self.book.cropBox.box_with_skew_padding[leaf].h +
+                 (y_delta * scale_factor))
 
-            self.book.cropBox.box[leaf].set_dimension('w', self.book.cropBox.box[leaf].w + (x_delta * scale_factor))
-            self.book.cropBox.box[leaf].set_dimension('h', self.book.cropBox.box[leaf].h + (y_delta * scale_factor))
-
-
+            self.book.cropBox.box[leaf].set_dimension\
+                ('w', self.book.cropBox.box[leaf].w + (x_delta * scale_factor))
+            self.book.cropBox.box[leaf].set_dimension\
+                ('h', self.book.cropBox.box[leaf].h + (y_delta * scale_factor))
 
     def adjust_crop_position(self, x_delta, y_delta):
         leaf = self.selected
-        self.book.cropBox.box_with_skew_padding[leaf].set_dimension(
-            'x', self.book.cropBox.box_with_skew_padding[leaf].x + (x_delta * 4))
-        self.book.cropBox.box_with_skew_padding[leaf].set_dimension(
-            'y', self.book.cropBox.box_with_skew_padding[leaf].y + (y_delta * 4))
+        self.book.cropBox.box_with_skew_padding[leaf].set_dimension\
+            ('x', self.book.cropBox.box_with_skew_padding[leaf].x + 
+             (x_delta * 4))
+        self.book.cropBox.box_with_skew_padding[leaf].set_dimension\
+            ('y', self.book.cropBox.box_with_skew_padding[leaf].y + 
+             (y_delta * 4))
 
-        self.book.cropBox.box[leaf].set_dimension('x', self.book.cropBox.box[leaf].x + (x_delta * 4))
-        self.book.cropBox.box[leaf].set_dimension('y', self.book.cropBox.box[leaf].y + (y_delta * 4))
+        self.book.cropBox.box[leaf].set_dimension\
+            ('x', self.book.cropBox.box[leaf].x + (x_delta * 4))
+        self.book.cropBox.box[leaf].set_dimension\
+            ('y', self.book.cropBox.box[leaf].y + (y_delta * 4))
 
         if self.book.cropBox.box_with_skew_padding[leaf].x < 0:
             self.book.cropBox.box_with_skew_padding[leaf].set_dimension('x', 0)
@@ -1147,10 +1157,9 @@ class ImageEditor:
         if self.book.cropBox.box[leaf].y < 0:
             self.book.cropBox.box[leaf].set_dimension('y', 0)
 
-
     def get_crop_event_box(self, image, leaf):
         event_box = Box()
-        event_box.image = gtk.EventBox()
+        event_box.image = Gtk.EventBox()
         event_box.image.set_above_child(True)
         if image is not None:
             event_box.image.add(image)
@@ -1161,19 +1170,30 @@ class ImageEditor:
                 scale_factor = self.right_scale_factor
 
             if self.book.cropBox.box_with_skew_padding[leaf].is_valid():
-                event_box.set_dimension('x', int((self.book.cropBox.box_with_skew_padding[leaf].x/4)/scale_factor))
-                event_box.set_dimension('y', int((self.book.cropBox.box_with_skew_padding[leaf].y/4)/scale_factor))
-                event_box.set_dimension('w', int((self.book.cropBox.box_with_skew_padding[leaf].w/4)/scale_factor))
-                event_box.set_dimension('h', int((self.book.cropBox.box_with_skew_padding[leaf].h/4)/scale_factor))
+                event_box.set_dimension\
+                    ('x', int((self.book.cropBox.box_with_skew_padding[leaf].x/4)/
+                              scale_factor))
+                event_box.set_dimension\
+                    ('y', int((self.book.cropBox.box_with_skew_padding[leaf].y/4)/
+                              scale_factor))
+                event_box.set_dimension\
+                    ('w', int((self.book.cropBox.box_with_skew_padding[leaf].w/4)/
+                              scale_factor))
+                event_box.set_dimension\
+                    ('h', int((self.book.cropBox.box_with_skew_padding[leaf].h/4)/
+                              scale_factor))
             else:
-                event_box.set_dimension('x', int((self.book.cropBox.box[leaf].x/4)/scale_factor))
-                event_box.set_dimension('y', int((self.book.cropBox.box[leaf].y/4)/scale_factor))
-                event_box.set_dimension('w', int((self.book.cropBox.box[leaf].w/4)/scale_factor))
-                event_box.set_dimension('h', int((self.book.cropBox.box[leaf].h/4)/scale_factor))
+                event_box.set_dimension\
+                    ('x', int((self.book.cropBox.box[leaf].x/4)/scale_factor))
+                event_box.set_dimension\
+                    ('y', int((self.book.cropBox.box[leaf].y/4)/scale_factor))
+                event_box.set_dimension\
+                    ('w', int((self.book.cropBox.box[leaf].w/4)/scale_factor))
+                event_box.set_dimension\
+                    ('h', int((self.book.cropBox.box[leaf].h/4)/scale_factor))
             event_box.image.set_size_request(event_box.w, event_box.h)
         event_box.leaf = leaf
         return event_box
-
 
     def get_zones(self, x, y, w, h):
         zones = {}
@@ -1200,110 +1220,105 @@ class ImageEditor:
         zones['bottom_right'].set_dimension('y', y + (h - 50))
         zones['bottom_right'].set_dimension('w', 50)
         zones['bottom_right'].set_dimension('h', 50)
-
         return zones
 
-
-    def render_image(self, image, width, height, leaf, scale_factor, scale=4, output='image'):
-        drawable = gtk.gdk.Pixmap(None, width, height, 24)
-        gc = drawable.new_gc(line_width=2)
-        cm = self.editor.window.colormap
-        drawable.set_colormap(cm)
-        drawable.draw_pixbuf(gc, image, 0,0,0,0, -1, -1)
-
+    def render_image(self, image, width, height, 
+                     leaf, scale_factor, scale=4, output='image'):        
+        attrs = Gdk.WindowAttr()
+        attrs.width = width
+        attrs.height = height
+        attrs.window_type = Gdk.WindowType.CHILD
+        types = Gdk.WindowAttributesType.X | Gdk.WindowAttributesType.Y
+        window = Gdk.Window(self.editor.window.get_window(), attrs, types)
+        surface = Gdk.cairo_surface_create_from_pixbuf(image, 1, window)
+        ctx = cairo.Context(surface)                
         for crop in ('pageCrop', 'standardCrop', 'contentCrop', 'cropBox'):
             if (not self.book.crops[crop].box[leaf].is_valid() or
                 (crop !='cropBox' and self.book.crops[crop].active[leaf]) or
                 not self.show_crop[crop]):
                 continue
-
             if crop == 'cropBox':
-                color = cm.alloc_color('blue')
+                ctx.set_source_rgba(0, 0, 255, 0.9)
             elif crop == 'standardCrop':
-                color = cm.alloc_color('purple')
+                ctx.set_source_rgba(255, 0, 255, 0.9)
             elif crop == 'pageCrop':
-                color = cm.alloc_color('red')
+                ctx.set_source_rgba(255, 0, 0, 0.9)
             elif crop == 'contentCrop':
-                color = cm.alloc_color('green')
-            gc.set_foreground(color)
-
-            if self.book.crops[crop].box_with_skew_padding[leaf].is_valid():
-                drawable.draw_rectangle(gc, False,
-                                        int((self.book.crops[crop].box_with_skew_padding[leaf].x/scale)/scale_factor),
-                                        int((self.book.crops[crop].box_with_skew_padding[leaf].y/scale)/scale_factor),
-                                        int((self.book.crops[crop].box_with_skew_padding[leaf].w/scale)/scale_factor),
-                                        int((self.book.crops[crop].box_with_skew_padding[leaf].h/scale)/scale_factor))
-
-        image.get_from_drawable(drawable, drawable.get_colormap(), 0, 0, 0, 0, -1, -1)
+                ctx.set_source_rgba(0, 255, 0, 0.9)
+            x = int((self.book.crops[crop].box_with_skew_padding[leaf].x/scale)/scale_factor)
+            y = int((self.book.crops[crop].box_with_skew_padding[leaf].y/scale)/scale_factor)
+            w = int((self.book.crops[crop].box_with_skew_padding[leaf].w/scale)/scale_factor)
+            h = int((self.book.crops[crop].box_with_skew_padding[leaf].h/scale)/scale_factor)
+            ctx.rectangle(x, y, w, h)
+            ctx.stroke()    
+        s = ctx.get_target()        
+        s.flush()
+        p = Gdk.pixbuf_get_from_surface(s, 0, 0, width, height)
+        window.destroy()        
         if output=='pixbuf':
-            return image
+            return p
         elif output=='image':
-            return gtk.image_new_from_pixbuf(image)
-
-
+            return Gtk.Image.new_from_pixbuf(p)            
+            
     def create_delete_overlay(self, leaf):
         if leaf%2==0:
             width, height = self.left_canvas.w, self.left_canvas.h
         else:
             width, height = self.right_canvas.w, self.right_canvas.h
-
-        pb = gtk.gdk.Pixbuf(gtk.gdk.COLORSPACE_RGB,
-                            1,
-                            8,
-                            width,
-                            height)
-        pixmap = gtk.gdk.Pixmap(None, width, height, 24)
-        t_win = pixmap.cairo_create()
-        t_win.set_operator(cairo.OPERATOR_CLEAR)
-        t_win.set_source_rgba(4.0, 0.0, 0.0, 0.3)
-        t_win.set_operator(cairo.OPERATOR_OVER)
-        t_win.paint()
-        pb.get_from_drawable(pixmap, pixmap.get_colormap(), 0, 0, 0, 0, width, height)
+        pb = GdkPixbuf.Pixbuf.new(GdkPixbuf.Colorspace.RGB,
+                                  1, 8, width, height)
+        attrs = Gdk.WindowAttr()
+        attrs.width = width
+        attrs.height = height
+        attrs.window_type = Gdk.WindowType.CHILD
+        types = Gdk.WindowAttributesType.X | Gdk.WindowAttributesType.Y        
+        window = Gdk.Window(self.editor.window.get_window(), attrs, types)
+        surface = Gdk.cairo_surface_create_from_pixbuf(pb, 0, window)
+        ctx = cairo.Context(surface)                
+        ctx.set_operator(cairo.OPERATOR_CLEAR)
+        ctx.set_source_rgba(4.0, 0.0, 0.0, 0.3)
+        ctx.set_operator(cairo.OPERATOR_SOURCE)
+        ctx.paint()
+        s = ctx.get_target()        
+        s.flush()
+        pb = Gdk.pixbuf_get_from_surface(surface, 0, 0, width, height)
+        window.destroy()
         return pb
-
 
     def draw_delete_overlay(self, leaf):
         if leaf is None:
             return
+        self.remove_overlays()
         overlay = self.create_delete_overlay(leaf)
         if leaf%2==0:
-            x, y = 0,0
-            self.left_delete_overlay = gtk.image_new_from_pixbuf(overlay)
+            x, y = 0, 0
+            self.left_delete_overlay = Gtk.Image.new_from_pixbuf(overlay)
             overlay = self.left_delete_overlay
         else:
             x, y = self.left_canvas.w, 0
-            self.right_delete_overlay = gtk.image_new_from_pixbuf(overlay)
-            overlay = self.right_delete_overlay
-        #self.remove_overlays()
-        overlay.show()
+            self.right_delete_overlay = Gtk.Image.new_from_pixbuf(overlay)
+            overlay = self.right_delete_overlay        
         self.main_layout.put(overlay, x,y)
-
+        overlay.show()
 
     def remove_overlays(self):
-        try:
-            self.main_layout.remove(self.left_delete_overlay)
-            #self.main_layout.remove(self.left_background_overlay)
-        except:
-            pass
-        try:
-            self.main_layout.remove(self.right_delete_overlay)
-            #self.main_layout.remove(self.right_background_overlay)
-        except:
-            pass
-        try:
-            self.left_delete_overlay.destroy()
-            self.left_delete_overlay = None
-            #self.left_background_overlay.destroy()
-            #self.left_background_overlay = None
-        except:
-            pass
-        try:
-            self.right_delete_overlay.destroy()
-            self.right_delete_overlay = None
-            #self.right_background_overlay.destroy()
-            #self.right_background_overlay = None
-        except:
-            pass
+        if self.left_delete_overlay:
+            try:
+                self.main_layout.remove(self.left_delete_overlay)
+            except:
+                pass
+            finally:
+                self.left_delete_overlay = None
+        if self.right_delete_overlay:
+            try:
+                self.main_layout.remove(self.right_delete_overlay)
+            except:
+                pass
+            finally:
+                self.right_delete_overlay = None
+
+         #self.main_layout.remove(self.right_background_overlay)
+         #self.main_layout.remove(self.left_background_overlay)
 
     """
     def create_background_overlay(self, leaf):
@@ -1312,12 +1327,12 @@ class ImageEditor:
         else:
             width, height = self.right_canvas.w, self.right_canvas.h
 
-        pb = gtk.gdk.Pixbuf(gtk.gdk.COLORSPACE_RGB,
+        pb = GdkPixbuf.Pixbuf(GdkPixbuf.Colorspace.RGB,
                             1,
                             8,
                             width,
                             height)
-        pixmap = gtk.gdk.Pixmap(None, width, height, 24)
+        pixmap = Gdk.Pixmap(None, width, height, 24)
         t_win = pixmap.cairo_create()
         t_win.set_operator(cairo.OPERATOR_CLEAR)
         t_win.set_source_rgba(0.0, 0.0, 0.0, 0.3)
@@ -1335,11 +1350,11 @@ class ImageEditor:
         overlay = self.create_background_overlay(leaf)
         if leaf%2==0:
             x, y = 0,0
-            self.left_background_overlay = gtk.image_new_from_pixbuf(overlay)
+            self.left_background_overlay = Gtk.image_new_from_pixbuf(overlay)
             overlay = self.left_background_overlay
         else:
             x, y = self.left_canvas.w, 0
-            self.right_background_overlay = gtk.image_new_from_pixbuf(overlay)
+            self.right_background_overlay = Gtk.image_new_from_pixbuf(overlay)
             overlay = self.right_background_overlay
         #self.remove_overlays()
         overlay.show()
@@ -1360,12 +1375,12 @@ class ImageEditor:
         #screen = self.editor.get_screen()
         #sc = screen.get_rgba_colormap()
 
-        pb = gtk.gdk.Pixbuf(gtk.gdk.COLORSPACE_RGB,
+        pb = GdkPixbuf.Pixbuf(GdkPixbuf.Colorspace.RGB,
                             1,
                             8,
                             width,
                             height)
-        pixmap = gtk.gdk.Pixmap(None, width, height, 24)
+        pixmap = Gdk.Pixmap(None, width, height, 24)
         t_win = pixmap.cairo_create()
         t_win.set_operator(cairo.OPERATOR_CLEAR)
         t_win.set_source_rgba(0.0, 0.0, 0.0, 0.0)
@@ -1376,7 +1391,7 @@ class ImageEditor:
         t_win.rectangle(0,0, width, height)
         t_win.stroke()
         pb.get_from_drawable(pixmap, pixmap.get_colormap(), 0, 0, 0, 0, width, height)
-        return pb#gtk.image_new_from_pixbuf(pb)
+        return pb#Gtk.image_new_from_pixbuf(pb)
 
 
     def draw_select(self):
@@ -1390,7 +1405,7 @@ class ImageEditor:
         self.remove_selection_overlay()
         self.update_canvas(self.selected)
         overlay = self.create_select_overlay()
-        self.selection_overlay = gtk.image_new_from_pixbuf(overlay)
+        self.selection_overlay = Gtk.image_new_from_pixbuf(overlay)
         self.main_layout.put(self.selection_overlay, x,y)
         self.selection_overlay.show()
         #self.selection_overlay.window.lower()
@@ -1410,32 +1425,31 @@ class ImageEditor:
             pass
             """
 
-
     def rotate_selected(self, rot_dir):
         if self.selected is None:
             return
         if rot_dir == self.book.cropBox.rotate_degree[self.selected]:
             return
 
-        orig_w = self.book.raw_image_dimensions[self.selected][0]
-        orig_h = self.book.raw_image_dimensions[self.selected][1]
-        w = self.book.cropBox.image_width
-        h = self.book.cropBox.image_height
+        orig_w = self.book.raw_image_dimensions[self.selected]['width']
+        orig_h = self.book.raw_image_dimensions[self.selected]['height']
+        w = self.book.cropBox.image_width[self.selected]
+        h = self.book.cropBox.image_height[self.selected]
 
+        print (w, h)
         for crop in ('cropBox','pageCrop','standardCrop','contentCrop'):
             if self.book.crops[crop].box[self.selected].is_valid():
                 self.book.crops[crop].box[self.selected].rotate(rot_dir, w, h)
                 self.book.crops[crop].box_with_skew_padding[self.selected].rotate(rot_dir, w, h)
                 self.book.crops[crop].rotate_degree[self.selected] += rot_dir
                 if self.book.crops[crop].rotate_degree[self.selected] == 0:
-                    self.book.crops[crop].image_width = orig_w
-                    self.book.crops[crop].image_height = orig_h
+                    self.book.crops[crop].image_width[self.selected] = orig_w
+                    self.book.crops[crop].image_height[self.selected] = orig_h
                 else:
-                    self.book.crops[crop].image_width = orig_h
-                    self.book.crops[crop].image_height = orig_w
+                    self.book.crops[crop].image_width[self.selected] = orig_h
+                    self.book.crops[crop].image_height[self.selected] = orig_w
         self.set_save_needed(self.selected)
         self.draw_leaf(self.selected)
-
 
     def get_subsection(self, image, leaf):
         if self.book.cropBox.box_with_skew_padding[leaf].is_valid():
@@ -1456,12 +1470,12 @@ class ImageEditor:
         else:
             scale_factor = self.right_scale_factor
 
-        subsection = image.subpixbuf(int((x/4)/scale_factor),
-                                     int((y/4)/scale_factor),
-                                     int((w/4)/scale_factor),
-                                     int((h/4)/scale_factor))
+        subsection = image.new_subpixbuf(int((x/4)/scale_factor),
+                                         int((y/4)/scale_factor),
+                                         int((w/4)/scale_factor),
+                                         int((h/4)/scale_factor))
 
-        return gtk.image_new_from_pixbuf(subsection)
+        return Gtk.Image.new_from_pixbuf(subsection)
 
 
     def update_canvas(self, leaf):
@@ -1488,31 +1502,36 @@ class ImageEditor:
         #else:
         #    self.draw_background_overlay(leaf)
 
-
     def set_canvas(self, leaf, image, canvas):
-        try:
-            self.main_layout.remove(canvas.image)
-            canvas.image.destroy()
-        except:
-            pass
-
+        if canvas.image:
+            try:
+                self.main_layout.remove(canvas.image)
+            except:
+                pass
+            finally:
+                canvas.image = None
         try:
             self.main_layout.remove(canvas.page_number_box)
         except:
             pass
-
-        width = image.get_width()
-        height = image.get_height()
+        
+        width, height = image.get_width(), image.get_height()
 
         if leaf%2==0:
-            self.left_canvas.image = self.render_image(image, width, height, leaf, self.left_scale_factor)
+            self.left_canvas.image = \
+                self.render_image(image, width, height, 
+                                  leaf, self.left_scale_factor)
+        
             canvas = self.left_canvas
             canvas.set_dimension('x', 0)
             canvas.set_dimension('y', 0)
             canvas.set_dimension('w', width)
             canvas.set_dimension('h', height)
-        else:
-            self.right_canvas.image = self.render_image(image, width, height, leaf, self.right_scale_factor)
+        else:        
+            self.right_canvas.image = \
+                self.render_image(image, width, height, 
+                                  leaf, self.right_scale_factor)
+        
             canvas = self.right_canvas
             canvas.set_dimension('x', self.left_canvas.w)
             canvas.set_dimension('y', 0)
@@ -1522,21 +1541,23 @@ class ImageEditor:
         if not self.show_background:
             canvas.image.clear()
 
-        self.main_layout.put(canvas.image,
-                             canvas.x, canvas.y)
+        self.main_layout.put(canvas.image, canvas.x, canvas.y)
         canvas.image.show()
         self.draw_page_number(leaf, canvas)
 
         if leaf %2==0 and self.right_canvas.image is not None:
             self.main_layout.move(self.right_canvas.image,
-                                   self.left_canvas.w, self.right_canvas.y)
+                                  self.left_canvas.w, self.right_canvas.y)
             self.right_canvas.update_dimension('x', self.left_canvas.w)
             self.main_layout.move(self.right_event_box.image,
-                                   self.right_canvas.x + self.right_event_box.x, self.right_event_box.y)
-            self.right_zones = self.get_zones(self.right_canvas.x + self.right_event_box.x, self.right_event_box.y,
-                                              self.right_event_box.w, self.right_event_box.h)
+                                  self.right_canvas.x + self.right_event_box.x, 
+                                  self.right_event_box.y)
+            self.right_zones = self.get_zones(self.right_canvas.x + 
+                                              self.right_event_box.x, 
+                                              self.right_event_box.y,
+                                              self.right_event_box.w, 
+                                              self.right_event_box.h)
             self.right_event_box.image.hide()
-
 
     def draw_page_number(self, leaf, canvas):
         if leaf in self.book.cropBox.pagination:
@@ -1551,33 +1572,34 @@ class ImageEditor:
             images = []
             for char in number:
                 if char not in ('!', '?'):
-                    img = Environment.current_path + '/gui/pagenumbers/' + prefix + char + '.png'
+                    img = Environment.current_path + '/gui/pagenumbers/' + \
+                        prefix + char + '.png'
                     images.append(img)
 
             num_w, num_h = 50, 50
-            canvas.page_number_box = Common.new_widget('HBox',
-                                                       {'size_request': (num_w, num_h),
-                                                        'show': True})
+            kwargs = {'orientation': Gtk.Orientation.HORIZONTAL,
+                      'visible': True}
+            canvas.page_number_box = Gtk.Box(**kwargs)
+            canvas.page_number_box.set_size_request(num_w, num_h)
+                                               
             for img in images:
-                pixbuf = gtk.gdk.pixbuf_new_from_file(img)
-                pixbuf = pixbuf.scale_simple(num_w/2, num_h/2, gtk.gdk.INTERP_NEAREST)
-                image = gtk.image_new_from_pixbuf(pixbuf)
-                canvas.page_number_box.pack_start(image, expand=False)
+                pixbuf = GdkPixbuf.Pixbuf.new_from_file(img)
+                pixbuf = pixbuf.scale_simple(num_w/2, num_h/2, 
+                                             GdkPixbuf.InterpType.NEAREST)
+                image = Gtk.Image.new_from_pixbuf(pixbuf)
+                canvas.page_number_box.pack_start(image, False, True, 0)
                 image.show()
             self.main_layout.put(canvas.page_number_box, canvas.x, canvas.y)
 
-
     def set_event_box(self, leaf, image, canvas, event_box, zones):
-
         try:
             self.main_layout.remove(event_box.image)
-            event_box.image.destroy()
-        except:
+            #event_box.image.destroy()
+        except Exception as e:
+            print (e)
             pass
 
-        width = image.get_width()
-        height = image.get_height()
-
+        width, height = image.get_width(), image.get_height()
         subsection = self.get_subsection(image, leaf)
 
         if leaf%2==0:
@@ -1599,12 +1621,10 @@ class ImageEditor:
 
         if not self.book.cropBox.add_to_access_formats[leaf]:
             event_box.image.hide()
-
         if subsection:
             self.main_layout.put(event_box.image,
                                  canvas.x + event_box.x,
                                  event_box.y)
-
 
     def get_angle(self, leaf):
         if self.book.cropBox.skew_active[leaf]:
@@ -1623,7 +1643,6 @@ class ImageEditor:
                 angle += 180
         return angle
 
-
     def draw_leaf(self, leaf):
         leafnum = "%04d" % leaf
         image_file = (self.book.dirs['book'] + '/' + self.book.identifier + '_scaled/' +
@@ -1631,7 +1650,6 @@ class ImageEditor:
 
         #image_file = (self.book.dirs['book'] + '/' + self.book.identifier + '_corners_thumbs/' +
         #              self.book.identifier + '_thumb_' + str(leafnum) + '.jpg')
-
 
         angle = self.get_angle(leaf)
 
@@ -1644,15 +1662,14 @@ class ImageEditor:
             event_box = self.right_event_box
             zones = self.right_zones
 
-        if os.path.exists(image_file):
-            image = self.get_rotated_scaled_image(image_file, leaf, angle)
-            self.set_canvas(leaf, image, canvas)
-            self.set_event_box(leaf, image, canvas, event_box, zones)
-            if not self.book.cropBox.add_to_access_formats[leaf]:
-                self.draw_delete_overlay(leaf)
+        #if os.path.exists(image_file):
+        image = self.get_rotated_scaled_image(image_file, leaf, angle)
+        self.set_canvas(leaf, image, canvas)
+        self.set_event_box(leaf, image, canvas, event_box, zones)
+        if not self.book.cropBox.add_to_access_formats[leaf]:
+            self.draw_delete_overlay(leaf)
             #else:
                 #self.draw_background_overlay(leaf)
-
 
     def draw_spread(self, spread):
         left_leaf = (spread * 2)
@@ -1660,11 +1677,9 @@ class ImageEditor:
         self.draw_leaf(left_leaf)
         self.draw_leaf(right_leaf)
 
-
-
     def get_scaled(self, image_file, scale_factor, output='pixbuf'):
         if os.path.exists(image_file):
-            image = gtk.gdk.pixbuf_new_from_file(image_file)
+            image = GdkPixbuf.Pixbuf.new_from_file(image_file)
             width = image.get_width()
             height = image.get_height()
             #w_scale_factor = float(width) / float(self.editor.window.width - 250)
@@ -1672,48 +1687,41 @@ class ImageEditor:
             #self.scale_factor = w_scale_factor if w_scale_factor > h_scale_factor else h_scale_factor
             image_scaled = image.scale_simple(int(width/scale_factor),
                                               int(height/scale_factor),
-                                              gtk.gdk.INTERP_BILINEAR)
+                                              GdkPixbuf.InterpType.BILINEAR)
             if output == 'pixbuf':
                 return image_scaled
             elif output == 'image':
-                return gtk.image_new_from_pixbuf(image_scaled)
-
+                return Gtk.image_new_from_pixbuf(image_scaled)
 
     def get_rotated(self, image, leaf, angle, output='pixbuf'):
-        #image = Image.frombuffer('RGB',
-        #                         (pixbuf.get_width(), pixbuf.get_height()),
-        #                         pixbuf.get_pixels(),
-        #                         'raw',
-        #                         'RGB',
-        #                         pixbuf.get_rowstride(), 1)
         rotated = image.rotate(angle,
                                Image.BILINEAR, expand=True)
         IS_RGBA = rotated.mode=='RGBA'
         if output == 'pixbuf':
-            return gtk.gdk.pixbuf_new_from_data(rotated.tostring(),
-                                                gtk.gdk.COLORSPACE_RGB,
-                                                IS_RGBA,
-                                                8,
-                                                rotated.size[0],
-                                                rotated.size[1],
-                                                (IS_RGBA and 4 or 3) * rotated.size[0])
+            return self.image_to_pixbuf(rotated)
         elif output == 'image':
             return rotated
 
+    def image_to_pixbuf(self, image):
+        buf = BytesIO()
+        image.save(buf, format='jpeg')
+        data = buf.getvalue()
+        loader = GdkPixbuf.PixbufLoader.new_with_mime_type('image/jpeg')
+        try:
+            loader.write(data)
+            pixbuf = loader.get_pixbuf()
+        except:
+            raise
+        finally:
+            loader.close()
+        return pixbuf
 
     def get_rotated_scaled_image(self, image_file, leaf, angle):
         tmp = Image.open(image_file)
         rotated = tmp.rotate(angle,
                              Image.BILINEAR, expand=True)
         IS_RGBA = tmp.mode=='RGBA'
-        image_rotated = gtk.gdk.pixbuf_new_from_data(rotated.tostring(),
-                                                     gtk.gdk.COLORSPACE_RGB,
-                                                     IS_RGBA,
-                                                     8,
-                                                     rotated.size[0],
-                                                     rotated.size[1],
-                                                     (IS_RGBA and 4 or 3) * rotated.size[0])
-
+        image_rotated = self.image_to_pixbuf(rotated)                                                                                                    
         if self.book.cropBox.rotate_degree[leaf] == 0:
             w, h = tmp.size[1], tmp.size[0]
         else:
@@ -1731,7 +1739,7 @@ class ImageEditor:
 
         image_rotated_scaled = image_rotated.scale_simple(int(rotated.size[0]/scale_factor),
                                                           int(rotated.size[1]/scale_factor),
-                                                          gtk.gdk.INTERP_BILINEAR)
+                                                          GdkPixbuf.InterpType.BILINEAR)
 
         pixbuf = self.get_scaled(image_file, scale_factor, output='pixbuf')
         src = Image.frombuffer('RGB', (pixbuf.get_width(), pixbuf.get_height()),
@@ -1745,7 +1753,6 @@ class ImageEditor:
             self.right_src = src
 
         return image_rotated_scaled
-
 
     def set_save_needed(self, leaf, affected=None):
         if affected is None: affected = [leaf]
@@ -1841,7 +1848,7 @@ class MetaEditor:
 
     def __init__(self, editor):
         self.editor = editor
-        self.main_layout = Common.new_widget('Layout',
+        self.main_layout = ca.new_widget('Layout',
                                              {'size': (self.editor.window.width,
                                                        self.editor.window.height),
                                               'color': 'gray',
@@ -1850,27 +1857,27 @@ class MetaEditor:
 
 
     def init_main_menu(self):
-        self.main_menu_frame = Common.new_widget('Frame',
+        self.main_menu_frame = ca.new_widget('Frame',
                                                  {'size_request': (self.editor.window.width/4, 50),
-                                                  'set_shadow_type': gtk.SHADOW_OUT,
+                                                  'set_shadow_type': Gtk.ShadowType.OUT,
                                                   'show': True})
 
-        self.main_menu_hbox = Common.new_widget('HBox',
+        self.main_menu_hbox = ca.new_widget('HBox',
                                                 {'size_request': (-1, -1),
                                                  'show': True})
 
-        self.meta_custom = Common.new_widget('Button',
+        self.meta_custom = ca.new_widget('Button',
                                              {'label': 'Custom',
                                               'show': True})
         self.meta_custom.connect('clicked', self.init_custom)
 
-        self.meta_search = Common.new_widget('Button',
+        self.meta_search = ca.new_widget('Button',
                                              {'label': 'Search',
                                               'show': True})
         self.meta_search.connect('clicked', self.init_search)
 
-        self.main_menu_hbox.pack_start(self.meta_custom, expand=True, fill=True)
-        self.main_menu_hbox.pack_start(self.meta_search, expand=True, fill=True)
+        self.main_menu_hbox.pack_start(self.meta_custom, True, True, 0)
+        self.main_menu_hbox.pack_start(self.meta_search, True, True, 0)
         self.main_menu_frame.add(self.main_menu_hbox)
         self.main_layout.put(self.main_menu_frame,
                              (self.editor.window.width/2) - (self.editor.window.width/4)/2,
@@ -1889,27 +1896,27 @@ class MetaEditor:
 
 
     def build_view_boxes(self):
-        self.search_vbox = Common.new_widget('VBox',
+        self.search_vbox = ca.new_widget('VBox',
                                              {'size_request': (int(3*(self.editor.window.width/2)),
                                                                self.editor.window.height),
                                               'show': True})
-        self.metadata_vbox = Common.new_widget('VBox',
+        self.metadata_vbox = ca.new_widget('VBox',
                                                {'size_request': (int(self.editor.window.width/3),
                                                                  self.editor.window.height),
                                                 'show': True})
 
 
     def build_search_box(self):
-        self.search_bar_box = Common.new_widget('HBox',
+        self.search_bar_box = ca.new_widget('HBox',
                                              {'size_request': (-1, -1),
                                               'show': True})
 
-        self.search_bar = Common.new_widget('Entry',
+        self.search_bar = ca.new_widget('Entry',
                                             {'size_request': (self.editor.window.width/2, 50),
                                              'show': True})
-        gtk.rc_parse_string("""style "search-bar-font" { font_name="Sans 20" } class "GtkEntry"  style "search-bar-font" """)
+        Gtk.rc_parse_string("""style "search-bar-font" { font_name="Sans 20" } class "GtkEntry"  style "search-bar-font" """)
 
-        self.search_button = Common.new_widget('Button',
+        self.search_button = ca.new_widget('Button',
                                                {'label':'Search',
                                                 'size_request': (-1, -1),
                                                 'show': True})
@@ -1918,21 +1925,21 @@ class MetaEditor:
         self.init_search_source()
         self.init_search_api()
 
-        self.results_vbox = Common.new_widget('VBox',
+        self.results_vbox = ca.new_widget('VBox',
                                               {'size_request': (int(3*(self.editor.window.width/2)),-1),
                                                'show': True})
 
-        self.search_bar_box.pack_start(self.search_bar, expand=False, fill=False)
-        self.search_bar_box.pack_start(self.search_button, expand=False, fill=False)
-        self.search_bar_box.pack_start(self.search_source, expand=False, fill=False)
-        self.search_bar_box.pack_start(self.search_source_api, expand=False, fill=False)
-        self.search_vbox.pack_start(self.search_bar_box, expand=False, fill=False)
-        self.search_vbox.pack_start(self.results_vbox, expand=True, fill=False)
+        self.search_bar_box.pack_start(self.search_bar, False, False, 0)
+        self.search_bar_box.pack_start(self.search_button, False, False, 0)
+        self.search_bar_box.pack_start(self.search_source, False, False, 0)
+        self.search_bar_box.pack_start(self.search_source_api, False, False, 0)
+        self.search_vbox.pack_start(self.search_bar_box, False, False, 0)
+        self.search_vbox.pack_start(self.results_vbox, True, False, 0)
         self.main_layout.put(self.search_vbox, 0, 0)
 
 
     def init_search_source(self):
-        self.search_source = gtk.combo_box_new_text()
+        self.search_source = Gtk.ComboBoxText()
         self.search_source.show()
         self.bibs.find_sources()
         for filename in self.bibs.source_list:
@@ -1942,7 +1949,7 @@ class MetaEditor:
 
 
     def init_search_api(self):
-        self.search_source_api = gtk.combo_box_new_text()
+        self.search_source_api = Gtk.ComboBoxText()
         self.search_source_api.show()
 
 
@@ -1978,50 +1985,50 @@ class ExportHandler:
 
     def __init__(self, editor):
         self.editor = editor
-        self.main_layout = Common.new_widget('Layout',
+        self.main_layout = ca.new_widget('Layout',
                                              {'size': (self.editor.window.width,
                                                        self.editor.window.height),
                                               'color': 'gray',
                                               'show': True})
         self.ProcessHandler = ProcessHandling()
-        #Common.run_in_background(self.ProcessHandler.monitor_thread_exceptions)
+        #ca.run_in_background(self.ProcessHandler.monitor_thread_exceptions)
         self.build_stack_controls()
         self.build_derivative_controls()
         self.build_global_controls()
 
 
     def build_global_controls(self):
-        self.global_controls = Common.new_widget('HBox',
+        self.global_controls = ca.new_widget('HBox',
                                                  {'size_request': (int(self.editor.window.width*.95), 50),
                                                   'show': True})
-        self.global_progress = gtk.ProgressBar()
+        self.global_progress = Gtk.ProgressBar()
         self.global_progress.set_text('0%')
         self.global_progress.show()
 
-        self.global_derive_button = Common.new_widget('Button',
+        self.global_derive_button = ca.new_widget('Button',
                                                       {'label': 'Run All',
                                                        'size_request': (100, -1),
                                                        'show': True})
         self.global_derive_button.connect('clicked', self.run_all)
 
-        self.global_controls.pack_start(self.global_progress, expand=True, fill=True)
-        self.global_controls.pack_start(self.global_derive_button, expand=False, fill=False)
+        self.global_controls.pack_start(self.global_progress, True, True, 0)
+        self.global_controls.pack_start(self.global_derive_button, False, False, 0)
         self.main_layout.put(self.global_controls, 0, self.editor.window.height-50)
 
 
 
     def build_stack_controls(self):
-        self.stack_controls = Common.new_widget('Layout',
+        self.stack_controls = ca.new_widget('Layout',
                                                 {'size_request': (self.editor.window.width/2,
                                                                   self.editor.window.height-50),
                                                  'color': 'gray',
                                                  'show': True})
 
-        self.stack_controls_frame = Common.new_widget('Frame',
+        self.stack_controls_frame = ca.new_widget('Frame',
                                                       {#'label': 'Stack Controls',
                                                        'size_request': (self.editor.window.width/2,
                                                                         self.editor.window.height-50),
-                                                       'set_shadow_type': gtk.SHADOW_NONE,
+                                                       'set_shadow_type': Gtk.ShadowType.NONE,
                                                        #'set_label_align': (0.5,0.5),
                                                        'show': True})
 
@@ -2035,7 +2042,7 @@ class ExportHandler:
     def disable_interface(self):
         self.toggle_pdf(mode=False)
         self.toggle_djvu(mode=False)
-        Common.set_all_sensitive((self.init_crop_button,
+        ca.set_all_sensitive((self.init_crop_button,
                                   self.grayscale_option,
                                   self.normalize_option,
                                   self.invert_option,
@@ -2049,7 +2056,7 @@ class ExportHandler:
         self.toggle_pdf()
         self.toggle_djvu()
         self.toggle_derive()
-        Common.set_all_sensitive((self.init_crop_button,
+        ca.set_all_sensitive((self.init_crop_button,
                                   self.grayscale_option,
                                   self.normalize_option,
                                   self.invert_option,
@@ -2059,61 +2066,61 @@ class ExportHandler:
 
 
     def init_cropping(self):
-        self.cropping_frame = Common.new_widget('Frame',
+        self.cropping_frame = ca.new_widget('Frame',
                                                 {'label': 'Cropping',
                                                  'size_request': (self.editor.window.width/3, 100),
-                                                 'set_shadow_type': gtk.SHADOW_OUT,
+                                                 'set_shadow_type': Gtk.ShadowType.OUT,
                                                  'set_label_align': (0.5,0.5),
                                                  'show': True})
 
-        self.cropping_vbox = Common.new_widget('VBox',
+        self.cropping_vbox = ca.new_widget('VBox',
                                                {'size_request': (-1, 150),
                                                 'show':True})
 
-        self.controls_hbox = Common.new_widget('HBox',
+        self.controls_hbox = ca.new_widget('HBox',
                                                {'size_request': (-1, -1),
                                                 'show':True})
         self.init_proc_options()
 
-        self.cropping_progress = gtk.ProgressBar()
+        self.cropping_progress = Gtk.ProgressBar()
         self.cropping_progress.set_text('0%')
         self.cropping_progress.show()
 
-        self.init_crop_button = Common.new_widget('Button',
+        self.init_crop_button = ca.new_widget('Button',
                                                   {'label': 'Initialize Cropping',
                                                    'size_request': (-1, -1),
                                                    'show': True})
         self.init_crop_button.connect('clicked', self.run_cropper)
 
-        self.cropping_vbox.pack_start(self.controls_hbox, expand=True, fill=False)
-        self.cropping_vbox.pack_start(self.init_crop_button, expand=True, fill=True)
-        self.cropping_vbox.pack_start(self.cropping_progress, expand=True, fill=True)
+        self.cropping_vbox.pack_start(self.controls_hbox, True, False, 0)
+        self.cropping_vbox.pack_start(self.init_crop_button, True, True, 0)
+        self.cropping_vbox.pack_start(self.cropping_progress, True, True, 0)
         self.cropping_frame.add(self.cropping_vbox)
         self.stack_controls.put(self.cropping_frame,
                                 ((self.editor.window.width/4) - (self.editor.window.width/3)/2 ), 0)
 
 
     def init_proc_options(self):
-        self.proc_options_hbox = Common.new_widget('HBox',
+        self.proc_options_hbox = ca.new_widget('HBox',
                                                    {'size_request': (-1, -1),
                                                     'show':True})
 
-        self.grayscale_option = Common.new_widget('CheckButton',
+        self.grayscale_option = ca.new_widget('CheckButton',
                                                    {'label': 'Convert To GrayScale',
                                                     'show': True})
 
-        self.normalize_option = Common.new_widget('CheckButton',
+        self.normalize_option = ca.new_widget('CheckButton',
                                                   {'label': 'Normalize',
                                                    'show': True})
 
-        self.invert_option = Common.new_widget('CheckButton',
+        self.invert_option = ca.new_widget('CheckButton',
                                                {'label': 'Invert B/W',
                                                 'show': True})
 
-        self.proc_options_hbox.pack_start(self.grayscale_option, expand=True, fill=False)
-        self.proc_options_hbox.pack_start(self.normalize_option, expand=True, fill=False)
-        self.proc_options_hbox.pack_start(self.invert_option, expand=True, fill=False)
-        self.controls_hbox.pack_start(self.proc_options_hbox, expand=True, fill=False)
+        self.proc_options_hbox.pack_start(self.grayscale_option, True, False, 0)
+        self.proc_options_hbox.pack_start(self.normalize_option, True, False, 0)
+        self.proc_options_hbox.pack_start(self.invert_option, True, False, 0)
+        self.controls_hbox.pack_start(self.proc_options_hbox, True, False, 0)
 
 
     def toggle_active_crop(self, widget):
@@ -2123,22 +2130,22 @@ class ExportHandler:
 
 
     def init_ocr(self):
-        self.ocr_frame = Common.new_widget('Frame',
+        self.ocr_frame = ca.new_widget('Frame',
                                            {'label': 'OCR',
                                             'size_request': (int(self.editor.window.width*.45), -1),
-                                            'set_shadow_type': gtk.SHADOW_OUT,
+                                            'set_shadow_type': Gtk.ShadowType.OUT,
                                             'set_label_align': (0.5,0.5),
                                             'show': True})
 
-        self.ocr_vbox = Common.new_widget('VBox',
+        self.ocr_vbox = ca.new_widget('VBox',
                                           {'size_request': (-1, -1),
                                            'show': True})
 
-        self.ocr_hbox = Common.new_widget('HBox',
+        self.ocr_hbox = ca.new_widget('HBox',
                                           {'size_request': (-1, 50),
                                            'show': True})
 
-        self.ocr_lang_options = gtk.combo_box_new_text()
+        self.ocr_lang_options = Gtk.ComboBoxText()
         for num, lang in enumerate(Tesseract.languages):
             self.ocr_lang_options.insert_text(int(num), str(lang))
         self.ocr_lang_options.insert_text(0, 'choose a language')
@@ -2146,48 +2153,48 @@ class ExportHandler:
         self.ocr_lang_options.connect('changed', self.set_language)
         self.ocr_lang_options.show()
 
-        self.init_ocr_button = Common.new_widget('Button',
+        self.init_ocr_button = ca.new_widget('Button',
                                                  {'label': 'Initialize OCR',
                                                   'is_sensitive': False,
                                                   'show': True})
         self.init_ocr_button.connect('clicked', self.run_ocr)
 
 
-        self.ocr_auto_spellcheck = Common.new_widget('RadioButton',
+        self.ocr_auto_spellcheck = ca.new_widget('RadioButton',
                                                      {'label': 'Auto-SpellCheck',
                                                       'is_sensitive': False,
                                                       'show': True})
 
-        self.ocr_interactive_spellcheck = Common.new_widget('RadioButton',
+        self.ocr_interactive_spellcheck = ca.new_widget('RadioButton',
                                                             {'label': 'Auto-SpellCheck',
                                                              'group': self.ocr_auto_spellcheck,
                                                              'is_sensitive': False,
                                                              'show': True})
 
-        self.ocr_progress = gtk.ProgressBar()
+        self.ocr_progress = Gtk.ProgressBar()
         self.ocr_progress.set_text('0%')
         self.ocr_progress.show()
 
-        self.ocr_hbox.pack_start(self.ocr_lang_options, expand=False, fill=True)
-        self.ocr_hbox.pack_start(self.init_ocr_button, expand=True, fill=True)
-        self.ocr_vbox.pack_start(self.ocr_hbox, expand=True, fill=False)
-        self.ocr_vbox.pack_start(self.ocr_progress, expand=True, fill=True)
+        self.ocr_hbox.pack_start(self.ocr_lang_options, False, True, 0)
+        self.ocr_hbox.pack_start(self.init_ocr_button, True, True, 0)
+        self.ocr_vbox.pack_start(self.ocr_hbox, True, False, 0)
+        self.ocr_vbox.pack_start(self.ocr_progress, True, True, 0)
         self.ocr_frame.add(self.ocr_vbox)
         self.stack_controls.put(self.ocr_frame, 0, 200)
 
 
     def build_derivative_controls(self):
-        self.derivative_controls = Common.new_widget('Layout',
+        self.derivative_controls = ca.new_widget('Layout',
                                                      {'size_request': (self.editor.window.width/2,
                                                                        self.editor.window.height-50),
                                                       'color': 'gray',
                                                       'show': True})
 
-        self.derivative_controls_frame = Common.new_widget('Frame',
+        self.derivative_controls_frame = ca.new_widget('Frame',
                                                            {#'label': 'Derivative Controls',
                                                             'size_request': (self.editor.window.width/2,
                                                                              self.editor.window.height-50),
-                                                            'set_shadow_type': gtk.SHADOW_NONE,
+                                                            'set_shadow_type': Gtk.ShadowType.NONE,
                                                             #'set_label_align': (0.5,0.5),
                                                             'show': True})
         self.init_derivatives()
@@ -2198,34 +2205,34 @@ class ExportHandler:
 
 
     def init_derivatives(self):
-        #self.formats_frame = Common.new_widget('Frame',
+        #self.formats_frame = ca.new_widget('Frame',
         #                                       {'label': 'Derivatives',
         #                                        'size_request': (self.editor.window.width/2, -1),
-        #                                        'set_shadow_type': gtk.SHADOW_ETCHED_IN,
+        #                                        'set_shadow_type': Gtk.ShadowType.ETCHED_IN,
         #                                        'set_label_align': (0.5,0.5),
         #                                        'show': True})
 
-        self.formats_vbox = Common.new_widget('VBox',
+        self.formats_vbox = ca.new_widget('VBox',
                                               {'size_request': (int(self.editor.window.width*.47), -1),
                                                'show': True})
         self.derive_progress = {}
         for d in ('pdf', 'djvu', 'epub', 'text'):
-            self.derive_progress[d] = gtk.ProgressBar()
+            self.derive_progress[d] = Gtk.ProgressBar()
             self.derive_progress[d].set_text('0%')
             self.derive_progress[d].show()
 
         self.init_pdf()
         self.init_djvu()
 
-        self.derive_epub = Common.new_widget('CheckButton',
+        self.derive_epub = ca.new_widget('CheckButton',
                                              {'label': 'EPUB',
                                               'show': True})
 
-        self.derive_plain_text = Common.new_widget('CheckButton',
+        self.derive_plain_text = ca.new_widget('CheckButton',
                                                    {'label': 'Full Plain Text',
                                                     'show': True})
 
-        self.derive_button = Common.new_widget('Button',
+        self.derive_button = ca.new_widget('Button',
                                                {'label': 'Initialize Derive',
                                                 'is_sensitive': False,
                                                 'size_request': (-1, -1),
@@ -2238,15 +2245,15 @@ class ExportHandler:
 
         self.derive_button.connect('clicked', self.run_derive)
 
-        self.formats_vbox.pack_start(self.pdf_frame, expand=True, fill=False, padding=15)
-        self.formats_vbox.pack_start(self.djvu_frame, expand=True, fill=False, padding=15)
+        self.formats_vbox.pack_start(self.pdf_frame, True, False, padding=15)
+        self.formats_vbox.pack_start(self.djvu_frame, True, False, padding=15)
 
-        self.formats_vbox.pack_start(self.derive_epub, expand=True, fill=False)
-        self.formats_vbox.pack_start(self.derive_progress['epub'], expand=True, fill=False)
-        self.formats_vbox.pack_start(self.derive_plain_text, expand=True, fill=False)
-        self.formats_vbox.pack_start(self.derive_progress['text'], expand=True, fill=False)
+        self.formats_vbox.pack_start(self.derive_epub, True, False, 0)
+        self.formats_vbox.pack_start(self.derive_progress['epub'], True, False, 0)
+        self.formats_vbox.pack_start(self.derive_plain_text, True, False, 0)
+        self.formats_vbox.pack_start(self.derive_progress['text'], True, False, 0)
 
-        self.formats_vbox.pack_start(self.derive_button, expand=True, fill=False)
+        self.formats_vbox.pack_start(self.derive_button, True, False, 0)
         self.derivative_controls.put(self.formats_vbox, 0, 0)
 
 
@@ -2266,55 +2273,55 @@ class ExportHandler:
 
 
     def init_pdf(self):
-        self.pdf_frame = Common.new_widget('Frame',
+        self.pdf_frame = ca.new_widget('Frame',
                                            {'size_request': (self.editor.window.width/2, 100),
-                                            'set_shadow_type': gtk.SHADOW_OUT,
+                                            'set_shadow_type': Gtk.ShadowType.OUT,
                                             'show': True})
 
-        self.pdf_vbox = Common.new_widget('VBox',
+        self.pdf_vbox = ca.new_widget('VBox',
                                           {'size_request': (-1, -1),
                                            'show': True})
 
-        self.derive_pdf = Common.new_widget('CheckButton',
+        self.derive_pdf = ca.new_widget('CheckButton',
                                             {'label': 'PDF',
                                              'show': True})
         self.derive_pdf.connect('clicked', self.toggle_pdf)
 
 
-        self.pdf_options = Common.new_widget('HBox',
+        self.pdf_options = ca.new_widget('HBox',
                                              {'size_request': (-1, -1),
                                               'show': True})
 
-        self.pdf_no_image = Common.new_widget('CheckButton',
+        self.pdf_no_image = ca.new_widget('CheckButton',
                                               {'label': 'No Image',
                                                'is_sensitive': False,
                                                'show': True})
 
-        self.pdf_sloppy = Common.new_widget('CheckButton',
+        self.pdf_sloppy = ca.new_widget('CheckButton',
                                             {'label': 'Sloppy Text',
                                              'is_sensitive': False,
                                              'show': True})
 
-        ppi_label = Common.new_widget('Label',
+        ppi_label = ca.new_widget('Label',
                                       {'label': 'PPI:',
                                        'size_request': (-1, -1),
                                        'show': True})
-        self.pdf_resolution = Common.new_widget('Entry',
+        self.pdf_resolution = ca.new_widget('Entry',
                                                 {'size_request': (40, 25),
                                                  'is_sensitive': False,
                                                  'show': True})
-        #self.pdf_resolution_buffer = gtk.TextBuffer()
+        #self.pdf_resolution_buffer = Gtk.TextBuffer()
         #self.pdf_resolution.set_buffer(
 
 
-        self.pdf_options.pack_start(self.pdf_no_image, expand=True, fill=False)
-        self.pdf_options.pack_start(self.pdf_sloppy, expand=True, fill=False)
-        self.pdf_options.pack_start(ppi_label, expand=False, fill=False)
-        self.pdf_options.pack_start(self.pdf_resolution, expand=True, fill=True)
+        self.pdf_options.pack_start(self.pdf_no_image, True, False, 0)
+        self.pdf_options.pack_start(self.pdf_sloppy, True, False, 0)
+        self.pdf_options.pack_start(ppi_label, False, False, 0)
+        self.pdf_options.pack_start(self.pdf_resolution, True, True, 0)
 
-        self.pdf_vbox.pack_start(self.derive_pdf, expand=False, fill=False)
-        self.pdf_vbox.pack_start(self.pdf_options, expand=True, fill=False)
-        self.pdf_vbox.pack_start(self.derive_progress['pdf'], expand=False, fill=False)
+        self.pdf_vbox.pack_start(self.derive_pdf, False, False, 0)
+        self.pdf_vbox.pack_start(self.pdf_options, True, False, 0)
+        self.pdf_vbox.pack_start(self.derive_progress['pdf'], False, False, 0)
 
         self.pdf_frame.add(self.pdf_vbox)
 
@@ -2327,13 +2334,13 @@ class ExportHandler:
                    self.pdf_sloppy,
                    self.pdf_resolution)
         if mode:
-            Common.set_all_sensitive(widgets, True)
+            ca.set_all_sensitive(widgets, True)
         elif mode == False:
-            Common.set_all_sensitive(widgets, False)
+            ca.set_all_sensitive(widgets, False)
         elif self.derive_pdf.get_active():
-            Common.set_all_sensitive(widgets, True)
+            ca.set_all_sensitive(widgets, True)
         elif not self.derive_pdf.get_active():
-            Common.set_all_sensitive(widgets, False)
+            ca.set_all_sensitive(widgets, False)
 
 
     def return_pdf_args(self):
@@ -2343,132 +2350,132 @@ class ExportHandler:
 
 
     def init_djvu(self):
-        self.djvu_frame = Common.new_widget('Frame',
+        self.djvu_frame = ca.new_widget('Frame',
                                             {'size_request': (int(self.editor.window.width*.45), -1),
-                                             'set_shadow_type': gtk.SHADOW_OUT,
+                                             'set_shadow_type': Gtk.ShadowType.OUT,
                                              'show': True})
 
-        self.djvu_table = gtk.Table(4, 4)
+        self.djvu_table = Gtk.Table(4, 4)
         self.djvu_table.show()
 
 
-        self.djvu_vbox = Common.new_widget('VBox',
+        self.djvu_vbox = ca.new_widget('VBox',
                                            {'size_request': (-1, -1),
                                             'show': True})
 
-        self.derive_djvu = Common.new_widget('CheckButton',
+        self.derive_djvu = ca.new_widget('CheckButton',
                                              {'label': 'DjVu',
                                               'show': True})
         self.derive_djvu.connect('clicked', self.toggle_djvu)
 
-        slice_label = Common.new_widget('Label',
+        slice_label = ca.new_widget('Label',
                                         {'label': 'Slice:',
                                          'size_request': (60, -1),
                                          'show': True})
-        self.djvu_slice = Common.new_widget('Entry',
+        self.djvu_slice = ca.new_widget('Entry',
                                             {'size_request': (100, 25),
                                              'set_text': '',
                                              'is_sensitive': False,
                                              'show': True})
 
-        size_label = Common.new_widget('Label',
+        size_label = ca.new_widget('Label',
                                        {'label': 'Size:',
                                         'size_request': (60, -1),
                                         'show': True})
-        self.djvu_size = Common.new_widget('Entry',
+        self.djvu_size = ca.new_widget('Entry',
                                            {'size_request': (100, 25),
                                             'set_text': '',
                                             'is_sensitive': False,
                                             'show': True})
 
-        bpp_label = Common.new_widget('Label',
+        bpp_label = ca.new_widget('Label',
                                        {'label': 'Bpp:',
                                         'size_request': (60, -1),
                                         'show': True})
-        self.djvu_bpp = Common.new_widget('Entry',
+        self.djvu_bpp = ca.new_widget('Entry',
                                           {'size_request': (100, 25),
                                            'set_text': '',
                                            'is_sensitive': False,
                                            'show': True})
 
-        percent_label = Common.new_widget('Label',
+        percent_label = ca.new_widget('Label',
                                           {'label': 'Percent:',
                                            'size_request': (60, -1),
                                            'show': True})
-        self.djvu_percent = Common.new_widget('Entry',
+        self.djvu_percent = ca.new_widget('Entry',
                                               {'size_request': (100, 25),
                                                'set_text': '',
                                                'is_sensitive': False,
                                                'show': True})
 
-        ppi_label = Common.new_widget('Label',
+        ppi_label = ca.new_widget('Label',
                                       {'label': 'PPI:',
                                        'size_request': (60, -1),
                                        'show': True})
-        self.djvu_ppi = Common.new_widget('Entry',
+        self.djvu_ppi = ca.new_widget('Entry',
                                           {'size_request': (40, 25),
                                            'set_text': '',
                                            'is_sensitive': False,
                                            'show': True})
 
-        gamma_label = Common.new_widget('Label',
+        gamma_label = ca.new_widget('Label',
                                         {'label': 'Gamma:',
                                          'size_request': (60, -1),
                                          'show': True})
-        self.djvu_gamma = Common.new_widget('HScale',
+        self.djvu_gamma = ca.new_widget('HScale',
                                             {'size_request': (100, -1),
                                              'is_sensitive': False,
                                              'set_range': (0.3, 4.9),
                                              'set_increments': (0.1, 0.1),
                                              'set_digits': 1,
                                              'set_value': 2.2,
-                                             'set_value_pos': gtk.POS_BOTTOM,
-                                             'set_update_policy': gtk.UPDATE_CONTINUOUS,
+                                             'set_value_pos': Gtk.PositionType.BOTTOM,
+                                             'set_update_policy': Gtk.UPDATE_CONTINUOUS,
                                              'show': True})
 
-        decibel_label = Common.new_widget('Label',
+        decibel_label = ca.new_widget('Label',
                                           {'label': 'Decibel',
                                            'size_request': (60, -1),
                                            'show': True})
-        self.djvu_decibel = Common.new_widget('Entry',
+        self.djvu_decibel = ca.new_widget('Entry',
                                               {'size_request': (100, 25),
                                                'is_sensitive': False,
                                                'set_text': '',
                                                'show': True})
 
-        fract_label = Common.new_widget('Label',
+        fract_label = ca.new_widget('Label',
                                         {'label': 'Fract:',
                                          'size_request': (50, -1),
                                          'show': True})
-        self.djvu_fract = Common.new_widget('Entry',
+        self.djvu_fract = ca.new_widget('Entry',
                                             {'size_request': (60, 25),
                                              'set_text': '',
                                              'is_sensitive': False,
                                              'show': True})
 
 
-        self.djvu_crcboptions = Common.new_widget('HBox',
+        self.djvu_crcboptions = ca.new_widget('HBox',
                                                 {'size_request': (-1, -1),
                                                  'show': True})
 
-        self.djvu_crcbnorm = Common.new_widget('RadioButton',
+        self.djvu_crcbnorm = ca.new_widget('RadioButton',
                                                {'label': 'CRCB Normal',
                                                 'is_sensitive': False,
                                                 'show': True})
 
-        self.djvu_crcbhalf = Common.new_widget('RadioButton',
+        self.djvu_crcbhalf = ca.new_widget('RadioButton',
                                                {'label': 'CRCB Half',
                                                 'is_sensitive': False,
                                                 'group': self.djvu_crcbnorm,
                                                 'show': True})
 
-        self.djvu_crcbfull = Common.new_widget('RadioButton',
+        self.djvu_crcbfull = ca.new_widget('RadioButton',
                                                {'label': 'CRCB Full',
                                                 'is_sensitive': False,
                                                 'group': self.djvu_crcbnorm,
                                                 'show': True})
 
-        self.djvu_crcbnone = Common.new_widget('RadioButton',
+        self.djvu_crcbnone = ca.new_widget('RadioButton',
                                                {'label': 'CRCB None',
                                                 'is_sensitive': False,
                                                 'group': self.djvu_crcbnorm,
@@ -2481,11 +2488,11 @@ class ExportHandler:
         self.djvu_crcbfull.connect('toggled', self.toggle_crcb)
         self.djvu_crcbnone.connect('toggled', self.toggle_crcb)
 
-        crcbdelay_label = Common.new_widget('Label',
+        crcbdelay_label = ca.new_widget('Label',
                                             {'label': 'CRCB Delay:',
                                              'size_request': (-1, -1),
                                              'show': True})
-        self.djvu_crcbdelay = Common.new_widget('Entry',
+        self.djvu_crcbdelay = ca.new_widget('Entry',
                                                 {'size_request': (60, 25),
                                                  'set_text': '',
                                                  'is_sensitive': False,
@@ -2511,17 +2518,17 @@ class ExportHandler:
         self.djvu_table.attach(fract_label, 2, 3, 3, 4)
         self.djvu_table.attach(self.djvu_fract, 3, 4, 3, 4)
 
-        self.djvu_crcboptions.pack_start(self.djvu_crcbnorm, expand=True, fill=True)
-        self.djvu_crcboptions.pack_start(self.djvu_crcbhalf, expand=True, fill=True)
-        self.djvu_crcboptions.pack_start(self.djvu_crcbfull, expand=True, fill=True)
-        self.djvu_crcboptions.pack_start(self.djvu_crcbnone, expand=True, fill=True)
-        self.djvu_crcboptions.pack_start(crcbdelay_label, expand=True, fill=False)
-        self.djvu_crcboptions.pack_start(self.djvu_crcbdelay, expand=True, fill=True)
+        self.djvu_crcboptions.pack_start(self.djvu_crcbnorm, True, True, 0)
+        self.djvu_crcboptions.pack_start(self.djvu_crcbhalf, True, True, 0)
+        self.djvu_crcboptions.pack_start(self.djvu_crcbfull, True, True, 0)
+        self.djvu_crcboptions.pack_start(self.djvu_crcbnone, True, True, 0)
+        self.djvu_crcboptions.pack_start(crcbdelay_label, True, False, 0)
+        self.djvu_crcboptions.pack_start(self.djvu_crcbdelay, True, True, 0)
 
-        self.djvu_vbox.pack_start(self.derive_djvu, expand=False, fill=False)
-        self.djvu_vbox.pack_start(self.djvu_table, expand=False, fill=False)
-        self.djvu_vbox.pack_start(self.djvu_crcboptions, expand=True, fill=True)
-        self.djvu_vbox.pack_start(self.derive_progress['djvu'], expand=False, fill=False)
+        self.djvu_vbox.pack_start(self.derive_djvu, False, False, 0)
+        self.djvu_vbox.pack_start(self.djvu_table, False, False, 0)
+        self.djvu_vbox.pack_start(self.djvu_crcboptions, True, True, 0)
+        self.djvu_vbox.pack_start(self.derive_progress['djvu'], False, False, 0)
 
         self.djvu_frame.add(self.djvu_vbox)
 
@@ -2550,14 +2557,14 @@ class ExportHandler:
                    self.djvu_crcbnone,
                    self.djvu_crcbdelay)
         if mode:
-            Common.set_all_sensitive(widgets, True)
+            ca.set_all_sensitive(widgets, True)
         elif mode == False:
-            Common.set_all_sensitive(widgets, False)
+            ca.set_all_sensitive(widgets, False)
         elif self.derive_djvu.get_active():
-            Common.set_all_sensitive(widgets, True)
+            ca.set_all_sensitive(widgets, True)
             self.toggle_crcb(None)
         elif not self.derive_djvu.get_active():
-            Common.set_all_sensitive(widgets, False)
+            ca.set_all_sensitive(widgets, False)
 
 
     def return_djvu_args(self):
@@ -2599,25 +2606,25 @@ class ExportHandler:
                                                                 self.normalize_option.get_active(),
                                                                 self.invert_option.get_active()),
                                                                self.editor.book.logger, None)
-        Common.run_in_background(self.update_cropping_progress, 2000)
+        ca.run_in_background(self.update_cropping_progress, 2000)
         update.append('cropper')
         if self.language is not None:
             queue[self.editor.book.identifier + '_run_ocr'] = (self.ProcessHandler.run_ocr,
                                                                (self.editor.book, self.language),
                                                                self.editor.book.logger, None)
-            Common.run_in_background(self.update_ocr_progress, 2000)
+            ca.run_in_background(self.update_ocr_progress, 2000)
             update.append('ocr')
         if self.check_derive_format_selected():
             formats = self.get_derive_format_args()
             queue[self.editor.book.identifier] = (self.ProcessHandler.derive_formats,
                                                   (self.editor.book, formats),
                                                   self.editor.book.logger, None)
-            Common.run_in_background(self.update_derive_progress, 2000)
+            ca.run_in_background(self.update_derive_progress, 2000)
             update.append('derive')
         self.ProcessHandler.add_process(self.ProcessHandler.drain_queue,
                                         self.editor.book.identifier + '_drain_queue',
                                         (queue, 'sync'), self.editor.book.logger)
-        Common.run_in_background(self.update_run_all_progress, 2000, update)
+        ca.run_in_background(self.update_run_all_progress, 2000, update)
 
 
     def update_run_all_progress(self, update):
@@ -2652,7 +2659,7 @@ class ExportHandler:
                                          'Crop', 'cropper_pipeline',
                                          self.editor.book, 'cropBox'))
         #self.editor.book.logger))
-        Common.run_in_background(self.update_cropping_progress, 2000)
+        ca.run_in_background(self.update_cropping_progress, 2000)
 
 
     def update_cropping_progress(self):
@@ -2682,7 +2689,7 @@ class ExportHandler:
                                          'OCR', 'tesseract_hocr_pipeline',
                                          self.editor.book, self.language))
         #self.editor.book.logger)
-        #Common.run_in_background(self.update_ocr_progress, 2000)
+        #ca.run_in_background(self.update_ocr_progress, 2000)
 
 
     def update_ocr_progress(self):
@@ -2710,7 +2717,7 @@ class ExportHandler:
                                             (self.editor.book.identifier,
                                              'Derive', 'make_pdf_with_hocr2pdf',
                                              self.editor.book, (1, self.editor.book.page_count-1)))
-            #Common.run_in_background(self.update_derive_progress, 2000)
+            #ca.run_in_background(self.update_derive_progress, 2000)
 
 
     def get_derive_format_args(self):
