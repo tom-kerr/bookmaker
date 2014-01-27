@@ -38,8 +38,8 @@ class Editor(object):
         Environment.set_current_path()
         self.window.set_title('Editing ' + self.book.identifier)
         self.init_image_window()
-        #self.init_meta_window()
-        #self.init_export_window()
+        self.init_meta_window()
+        self.init_export_window()
         self.init_notebook()
         self.window.add(self.notebook)
         self.window.show()
@@ -118,14 +118,14 @@ class Editor(object):
         w, h = 25, self.window.height/3
         label.set_size_request(w, h)
         self.notebook.append_page(self.ImageEditor.main_layout, label)
-        return
-        self.notebook.append_page(self.MetaEditor.main_layout,
-                                  'M\nE\nT\nA\nD\nA\nT\nA')
-        self.notebook.append_page(self.ExportHandler.main_layout,
-                                  'E\nX\nP\nO\nR\nT')
+        label = Gtk.Label(label="Metadata", angle=270.0)
+        label.set_size_request(w, h)
+        self.notebook.append_page(self.MetaEditor.main_layout, label)
+        label = Gtk.Label(label="Export", angle=270.0)
+        label.set_size_request(w, h)
+        self.notebook.append_page(self.ExportHandler.main_layout, label)
                                   
-                                  
-        
+                                          
 class ImageEditor(object):
 
     vspace = 250
@@ -603,7 +603,7 @@ class ImageEditor(object):
             self.set_cursor(cursor_style=Gdk.CursorType.WATCH)
             self.init_zoom(self.selected)
             self.loading_zoom = False
-            #self.set_cursor(cursor_style = None)
+            self.set_cursor(cursor_style=None)
         else:
             self.destroy_zoom()
 
@@ -1022,8 +1022,10 @@ class ImageEditor(object):
 
     def set_cursor(self, x=None, y=None, cursor_style=None):
         if cursor_style:
-            self.cursor = Gdk.Cursor.new(cursor_style)
+            display = Gdk.Display.get_default()
+            self.cursor = Gdk.Cursor.new_for_display(display, cursor_style)
             self.editor.window.get_window().set_cursor(self.cursor)
+            display.flush()
             return
         if not x:
             x = self.cursor_pos['x']
@@ -1592,12 +1594,12 @@ class ImageEditor(object):
             self.main_layout.put(canvas.page_number_box, canvas.x, canvas.y)
 
     def set_event_box(self, leaf, image, canvas, event_box, zones):
-        try:
-            self.main_layout.remove(event_box.image)
-            #event_box.image.destroy()
-        except Exception as e:
-            print (e)
-            pass
+        if hasattr(event_box, 'image') and event_box.image:
+            try:
+                self.main_layout.remove(event_box.image)
+                #event_box.image.destroy()
+            except:
+                pass
 
         width, height = image.get_width(), image.get_height()
         subsection = self.get_subsection(image, leaf)
@@ -1844,16 +1846,16 @@ class ImageEditor(object):
 
 
 
-class MetaEditor:
+class MetaEditor(object):
 
     def __init__(self, editor):
         self.editor = editor
-        self.main_layout = ca.new_widget('Layout',
-                                             {'size': (self.editor.window.width,
-                                                       self.editor.window.height),
-                                              'color': 'gray',
-                                              'show': True})
-        self.init_main_menu()
+        kwargs = {'visible': True}
+        self.main_layout = Gtk.Layout(**kwargs)
+        self.main_layout.set_size_request(self.editor.window.width,
+                                          self.editor.window.height)
+                                              
+        #self.init_main_menu()
 
 
     def init_main_menu(self):
@@ -1968,9 +1970,6 @@ class MetaEditor:
             if name not in (api, 'default'):
                 self.search_source_api.insert_text(1, name)
 
-
-
-
     def submit_query(self, widget):
         source = self.search_source.get_active_text()
         api = self.search_source_api.get_active_text()
@@ -1981,170 +1980,171 @@ class MetaEditor:
         #self.test_entry.set_text(str(results))
 
 
-class ExportHandler:
+class ExportHandler(object):
 
     def __init__(self, editor):
         self.editor = editor
-        self.main_layout = ca.new_widget('Layout',
-                                             {'size': (self.editor.window.width,
-                                                       self.editor.window.height),
-                                              'color': 'gray',
-                                              'show': True})
+        kwargs = {'visible': True}
+        self.main_layout = Gtk.Layout(**kwargs)
+        self.main_layout.set_size_request(self.editor.window.width,
+                                          self.editor.window.height)
         self.ProcessHandler = ProcessHandling()
-        #ca.run_in_background(self.ProcessHandler.monitor_thread_exceptions)
         self.build_stack_controls()
         self.build_derivative_controls()
         self.build_global_controls()
 
-
     def build_global_controls(self):
-        self.global_controls = ca.new_widget('HBox',
-                                                 {'size_request': (int(self.editor.window.width*.95), 50),
-                                                  'show': True})
-        self.global_progress = Gtk.ProgressBar()
-        self.global_progress.set_text('0%')
-        self.global_progress.show()
-
-        self.global_derive_button = ca.new_widget('Button',
-                                                      {'label': 'Run All',
-                                                       'size_request': (100, -1),
-                                                       'show': True})
+        kwargs = {'orientation': Gtk.Orientation.HORIZONTAL,
+                  'visible': True}
+        self.global_controls = Gtk.Box(**kwargs)
+        w, h = int(self.editor.window.width*.95), 50
+        self.global_controls.set_size_request(w, h)
+        
+        kwargs = {'text': '0%',
+                  'show_text': True,
+                  'visible': True}
+        self.global_progress = Gtk.ProgressBar(**kwargs)
+        
+        kwargs = {'label': 'Run All',
+                  'visible': True}
+        self.global_derive_button = Gtk.Button(**kwargs)
+        self.global_derive_button.set_size_request(100, -1)
         self.global_derive_button.connect('clicked', self.run_all)
 
         self.global_controls.pack_start(self.global_progress, True, True, 0)
         self.global_controls.pack_start(self.global_derive_button, False, False, 0)
         self.main_layout.put(self.global_controls, 0, self.editor.window.height-50)
 
-
-
     def build_stack_controls(self):
-        self.stack_controls = ca.new_widget('Layout',
-                                                {'size_request': (self.editor.window.width/2,
-                                                                  self.editor.window.height-50),
-                                                 'color': 'gray',
-                                                 'show': True})
-
-        self.stack_controls_frame = ca.new_widget('Frame',
-                                                      {#'label': 'Stack Controls',
-                                                       'size_request': (self.editor.window.width/2,
-                                                                        self.editor.window.height-50),
-                                                       'set_shadow_type': Gtk.ShadowType.NONE,
-                                                       #'set_label_align': (0.5,0.5),
-                                                       'show': True})
-
+        kwargs = {'visible': True}
+        self.stack_controls = Gtk.Layout(**kwargs)
+        self.stack_controls.set_size_request(self.editor.window.width/2,
+                                             self.editor.window.height-50),
+                                             
+        kwargs = {'shadow_type': Gtk.ShadowType.NONE,
+                  'visible': True}
+        self.stack_controls_frame = Gtk.Frame(**kwargs)
+        self.stack_controls.set_size_request(self.editor.window.width/2,
+                                             self.editor.window.height-50),
+                                 
         self.init_cropping()
         self.init_ocr()
 
         self.stack_controls_frame.add(self.stack_controls)
         self.main_layout.put(self.stack_controls_frame, 0, 0)
 
-
     def disable_interface(self):
         self.toggle_pdf(mode=False)
         self.toggle_djvu(mode=False)
         ca.set_all_sensitive((self.init_crop_button,
-                                  self.grayscale_option,
-                                  self.normalize_option,
-                                  self.invert_option,
-                                  self.init_ocr_button,
-                                  self.ocr_lang_options,
-                                  self.derive_button,
-                                  self.global_derive_button), False)
-
+                              self.grayscale_option,
+                              self.normalize_option,
+                              self.invert_option,
+                              self.init_ocr_button,
+                              self.ocr_lang_options,
+                              self.derive_button,
+                              self.global_derive_button), False)
 
     def enable_interface(self):
         self.toggle_pdf()
         self.toggle_djvu()
         self.toggle_derive()
         ca.set_all_sensitive((self.init_crop_button,
-                                  self.grayscale_option,
-                                  self.normalize_option,
-                                  self.invert_option,
-                                  self.init_ocr_button,
-                                  self.ocr_lang_options,
-                                  self.global_derive_button), True)
-
+                              self.grayscale_option,
+                              self.normalize_option,
+                              self.invert_option,
+                              self.init_ocr_button,
+                              self.ocr_lang_options,
+                              self.global_derive_button), True)
 
     def init_cropping(self):
-        self.cropping_frame = ca.new_widget('Frame',
-                                                {'label': 'Cropping',
-                                                 'size_request': (self.editor.window.width/3, 100),
-                                                 'set_shadow_type': Gtk.ShadowType.OUT,
-                                                 'set_label_align': (0.5,0.5),
-                                                 'show': True})
+        kwargs = {'label': 'Cropping',
+                  'shadow_type': Gtk.ShadowType.OUT,
+                  'label_xalign': 0.5,
+                  'label_yalign': 0.5,
+                  'visible': True}
+        self.cropping_frame = Gtk.Frame(**kwargs)
+        self.cropping_frame.set_size_request(self.editor.window.width/3, 100),
+                                            
+        kwargs = {'orientation': Gtk.Orientation.VERTICAL,
+                  'visible': True}
+        self.cropping_vbox = Gtk.Box(**kwargs)
+        self.cropping_vbox.set_size_request(-1, 150),
+                                           
+        kwargs = {'orientation': Gtk.Orientation.HORIZONTAL,
+                  'visible': True}
+        self.controls_hbox = Gtk.Box(**kwargs)
+        self.controls_hbox.set_size_request(-1, -1)
 
-        self.cropping_vbox = ca.new_widget('VBox',
-                                               {'size_request': (-1, 150),
-                                                'show':True})
-
-        self.controls_hbox = ca.new_widget('HBox',
-                                               {'size_request': (-1, -1),
-                                                'show':True})
         self.init_proc_options()
 
-        self.cropping_progress = Gtk.ProgressBar()
-        self.cropping_progress.set_text('0%')
-        self.cropping_progress.show()
+        kwargs = {'show_text': True,
+                  'text': '0%',
+                  'visible': True}
+        self.cropping_progress = Gtk.ProgressBar(**kwargs)
+        
 
-        self.init_crop_button = ca.new_widget('Button',
-                                                  {'label': 'Initialize Cropping',
-                                                   'size_request': (-1, -1),
-                                                   'show': True})
+        kwargs = {'label': 'Initialize Cropping',
+                  'visible': True}
+        self.init_crop_button = Gtk.Button(**kwargs)
+        self.init_crop_button.set_size_request(-1, -1)
         self.init_crop_button.connect('clicked', self.run_cropper)
 
         self.cropping_vbox.pack_start(self.controls_hbox, True, False, 0)
         self.cropping_vbox.pack_start(self.init_crop_button, True, True, 0)
         self.cropping_vbox.pack_start(self.cropping_progress, True, True, 0)
         self.cropping_frame.add(self.cropping_vbox)
-        self.stack_controls.put(self.cropping_frame,
-                                ((self.editor.window.width/4) - (self.editor.window.width/3)/2 ), 0)
-
+        self.stack_controls.put(self.cropping_frame, 
+                                ((self.editor.window.width/4) - 
+                                 (self.editor.window.width/3)/2 ), 0)
 
     def init_proc_options(self):
-        self.proc_options_hbox = ca.new_widget('HBox',
-                                                   {'size_request': (-1, -1),
-                                                    'show':True})
+        kwargs = {'orientation': Gtk.Orientation.HORIZONTAL,
+                  'visible': True}
+        self.proc_options_hbox = Gtk.Box(**kwargs)
+        self.proc_options_hbox.set_size_request(-1, -1)
+                                                    
+        kwargs = {'label': 'Convert to Grayscale',
+                  'visible': True}
+        self.grayscale_option = Gtk.CheckButton(**kwargs)
 
-        self.grayscale_option = ca.new_widget('CheckButton',
-                                                   {'label': 'Convert To GrayScale',
-                                                    'show': True})
-
-        self.normalize_option = ca.new_widget('CheckButton',
-                                                  {'label': 'Normalize',
-                                                   'show': True})
-
-        self.invert_option = ca.new_widget('CheckButton',
-                                               {'label': 'Invert B/W',
-                                                'show': True})
-
+        kwargs = {'label': 'Normalize',
+                  'visible': True}
+        self.normalize_option = Gtk.CheckButton(**kwargs)
+                                                  
+        kwargs = {'label': 'Invert B/W',
+                  'visible': True}
+        self.invert_option = Gtk.CheckButton(**kwargs)
+                                           
         self.proc_options_hbox.pack_start(self.grayscale_option, True, False, 0)
         self.proc_options_hbox.pack_start(self.normalize_option, True, False, 0)
         self.proc_options_hbox.pack_start(self.invert_option, True, False, 0)
         self.controls_hbox.pack_start(self.proc_options_hbox, True, False, 0)
-
 
     def toggle_active_crop(self, widget):
         selection = widget.get_label()
         if selection is not None:
             self.active_crop = selection
 
-
     def init_ocr(self):
-        self.ocr_frame = ca.new_widget('Frame',
-                                           {'label': 'OCR',
-                                            'size_request': (int(self.editor.window.width*.45), -1),
-                                            'set_shadow_type': Gtk.ShadowType.OUT,
-                                            'set_label_align': (0.5,0.5),
-                                            'show': True})
-
-        self.ocr_vbox = ca.new_widget('VBox',
-                                          {'size_request': (-1, -1),
-                                           'show': True})
-
-        self.ocr_hbox = ca.new_widget('HBox',
-                                          {'size_request': (-1, 50),
-                                           'show': True})
-
+        kwargs = {'label': 'OCR',
+                  'shadow_type': Gtk.ShadowType.OUT,
+                  'label_xalign': 0.5,
+                  'label_yalign': 0.5,
+                  'visible': True}
+        self.ocr_frame = Gtk.Frame(**kwargs)
+        self.ocr_frame.set_size_request(int(self.editor.window.width*.45), -1)
+                                       
+        kwargs = {'orientation': Gtk.Orientation.VERTICAL,
+                  'visible': True}
+        self.ocr_vbox = Gtk.Box(**kwargs)
+        self.ocr_vbox.set_size_request(-1, -1)
+                                      
+        kwargs = {'orientation': Gtk.Orientation.HORIZONTAL,
+                  'visible': True}
+        self.ocr_hbox = Gtk.Box(**kwargs)
+        self.ocr_hbox.set_size_request(-1, 50)
+                                      
         self.ocr_lang_options = Gtk.ComboBoxText()
         for num, lang in enumerate(Tesseract.languages):
             self.ocr_lang_options.insert_text(int(num), str(lang))
@@ -2153,28 +2153,28 @@ class ExportHandler:
         self.ocr_lang_options.connect('changed', self.set_language)
         self.ocr_lang_options.show()
 
-        self.init_ocr_button = ca.new_widget('Button',
-                                                 {'label': 'Initialize OCR',
-                                                  'is_sensitive': False,
-                                                  'show': True})
+        kwargs = {'label': 'Initialize OCR',
+                  'sensitive': False,
+                  'visible': True}
+        self.init_ocr_button = Gtk.Button(**kwargs)
         self.init_ocr_button.connect('clicked', self.run_ocr)
 
-
-        self.ocr_auto_spellcheck = ca.new_widget('RadioButton',
-                                                     {'label': 'Auto-SpellCheck',
-                                                      'is_sensitive': False,
-                                                      'show': True})
-
-        self.ocr_interactive_spellcheck = ca.new_widget('RadioButton',
-                                                            {'label': 'Auto-SpellCheck',
-                                                             'group': self.ocr_auto_spellcheck,
-                                                             'is_sensitive': False,
-                                                             'show': True})
-
-        self.ocr_progress = Gtk.ProgressBar()
-        self.ocr_progress.set_text('0%')
-        self.ocr_progress.show()
-
+        kwargs = {'label': 'Auto-Spellcheck',
+                  'sensitive': False,
+                  'visible': True}
+        self.ocr_auto_spellcheck = Gtk.RadioButton(**kwargs)
+                                                     
+        kwargs = {'label': 'Interactive Spellcheck',
+                  'group': self.ocr_auto_spellcheck,
+                  'sensitive': False,
+                  'visible': True}
+        self.ocr_interactive_spellcheck = Gtk.RadioButton(**kwargs)
+                                   
+        kwargs = {'text': '0%',
+                  'show_text': True,
+                  'visible': True}
+        self.ocr_progress = Gtk.ProgressBar(**kwargs)
+        
         self.ocr_hbox.pack_start(self.ocr_lang_options, False, True, 0)
         self.ocr_hbox.pack_start(self.init_ocr_button, True, True, 0)
         self.ocr_vbox.pack_start(self.ocr_hbox, True, False, 0)
@@ -2182,62 +2182,54 @@ class ExportHandler:
         self.ocr_frame.add(self.ocr_vbox)
         self.stack_controls.put(self.ocr_frame, 0, 200)
 
-
     def build_derivative_controls(self):
-        self.derivative_controls = ca.new_widget('Layout',
-                                                     {'size_request': (self.editor.window.width/2,
-                                                                       self.editor.window.height-50),
-                                                      'color': 'gray',
-                                                      'show': True})
-
-        self.derivative_controls_frame = ca.new_widget('Frame',
-                                                           {#'label': 'Derivative Controls',
-                                                            'size_request': (self.editor.window.width/2,
-                                                                             self.editor.window.height-50),
-                                                            'set_shadow_type': Gtk.ShadowType.NONE,
-                                                            #'set_label_align': (0.5,0.5),
-                                                            'show': True})
+        kwargs = {'visible': True}
+        self.derivative_controls = Gtk.Layout(**kwargs)
+        self.derivative_controls.set_size_request(self.editor.window.width/2,
+                                                  self.editor.window.height-50)
+                                                      
+        kwargs = {'shadow_type': Gtk.ShadowType.NONE,
+                  'visible': True}
+        self.derivative_controls_frame = Gtk.Frame(**kwargs)
+        w, h = self.editor.window.width/2, self.editor.window.height-50
+        self.derivative_controls_frame.set_size_request(w, h)
+                                                            
         self.init_derivatives()
 
         self.derivative_controls_frame.add(self.derivative_controls)
         self.main_layout.put(self.derivative_controls_frame, self.editor.window.width/2, 0)
 
-
-
     def init_derivatives(self):
-        #self.formats_frame = ca.new_widget('Frame',
-        #                                       {'label': 'Derivatives',
-        #                                        'size_request': (self.editor.window.width/2, -1),
-        #                                        'set_shadow_type': Gtk.ShadowType.ETCHED_IN,
-        #                                        'set_label_align': (0.5,0.5),
-        #                                        'show': True})
-
-        self.formats_vbox = ca.new_widget('VBox',
-                                              {'size_request': (int(self.editor.window.width*.47), -1),
-                                               'show': True})
+        kwargs = {'orientation': Gtk.Orientation.VERTICAL,
+                  'visible': True}
+        self.formats_vbox = Gtk.Box(**kwargs)
+        w, h = int(self.editor.window.width*.47), -1
+        self.formats_vbox.set_size_request(w, h)
+                                          
         self.derive_progress = {}
         for d in ('pdf', 'djvu', 'epub', 'text'):
-            self.derive_progress[d] = Gtk.ProgressBar()
-            self.derive_progress[d].set_text('0%')
-            self.derive_progress[d].show()
+            kwargs = {'text': '0%',
+                      'show_text': True,
+                      'visible': True}
+            self.derive_progress[d] = Gtk.ProgressBar(**kwargs)
 
         self.init_pdf()
         self.init_djvu()
 
-        self.derive_epub = ca.new_widget('CheckButton',
-                                             {'label': 'EPUB',
-                                              'show': True})
-
-        self.derive_plain_text = ca.new_widget('CheckButton',
-                                                   {'label': 'Full Plain Text',
-                                                    'show': True})
-
-        self.derive_button = ca.new_widget('Button',
-                                               {'label': 'Initialize Derive',
-                                                'is_sensitive': False,
-                                                'size_request': (-1, -1),
-                                                'show': True})
-
+        kwargs = {'label': 'EPUB',
+                  'visible': True}
+        self.derive_epub = Gtk.CheckButton(**kwargs)
+                                             
+        kwargs = {'label': 'Full Plain Text',
+                  'visible': True}
+        self.derive_plain_text = Gtk.CheckButton(**kwargs)
+                                  
+        kwargs = {'label': 'Initialize Derive',
+                  'sensitive': False,
+                  'visible': True}
+        self.derive_button = Gtk.Button(**kwargs)
+        self.derive_button.set_size_request(-1, -1)
+                                                
         self.derivatives = {'pdf': (self.derive_pdf, self.return_pdf_args),
                             'djvu': (self.derive_djvu, self.return_djvu_args),
                             'epub': (self.derive_epub, None),
@@ -2256,13 +2248,11 @@ class ExportHandler:
         self.formats_vbox.pack_start(self.derive_button, True, False, 0)
         self.derivative_controls.put(self.formats_vbox, 0, 0)
 
-
     def toggle_derive(self):
         if self.check_derive_format_selected():
             self.derive_button.set_sensitive(True)
         else:
             self.derive_button.set_sensitive(False)
-
 
     def check_derive_format_selected(self):
         if (self.derive_pdf.get_active() or self.derive_djvu.get_active() or
@@ -2271,48 +2261,49 @@ class ExportHandler:
         else:
             return False
 
-
     def init_pdf(self):
-        self.pdf_frame = ca.new_widget('Frame',
-                                           {'size_request': (self.editor.window.width/2, 100),
-                                            'set_shadow_type': Gtk.ShadowType.OUT,
-                                            'show': True})
-
-        self.pdf_vbox = ca.new_widget('VBox',
-                                          {'size_request': (-1, -1),
-                                           'show': True})
-
-        self.derive_pdf = ca.new_widget('CheckButton',
-                                            {'label': 'PDF',
-                                             'show': True})
+        kwargs = {'shadow_type': Gtk.ShadowType.OUT,
+                  'visible': True}
+        self.pdf_frame = Gtk.Frame(**kwargs)
+        self.pdf_frame.set_size_request(self.editor.window.width/2, 100)
+        
+        kwargs = {'orientation': Gtk.Orientation.VERTICAL,
+                  'visible': True}
+        self.pdf_vbox = Gtk.Box(**kwargs)
+        self.pdf_vbox.set_size_request(-1, -1)
+                                      
+        kwargs = {'label': 'PDF',
+                  'visible': True}
+        self.derive_pdf = Gtk.CheckButton(**kwargs)
         self.derive_pdf.connect('clicked', self.toggle_pdf)
 
+        kwargs = {'orientation': Gtk.Orientation.HORIZONTAL,
+                  'visible': True}
+        self.pdf_options = Gtk.Box(**kwargs)
+        self.pdf_options.set_size_request(-1, -1)
+                                         
+        kwargs = {'label': 'No Image',
+                  'sensitive': False,
+                  'visible': True}
+        self.pdf_no_image = Gtk.CheckButton(**kwargs)
+                                              
+        kwargs = {'label': 'Sloppy Text',
+                  'sensitive': False,
+                  'visible': True}
+        self.pdf_sloppy = Gtk.CheckButton(**kwargs)
+                                            
+        kwargs = {'label': 'PPI',
+                  'visible': True}
+        ppi_label = Gtk.Label(**kwargs)
+        ppi_label.set_size_request(-1, -1)
+                                  
+        kwargs = {'sensitive': False,
+                  'visible': True}
+        self.pdf_resolution = Gtk.Entry(**kwargs)
+        self.pdf_resolution.set_size_request(40, 25)
 
-        self.pdf_options = ca.new_widget('HBox',
-                                             {'size_request': (-1, -1),
-                                              'show': True})
-
-        self.pdf_no_image = ca.new_widget('CheckButton',
-                                              {'label': 'No Image',
-                                               'is_sensitive': False,
-                                               'show': True})
-
-        self.pdf_sloppy = ca.new_widget('CheckButton',
-                                            {'label': 'Sloppy Text',
-                                             'is_sensitive': False,
-                                             'show': True})
-
-        ppi_label = ca.new_widget('Label',
-                                      {'label': 'PPI:',
-                                       'size_request': (-1, -1),
-                                       'show': True})
-        self.pdf_resolution = ca.new_widget('Entry',
-                                                {'size_request': (40, 25),
-                                                 'is_sensitive': False,
-                                                 'show': True})
         #self.pdf_resolution_buffer = Gtk.TextBuffer()
         #self.pdf_resolution.set_buffer(
-
 
         self.pdf_options.pack_start(self.pdf_no_image, True, False, 0)
         self.pdf_options.pack_start(self.pdf_sloppy, True, False, 0)
@@ -2322,9 +2313,7 @@ class ExportHandler:
         self.pdf_vbox.pack_start(self.derive_pdf, False, False, 0)
         self.pdf_vbox.pack_start(self.pdf_options, True, False, 0)
         self.pdf_vbox.pack_start(self.derive_progress['pdf'], False, False, 0)
-
         self.pdf_frame.add(self.pdf_vbox)
-
 
     def toggle_pdf(self, widget=None, mode=None):
         if widget is not None:
@@ -2342,145 +2331,155 @@ class ExportHandler:
         elif not self.derive_pdf.get_active():
             ca.set_all_sensitive(widgets, False)
 
-
     def return_pdf_args(self):
         return (self.pdf_no_image.get_active(),
                 self.pdf_sloppy.get_active(),
                 self.pdf_resolution.get_text())
 
-
     def init_djvu(self):
-        self.djvu_frame = ca.new_widget('Frame',
-                                            {'size_request': (int(self.editor.window.width*.45), -1),
-                                             'set_shadow_type': Gtk.ShadowType.OUT,
-                                             'show': True})
-
+        kwargs = {'shadow_type': Gtk.ShadowType.OUT,
+                  'visible': True}
+        self.djvu_frame = Gtk.Frame(**kwargs)
+        self.djvu_frame.set_size_request(int(self.editor.window.width*.45), -1)
+                                        
         self.djvu_table = Gtk.Table(4, 4)
         self.djvu_table.show()
 
-
-        self.djvu_vbox = ca.new_widget('VBox',
-                                           {'size_request': (-1, -1),
-                                            'show': True})
-
-        self.derive_djvu = ca.new_widget('CheckButton',
-                                             {'label': 'DjVu',
-                                              'show': True})
+        kwargs = {'orientation': Gtk.Orientation.VERTICAL,
+                  'visible': True}
+        self.djvu_vbox = Gtk.Box(**kwargs)
+        self.djvu_vbox.set_size_request(-1, -1)
+                                       
+        kwargs = {'label': 'DjVu',
+                  'visible': True}
+        self.derive_djvu = Gtk.CheckButton(**kwargs)
         self.derive_djvu.connect('clicked', self.toggle_djvu)
 
-        slice_label = ca.new_widget('Label',
-                                        {'label': 'Slice:',
-                                         'size_request': (60, -1),
-                                         'show': True})
-        self.djvu_slice = ca.new_widget('Entry',
-                                            {'size_request': (100, 25),
-                                             'set_text': '',
-                                             'is_sensitive': False,
-                                             'show': True})
+        kwargs = {'label': 'Slice',
+                  'visible': True}
+        slice_label = Gtk.Label(**kwargs)
+        slice_label.set_size_request(60, -1)
 
-        size_label = ca.new_widget('Label',
-                                       {'label': 'Size:',
-                                        'size_request': (60, -1),
-                                        'show': True})
-        self.djvu_size = ca.new_widget('Entry',
-                                           {'size_request': (100, 25),
-                                            'set_text': '',
-                                            'is_sensitive': False,
-                                            'show': True})
+        kwargs = {'text': '',
+                  'sensitive': False,
+                  'visible': True}
+        self.djvu_slice = Gtk.Entry(**kwargs)
+        self.djvu_slice.set_size_request(100, 25)
+                            
+        kwargs = {'label': 'Size',
+                  'visible': True}
+        size_label = Gtk.Label(**kwargs)
+        size_label.set_size_request(60, -1)
+                                   
+        kwargs = {'text': '',
+                  'sensitive': False,
+                  'visible': True}
+        self.djvu_size = Gtk.Entry(**kwargs)
+        self.djvu_size.set_size_request(100, 25)
+                                 
+        kwargs = {'label': 'Bpp:',
+                  'visible': True}
+        bpp_label = Gtk.Label(**kwargs)
+        bpp_label.set_size_request(60, -1)
+                                  
+        kwargs = {'text': '', 
+                  'sensitive': False,
+                  'visible': True}
+        self.djvu_bpp = Gtk.Entry(**kwargs)
+        self.djvu_bpp.set_size_request(100, 25)
+                                           
+        kwargs = {'label': 'Percent',
+                  'visible': True}
+        percent_label = Gtk.Label(**kwargs)
+        percent_label.set_size_request(60, -1)
+                                           
+        kwargs = {'text': '',
+                  'sensitive': False,
+                  'visible': True}
+        self.djvu_percent = Gtk.Entry(**kwargs)
+        self.djvu_percent.set_size_request(100, 25)
+                                          
+        kwargs = {'label': 'PPI:',
+                  'visible': True}
+        ppi_label = Gtk.Label(**kwargs)
+        ppi_label.set_size_request(60, -1)
+                                       
+        kwargs = {'text': '',
+                  'sensitive': False,
+                  'visible': True}
+        self.djvu_ppi = Gtk.Entry(**kwargs)
+        self.djvu_ppi.set_size_request(40, 25)
+                                      
+        kwargs = {'label': 'Gamma:',
+                  'visible': True}
+        gamma_label = Gtk.Label(**kwargs)
+        gamma_label.set_size_request(60, -1)
+                               
+        kwargs = {'lower': 0.3,
+                  'upper': 4.9,
+                  'step_increment': 0.1, 
+                  'value': 2.2}
+        adj = Gtk.Adjustment(**kwargs)
 
-        bpp_label = ca.new_widget('Label',
-                                       {'label': 'Bpp:',
-                                        'size_request': (60, -1),
-                                        'show': True})
-        self.djvu_bpp = ca.new_widget('Entry',
-                                          {'size_request': (100, 25),
-                                           'set_text': '',
-                                           'is_sensitive': False,
-                                           'show': True})
-
-        percent_label = ca.new_widget('Label',
-                                          {'label': 'Percent:',
-                                           'size_request': (60, -1),
-                                           'show': True})
-        self.djvu_percent = ca.new_widget('Entry',
-                                              {'size_request': (100, 25),
-                                               'set_text': '',
-                                               'is_sensitive': False,
-                                               'show': True})
-
-        ppi_label = ca.new_widget('Label',
-                                      {'label': 'PPI:',
-                                       'size_request': (60, -1),
-                                       'show': True})
-        self.djvu_ppi = ca.new_widget('Entry',
-                                          {'size_request': (40, 25),
-                                           'set_text': '',
-                                           'is_sensitive': False,
-                                           'show': True})
-
-        gamma_label = ca.new_widget('Label',
-                                        {'label': 'Gamma:',
-                                         'size_request': (60, -1),
-                                         'show': True})
-        self.djvu_gamma = ca.new_widget('HScale',
-                                            {'size_request': (100, -1),
-                                             'is_sensitive': False,
-                                             'set_range': (0.3, 4.9),
-                                             'set_increments': (0.1, 0.1),
-                                             'set_digits': 1,
-                                             'set_value': 2.2,
-                                             'set_value_pos': Gtk.PositionType.BOTTOM,
-                                             'set_update_policy': Gtk.UPDATE_CONTINUOUS,
-                                             'show': True})
-
-        decibel_label = ca.new_widget('Label',
-                                          {'label': 'Decibel',
-                                           'size_request': (60, -1),
-                                           'show': True})
-        self.djvu_decibel = ca.new_widget('Entry',
-                                              {'size_request': (100, 25),
-                                               'is_sensitive': False,
-                                               'set_text': '',
-                                               'show': True})
-
-        fract_label = ca.new_widget('Label',
-                                        {'label': 'Fract:',
-                                         'size_request': (50, -1),
-                                         'show': True})
-        self.djvu_fract = ca.new_widget('Entry',
-                                            {'size_request': (60, 25),
-                                             'set_text': '',
-                                             'is_sensitive': False,
-                                             'show': True})
-
-
-        self.djvu_crcboptions = ca.new_widget('HBox',
-                                                {'size_request': (-1, -1),
-                                                 'show': True})
-
-        self.djvu_crcbnorm = ca.new_widget('RadioButton',
-                                               {'label': 'CRCB Normal',
-                                                'is_sensitive': False,
-                                                'show': True})
-
-        self.djvu_crcbhalf = ca.new_widget('RadioButton',
-                                               {'label': 'CRCB Half',
-                                                'is_sensitive': False,
-                                                'group': self.djvu_crcbnorm,
-                                                'show': True})
-
-        self.djvu_crcbfull = ca.new_widget('RadioButton',
-                                               {'label': 'CRCB Full',
-                                                'is_sensitive': False,
-                                                'group': self.djvu_crcbnorm,
-                                                'show': True})
-
-        self.djvu_crcbnone = ca.new_widget('RadioButton',
-                                               {'label': 'CRCB None',
-                                                'is_sensitive': False,
-                                                'group': self.djvu_crcbnorm,
-                                                'show': True})
-
+        kwargs = {'orientation': Gtk.Orientation.HORIZONTAL,
+                  'adjustment': adj,
+                  'sensitive': False,
+                  'digits': 1,
+                  'value_pos': Gtk.PositionType.BOTTOM,
+                  'visible': True}
+        self.djvu_gamma = Gtk.Scale(**kwargs)
+        self.djvu_gamma.set_size_request(100, -1)
+                                                     
+        kwargs = {'label': 'Decibel',
+                  'visible': True}
+        decibel_label = Gtk.Label(**kwargs)
+        decibel_label.set_size_request(60, -1)
+                                           
+        kwargs = {'text': '',
+                  'sensitive': False,
+                  'visible': True}
+        self.djvu_decibel = Gtk.Entry(**kwargs)
+        self.djvu_decibel.set_size_request(100, 25)
+                                                                                              
+        kwargs = {'label': 'Fract:',
+                  'visible': True}
+        fract_label = Gtk.Label(**kwargs)
+        fract_label.set_size_request(50, -1)
+                                         
+        kwargs = {'text': '',
+                  'sensitive': False,
+                  'visible': True}
+        self.djvu_fract = Gtk.Entry(**kwargs)
+        self.djvu_fract.set_size_request(60, 25)
+                                             
+        kwargs = {'orientation': Gtk.Orientation.HORIZONTAL,
+                  'visible': True}
+        self.djvu_crcboptions = Gtk.Box(**kwargs)
+        self.djvu_crcboptions.set_size_request(-1, -1)
+                                                 
+        kwargs = {'label': 'CRCB Normal',
+                  'sensitive': False,
+                  'visible': True}
+        self.djvu_crcbnorm = Gtk.RadioButton(**kwargs)
+                                  
+        kwargs = {'label': 'CRCB Half',
+                  'group': self.djvu_crcbnorm,
+                  'sensitive': False,
+                  'visible': True}
+        self.djvu_crcbhalf = Gtk.RadioButton(**kwargs)
+                                               
+        kwargs = {'label': 'CRCB Full',
+                  'group': self.djvu_crcbnorm,
+                  'sensitive': False,
+                  'visible': True}
+        self.djvu_crcbfull = Gtk.RadioButton(**kwargs)
+                                               
+        kwargs = {'label': 'CRCB None',
+                  'group': self.djvu_crcbnorm,
+                  'sensitive': False,
+                  'visible': True}
+        self.djvu_crcbnone = Gtk.RadioButton(**kwargs)
+                                               
         self.djvu_crcbnorm.set_active(True)
 
         self.djvu_crcbnorm.connect('toggled', self.toggle_crcb)
@@ -2488,16 +2487,17 @@ class ExportHandler:
         self.djvu_crcbfull.connect('toggled', self.toggle_crcb)
         self.djvu_crcbnone.connect('toggled', self.toggle_crcb)
 
-        crcbdelay_label = ca.new_widget('Label',
-                                            {'label': 'CRCB Delay:',
-                                             'size_request': (-1, -1),
-                                             'show': True})
-        self.djvu_crcbdelay = ca.new_widget('Entry',
-                                                {'size_request': (60, 25),
-                                                 'set_text': '',
-                                                 'is_sensitive': False,
-                                                 'show': True})
-
+        kwargs = {'label': 'CRCB Delay:',
+                  'visible': True}
+        crcbdelay_label = Gtk.Label(**kwargs)
+        crcbdelay_label.set_size_request(-1, -1)
+                                             
+        kwargs = {'text': '',
+                  'sensitive': False,
+                  'visible': True}
+        self.djvu_crcbdelay = Gtk.Entry(**kwargs)
+        self.djvu_crcbdelay.set_size_request(60, 25)
+                                                 
         self.djvu_table.attach(slice_label, 0, 1, 0, 1)
         self.djvu_table.attach(self.djvu_slice, 1, 2, 0, 1)
         self.djvu_table.attach(size_label, 2, 3, 0, 1)
@@ -2532,13 +2532,11 @@ class ExportHandler:
 
         self.djvu_frame.add(self.djvu_vbox)
 
-
     def toggle_crcb(self, widget):
         if self.djvu_crcbnorm.get_active() or self.djvu_crcbhalf.get_active():
             self.djvu_crcbdelay.set_sensitive(True)
         else:
             self.djvu_crcbdelay.set_sensitive(False)
-
 
     def toggle_djvu(self, widget=None, mode=None):
         if widget is not None:
@@ -2566,7 +2564,6 @@ class ExportHandler:
         elif not self.derive_djvu.get_active():
             ca.set_all_sensitive(widgets, False)
 
-
     def return_djvu_args(self):
         return (self.djvu_slice.get_text(),
                 self.djvu_size.get_text(),
@@ -2582,50 +2579,81 @@ class ExportHandler:
                 self.djvu_crcbnone.get_active(),
                 self.djvu_crcbdelay.get_text())
 
-
     def set_language(self, widget):
         active = widget.get_active()
         if active == 0:
             self.init_ocr_button.set_sensitive(False)
         else:
             active -= 1
-            for num, language in enumerate(OCR.languages.items()):
+            for num, language in enumerate(Tesseract.languages.items()):
                 if active == num:
                     self.language = language[1]
                     self.init_ocr_button.set_sensitive(True)
                     break
 
-
     def run_all(self, widget):
         self.disable_interface()
         queue = self.ProcessHandler.new_queue()
         update = []
-        queue[self.editor.book.identifier + '_run_cropper'] = (self.ProcessHandler.run_cropper,
-                                                               (self.editor.book, 'cropBox',
-                                                                self.grayscale_option.get_active(),
-                                                                self.normalize_option.get_active(),
-                                                                self.invert_option.get_active()),
-                                                               self.editor.book.logger, None)
+        
+        fnc = self.ProcessHandler.run_pipeline_distributed
+        cls = 'Crop'
+        mth = 'cropper_pipeline'
+        pid = '.'.join((self.editor.book.identifier, fnc.__name__, cls, mth))
+        queue[pid] = {'func': fnc,
+                      'args': [cls, mth, self.editor.book, 
+                               None, {'crop', 'cropBox'}],
+                      'kwargs': {},
+                      'callback': None}
         ca.run_in_background(self.update_cropping_progress, 2000)
         update.append('cropper')
+
+        #self.grayscale_option.get_active(),
+        #self.normalize_option.get_active(),
+        #self.invert_option.get_active()),
+                                       
         if self.language is not None:
-            queue[self.editor.book.identifier + '_run_ocr'] = (self.ProcessHandler.run_ocr,
-                                                               (self.editor.book, self.language),
-                                                               self.editor.book.logger, None)
+            cls = 'OCR'
+            mth = 'tesseract_hocr_pipeline'
+            pid = '.'.join((self.editor.book.identifier, fnc.__name__, cls, mth))
+            queue[pid] = {'func': fnc,
+                          'args': [cls, mth,book, None, 
+                                   {'lang': self.language}],
+                          'kwargs': {},
+                          'callback': None}
             ca.run_in_background(self.update_ocr_progress, 2000)
             update.append('ocr')
+
         if self.check_derive_format_selected():
             formats = self.get_derive_format_args()
-            queue[self.editor.book.identifier] = (self.ProcessHandler.derive_formats,
-                                                  (self.editor.book, formats),
-                                                  self.editor.book.logger, None)
-            ca.run_in_background(self.update_derive_progress, 2000)
-            update.append('derive')
-        self.ProcessHandler.add_process(self.ProcessHandler.drain_queue,
-                                        self.editor.book.identifier + '_drain_queue',
-                                        (queue, 'sync'), self.editor.book.logger)
-        ca.run_in_background(self.update_run_all_progress, 2000, update)
+            if 'djvu' in formats:
+                cls = 'Derive'
+                mth = 'make_djvu_with_c44'
+                pid = '.'.join((self.editor.book.identifier, fnc.__name__, cls, mth))
+                queue[pid] = {'func': fnc,
+                              'args': [cls, mth, book, None, None],
+                              'kwargs': {},
+                              'callback': 'assemble_djvu_with_djvm'}
+            
+            if 'pdf' in formats:
+                cls = 'Derive'
+                mth = 'make_pdf_with_hocr2pdf'
+                pid = '.'.join((self.editor.book.identifier, fnc.__name__, cls, mth))
+                queue[pid] = {'func': fnc,
+                              'args': [cls, mth, book, None, None],
+                              'kwargs': {},
+                              'callback': 'assemble_pdf_with_pypdf'}
 
+            #ca.run_in_background(self.update_derive_progress, 2000)
+            #update.append('derive')
+
+        self.ProcessHandler.add_process(func=self.ProcessHandler.drain_queue,
+                                        pid=self.editor.book.identifier + '_drain_queue',
+                                        args=(queue, 'sync'), 
+                                        kwargs={},
+                                        logger=self.editor.book.logger,
+                                        callback=None)
+        ca.run_in_background(self.update_run_all_progress, 2000, update)
 
     def update_run_all_progress(self, update):
         num_tasks = len(update)
@@ -2650,26 +2678,23 @@ class ExportHandler:
         else:
             return True
 
-
     def run_cropper(self, widget):
-        #self.init_crop_button.destroy()
-        self.ProcessHandler.add_process(self.ProcessHandler.run_pipeline_distributed,
-                                        self.editor.book.identifier + '_run_cropper_pipeline_distributed',
-                                        (self.editor.book.identifier,
-                                         'Crop', 'cropper_pipeline',
-                                         self.editor.book, 'cropBox'))
+        fnc = self.ProcessHandler.run_pipeline_distributed
+        cls = 'Crop'
+        mth = 'cropper_pipeline'
+        pid = '.'.join((self.editor.book.identifier, fnc.__name__, cls, mth ))
+        args = [cls, mth, self.editor.book, None, {'crop': 'cropBox'}]
+        kwargs = {}
+        self.ProcessHandler.add_process(fnc, pid, args, kwargs)  
         #self.editor.book.logger))
         ca.run_in_background(self.update_cropping_progress, 2000)
 
-
-    def update_cropping_progress(self):
-        if 'Crop' not in self.ProcessHandler.OperationObjects[self.editor.book.identifier]:
+    def update_cropping_progress(self, *args):
+        identifier = self.editor.book.identifier
+        if 'Crop' not in self.ProcessHandler.OperationObjects[identifier]:
             return True
         else:
-            op_obj = self.ProcessHandler.OperationObjects[self.editor.book.identifier]['Crop']
-            #if self.editor.book.identifier + '_cropper' in self.ProcessHandler.Cropper.ImageOps.completed_ops:
-            #self.cropping_fraction = 1.0
-            #else:
+            op_obj = self.ProcessHandler.OperationObjects[identifier]['Crop']
         completed = len(op_obj.completed)
         self.cropping_fraction = float(completed)/float(self.editor.book.page_count-2)
         self.cropping_progress.set_fraction(self.cropping_fraction)
@@ -2679,34 +2704,32 @@ class ExportHandler:
         else:
             return True
 
-
     def run_ocr(self, widget):
-        #self.init_ocr_button.destroy()
-        self.ProcessHandler.add_process(self.ProcessHandler.run_pipeline_distributed,
-                                        self.editor.book.identifier +
-                                        '_run_tesseract_hocr_pipeline_distributed',
-                                        (self.editor.book.identifier,
-                                         'OCR', 'tesseract_hocr_pipeline',
-                                         self.editor.book, self.language))
-        #self.editor.book.logger)
-        #ca.run_in_background(self.update_ocr_progress, 2000)
+        fnc = self.ProcessHandler.run_pipeline_distributed
+        cls = 'OCR'
+        mth = 'tesseract_hocr_pipeline'
+        pid = '.'.join((self.editor.book.identifier, fnc.__name__, cls, mth))
+        args = [cls, mth, self.editor.book, None, {'lang': self.language}]
+        self.ProcessHandler.add_process(func=fnc,
+                                        pid=pid,
+                                        args=args,
+                                        kwargs={})
+        ca.run_in_background(self.update_ocr_progress, 2000)
 
-
-    def update_ocr_progress(self):
-        if self.ProcessHandler.OCR is None:
+    def update_ocr_progress(self, *args):
+        identifier = self.editor.book.identifier
+        if 'OCR' not in self.ProcessHandler.OperationObjects[identifier]:
             return True
-        if self.editor.book.identifier + '_ocr' in self.ProcessHandler.OCR.ImageOps.completed_ops:
-            self.ocr_fraction = 1.0
         else:
-            completed = len(self.ProcessHandler.OCR.ImageOps.completed_ops)
-            self.ocr_fraction = float(completed)/float(self.editor.book.page_count-2)
+            op_obj = self.ProcessHandler.OperationObjects[identifier]['OCR']
+        completed = len(op_obj.completed)
+        self.ocr_fraction = float(completed)/float(self.editor.book.page_count-2)
         self.ocr_progress.set_fraction(self.ocr_fraction)
         self.ocr_progress.set_text(str(int(self.ocr_fraction*100)) + '%')
         if self.ocr_fraction == 1.0:
             return False
         else:
             return True
-
 
     def run_derive(self, widget):
         formats = self.get_derive_format_args()
@@ -2718,7 +2741,6 @@ class ExportHandler:
                                              'Derive', 'make_pdf_with_hocr2pdf',
                                              self.editor.book, (1, self.editor.book.page_count-1)))
             #ca.run_in_background(self.update_derive_progress, 2000)
-
 
     def get_derive_format_args(self):
         formats = {}
@@ -2732,7 +2754,6 @@ class ExportHandler:
             return None
         else:
             return formats
-
 
     def update_derive_progress(self):
         if self.ProcessHandler.Derive is None:

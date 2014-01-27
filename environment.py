@@ -48,7 +48,7 @@ class Environment(object):
             Util.bail('No valid directories found for processing...')
         for book in self.books:
             book.start_time = time.time()
-            self.init_logger(book)
+            Environment.init_logger(book)
             book.settings = Environment.load_settings(book, args)
             book.init_crops()
             Environment.log_settings(book)
@@ -146,7 +146,8 @@ class Environment(object):
         if book not in self.books:
             self.books.append(book)
 
-    def init_logger(self, book):
+    @staticmethod
+    def init_logger(book):
         book.logger = logging.getLogger(book.identifier)
         book.logger.setLevel(logging.DEBUG)
 
@@ -167,7 +168,6 @@ class Environment(object):
         formatter = logging.Formatter('%(asctime)s %(threadName)s %(levelname)s %(message)s')
         debug.setFormatter(formatter)
         book.logger.addHandler(debug)
-
 
     @staticmethod
     def find_raw_dir(dir):

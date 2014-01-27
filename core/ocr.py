@@ -34,4 +34,6 @@ class OCR(Operation):
             except:
                 pid = self.make_pid_string('tesseract_hocr_pipeline')
                 self.ProcessHandler.join((pid, Util.exception_info()))
-
+            else:
+                exec_time = self.Tesseract.get_last_exec_time()
+                self.complete_process(leaf, exec_time)

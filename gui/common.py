@@ -1,7 +1,7 @@
 import gi
 gi.require_version("Gtk", "3.0")
 gi.require_version("Gdk", "3.0")
-from gi.repository import Gtk, GdkPixbuf
+from gi.repository import Gtk, Gdk, GdkPixbuf
 
 
 class CommonActions(object):
@@ -77,7 +77,4 @@ class CommonActions(object):
 
     @staticmethod
     def run_in_background(func, milliseconds=100, args=None):
-        if args:
-            GObject.timeout_add(milliseconds, func, args)
-        else:
-            GObject.timeout_add(milliseconds, func)
+        Gdk.threads_add_timeout(1, milliseconds, func, args)

@@ -46,7 +46,7 @@ def main(args):
                 mth = 'tesseract_hocr_pipeline'
                 pid = '.'.join((book.identifier, fnc.__name__, cls, mth))
                 queue[pid] = {'func': fnc,
-                              'args': [cls, mth,book, None, 
+                              'args': [cls, mth, book, None, 
                                        {'lang': args.language}],
                               'kwargs': {},
                               'callback': None}
@@ -64,7 +64,7 @@ def main(args):
                 cls = 'Derive'
                 mth = 'make_pdf_with_hocr2pdf'
                 pid = '.'.join((book.identifier, fnc.__name__, cls, mth))
-                queue[pid] = {'func': P.run_pipeline_distributed,
+                queue[pid] = {'func': fnc,
                               'args': [cls, mth, book, None, None],
                               'kwargs': {},
                               'callback': 'assemble_pdf_with_pypdf'}

@@ -21,19 +21,16 @@ class BookmakerGUI:
                  'thumb':    {'regex': '[_thumbs$]'} 
                  }
 
-
     def __init__(self):
         Environment.interface = 'gui'
         Environment.set_current_path()
         self.init_window()
         self.set_operation_toggle()
         self.window.show_all()
-        self.run()
-        
+        self.run()        
 
     def run(self):
         Gtk.main()
-
 
     def init_window(self):
         self.window = Gtk.Window(Gtk.WindowType.TOPLEVEL)
@@ -43,10 +40,8 @@ class BookmakerGUI:
         self.window.connect('delete-event', Gtk.main_quit)
         self.window.show()
 
-
     def return_to_op_toggle(self, widget):
-        self.window.show_all()
-        
+        self.window.show_all()        
 
     def set_operation_toggle(self):
         self.op_toggle = Gtk.VBox()
@@ -63,12 +58,10 @@ class BookmakerGUI:
         self.op_toggle.pack_start(edit_button, True, True, 0)
         self.window.add(self.op_toggle)
         
-
     def capture_book(self, widget):
         ca.dialog(None, Gtk.MessageType.INFO, 
                       'can\'t do this yet...', 
                       {Gtk.STOCK_OK: Gtk.ResponseType.OK})
-
 
     def process_book(self, widget):
         window = Gtk.Window(Gtk.WindowType.TOPLEVEL)
@@ -80,7 +73,6 @@ class BookmakerGUI:
                                (2*Gdk.Screen.height())/3)
         self.processing_gui = ProcessingGui(window)
         self.window.hide()
-
 
     def edit_book(self, widget, window=None, selected=None):
         if selected is None:
@@ -94,16 +86,15 @@ class BookmakerGUI:
             raw_dir, raw_data = self.select_book(selected, 'edit')
             if raw_data:
                 book_data = BookData(selected, raw_dir, raw_data)
-                #book_data.logger = Logger()
-                #book_data.init_logs()
+                Environment.init_logger(book_data)
                 try:
                     book_data.import_crops()
                 except Exception as e:
                     ca.dialog(None, Gtk.MessageType.ERROR, str(e))
                     return
                 ca.set_window_size(window,
-                                   Gdk.Screen.width()-1,
-                                   Gdk.Screen.height()-25)
+                                   int(Gdk.Screen.width()*0.95),
+                                   int(Gdk.Screen.height()*0.95))
             #try:
             self.editor = Editor(window, book_data)
             #except Exception as E:
@@ -111,7 +102,6 @@ class BookmakerGUI:
             #    d.run()
             #    return
             self.window.hide()
-
         
     def select_book(self, root_dir, op):
         raw_dir = Environment.is_sane(root_dir)
@@ -123,7 +113,6 @@ class BookmakerGUI:
                       str(root_dir) + ' does not exist!', 
                       {Gtk.STOCK_OK: Gtk.ResponseType.OK})
         return False
-
 
     def book_is_valid(self, selected, op):
         contents = os.listdir(selected)
