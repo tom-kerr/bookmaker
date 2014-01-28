@@ -45,7 +45,7 @@ class C44(Component):
         if dpi:
             dpi = '-dpi ' + str(dpi)
         if gamma:
-            gamma = '-gamma ' + str(gamma)
+            gamma = ['-gamma', str(gamma)]
         if decibel:
             decibel = '-decibel ' + str(decibel)
         if dbfrac:
@@ -77,7 +77,7 @@ class C44(Component):
                        'crcb': crcb,
                        'crcbdelay': crcbdelay,
                        'mask': mask})
-        
+
         output = self.execute(kwargs, return_output=True)
         if callback:
             self.execute_callback(callback, leaf, output, **kwargs)

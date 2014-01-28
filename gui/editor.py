@@ -2037,9 +2037,6 @@ class ExportHandler(object):
         self.toggle_pdf(mode=False)
         self.toggle_djvu(mode=False)
         ca.set_all_sensitive((self.init_crop_button,
-                              self.grayscale_option,
-                              self.normalize_option,
-                              self.invert_option,
                               self.init_ocr_button,
                               self.ocr_lang_options,
                               self.derive_button,
@@ -2050,9 +2047,6 @@ class ExportHandler(object):
         self.toggle_djvu()
         self.toggle_derive()
         ca.set_all_sensitive((self.init_crop_button,
-                              self.grayscale_option,
-                              self.normalize_option,
-                              self.invert_option,
                               self.init_ocr_button,
                               self.ocr_lang_options,
                               self.global_derive_button), True)
@@ -2076,14 +2070,11 @@ class ExportHandler(object):
         self.controls_hbox = Gtk.Box(**kwargs)
         self.controls_hbox.set_size_request(-1, -1)
 
-        self.init_proc_options()
-
         kwargs = {'show_text': True,
                   'text': '0%',
                   'visible': True}
         self.cropping_progress = Gtk.ProgressBar(**kwargs)
         
-
         kwargs = {'label': 'Initialize Cropping',
                   'visible': True}
         self.init_crop_button = Gtk.Button(**kwargs)
@@ -2097,29 +2088,6 @@ class ExportHandler(object):
         self.stack_controls.put(self.cropping_frame, 
                                 ((self.editor.window.width/4) - 
                                  (self.editor.window.width/3)/2 ), 0)
-
-    def init_proc_options(self):
-        kwargs = {'orientation': Gtk.Orientation.HORIZONTAL,
-                  'visible': True}
-        self.proc_options_hbox = Gtk.Box(**kwargs)
-        self.proc_options_hbox.set_size_request(-1, -1)
-                                                    
-        kwargs = {'label': 'Convert to Grayscale',
-                  'visible': True}
-        self.grayscale_option = Gtk.CheckButton(**kwargs)
-
-        kwargs = {'label': 'Normalize',
-                  'visible': True}
-        self.normalize_option = Gtk.CheckButton(**kwargs)
-                                                  
-        kwargs = {'label': 'Invert B/W',
-                  'visible': True}
-        self.invert_option = Gtk.CheckButton(**kwargs)
-                                           
-        self.proc_options_hbox.pack_start(self.grayscale_option, True, False, 0)
-        self.proc_options_hbox.pack_start(self.normalize_option, True, False, 0)
-        self.proc_options_hbox.pack_start(self.invert_option, True, False, 0)
-        self.controls_hbox.pack_start(self.proc_options_hbox, True, False, 0)
 
     def toggle_active_crop(self, widget):
         selection = widget.get_label()
@@ -2206,12 +2174,11 @@ class ExportHandler(object):
         w, h = int(self.editor.window.width*.47), -1
         self.formats_vbox.set_size_request(w, h)
                                           
-        self.derive_progress = {}
         for d in ('pdf', 'djvu', 'epub', 'text'):
             kwargs = {'text': '0%',
                       'show_text': True,
                       'visible': True}
-            self.derive_progress[d] = Gtk.ProgressBar(**kwargs)
+            setattr(self, d+'_progress', Gtk.ProgressBar(**kwargs))
 
         self.init_pdf()
         self.init_djvu()
@@ -2241,9 +2208,9 @@ class ExportHandler(object):
         self.formats_vbox.pack_start(self.djvu_frame, True, False, padding=15)
 
         self.formats_vbox.pack_start(self.derive_epub, True, False, 0)
-        self.formats_vbox.pack_start(self.derive_progress['epub'], True, False, 0)
+        self.formats_vbox.pack_start(self.epub_progress, True, False, 0)
         self.formats_vbox.pack_start(self.derive_plain_text, True, False, 0)
-        self.formats_vbox.pack_start(self.derive_progress['text'], True, False, 0)
+        self.formats_vbox.pack_start(self.text_progress, True, False, 0)
 
         self.formats_vbox.pack_start(self.derive_button, True, False, 0)
         self.derivative_controls.put(self.formats_vbox, 0, 0)
@@ -2312,7 +2279,7 @@ class ExportHandler(object):
 
         self.pdf_vbox.pack_start(self.derive_pdf, False, False, 0)
         self.pdf_vbox.pack_start(self.pdf_options, True, False, 0)
-        self.pdf_vbox.pack_start(self.derive_progress['pdf'], False, False, 0)
+        self.pdf_vbox.pack_start(self.pdf_progress, False, False, 0)
         self.pdf_frame.add(self.pdf_vbox)
 
     def toggle_pdf(self, widget=None, mode=None):
@@ -2332,9 +2299,9 @@ class ExportHandler(object):
             ca.set_all_sensitive(widgets, False)
 
     def return_pdf_args(self):
-        return (self.pdf_no_image.get_active(),
-                self.pdf_sloppy.get_active(),
-                self.pdf_resolution.get_text())
+        return {'no_image': self.pdf_no_image.get_active(),
+                'sloppy': self.pdf_sloppy.get_active(),
+                'resolution': self.pdf_resolution.get_text()}
 
     def init_djvu(self):
         kwargs = {'shadow_type': Gtk.ShadowType.OUT,
@@ -2528,7 +2495,7 @@ class ExportHandler(object):
         self.djvu_vbox.pack_start(self.derive_djvu, False, False, 0)
         self.djvu_vbox.pack_start(self.djvu_table, False, False, 0)
         self.djvu_vbox.pack_start(self.djvu_crcboptions, True, True, 0)
-        self.djvu_vbox.pack_start(self.derive_progress['djvu'], False, False, 0)
+        self.djvu_vbox.pack_start(self.djvu_progress, False, False, 0)
 
         self.djvu_frame.add(self.djvu_vbox)
 
@@ -2565,19 +2532,19 @@ class ExportHandler(object):
             ca.set_all_sensitive(widgets, False)
 
     def return_djvu_args(self):
-        return (self.djvu_slice.get_text(),
-                self.djvu_size.get_text(),
-                self.djvu_bpp.get_text(),
-                self.djvu_percent.get_text(),
-                self.djvu_ppi.get_text(),
-                self.djvu_gamma.get_value(),
-                self.djvu_decibel.get_text(),
-                self.djvu_fract.get_text(),
-                self.djvu_crcbnorm.get_active(),
-                self.djvu_crcbhalf.get_active(),
-                self.djvu_crcbfull.get_active(),
-                self.djvu_crcbnone.get_active(),
-                self.djvu_crcbdelay.get_text())
+        return {'slice': self.djvu_slice.get_text(),
+                'size': self.djvu_size.get_text(),
+                'bpp': self.djvu_bpp.get_text(),
+                'percent': self.djvu_percent.get_text(),
+                'dpi': self.djvu_ppi.get_text(),
+                'gamma': self.djvu_gamma.get_value(),
+                'decibel': self.djvu_decibel.get_text(),
+                'dbfract': self.djvu_fract.get_text(),
+                'crcbnorm': self.djvu_crcbnorm.get_active(),
+                'crcbhalf': self.djvu_crcbhalf.get_active(),
+                'crcbfull': self.djvu_crcbfull.get_active(),
+                'crcbnone': self.djvu_crcbnone.get_active(),
+                'crcbdelay': self.djvu_crcbdelay.get_text()}
 
     def set_language(self, widget):
         active = widget.get_active()
@@ -2602,26 +2569,22 @@ class ExportHandler(object):
         pid = '.'.join((self.editor.book.identifier, fnc.__name__, cls, mth))
         queue[pid] = {'func': fnc,
                       'args': [cls, mth, self.editor.book, 
-                               None, {'crop', 'cropBox'}],
+                               None, {'crop': 'cropBox'}],
                       'kwargs': {},
                       'callback': None}
-        ca.run_in_background(self.update_cropping_progress, 2000)
+        ca.run_in_background(self.update_progress, 2000, args=('Crop', 'cropping'))
         update.append('cropper')
-
-        #self.grayscale_option.get_active(),
-        #self.normalize_option.get_active(),
-        #self.invert_option.get_active()),
                                        
         if self.language is not None:
             cls = 'OCR'
             mth = 'tesseract_hocr_pipeline'
             pid = '.'.join((self.editor.book.identifier, fnc.__name__, cls, mth))
             queue[pid] = {'func': fnc,
-                          'args': [cls, mth,book, None, 
-                                   {'lang': self.language}],
+                          'args': [cls, mth, self.editor.book, 
+                                   None, {'lang': self.language}],
                           'kwargs': {},
                           'callback': None}
-            ca.run_in_background(self.update_ocr_progress, 2000)
+            ca.run_in_background(self.update_progress, 2000, args=('OCR', 'ocr'))
             update.append('ocr')
 
         if self.check_derive_format_selected():
@@ -2631,45 +2594,70 @@ class ExportHandler(object):
                 mth = 'make_djvu_with_c44'
                 pid = '.'.join((self.editor.book.identifier, fnc.__name__, cls, mth))
                 queue[pid] = {'func': fnc,
-                              'args': [cls, mth, book, None, None],
+                              'args': [cls, mth, self.editor.book, 
+                                       None, self.return_djvu_args()],
                               'kwargs': {},
                               'callback': 'assemble_djvu_with_djvm'}
+                ca.run_in_background(self.update_progress, 2000, args=('Derive', 'djvu'))
+                update.append('djvu')
             
             if 'pdf' in formats:
                 cls = 'Derive'
                 mth = 'make_pdf_with_hocr2pdf'
                 pid = '.'.join((self.editor.book.identifier, fnc.__name__, cls, mth))
                 queue[pid] = {'func': fnc,
-                              'args': [cls, mth, book, None, None],
+                              'args': [cls, mth, self.editor.book, 
+                                       None, self.return_pdf_args()],
                               'kwargs': {},
                               'callback': 'assemble_pdf_with_pypdf'}
-
-            #ca.run_in_background(self.update_derive_progress, 2000)
-            #update.append('derive')
+                ca.run_in_background(self.update_progress, 2000, args=('Derive', 'pdf'))
+                update.append('pdf')
 
         self.ProcessHandler.add_process(func=self.ProcessHandler.drain_queue,
                                         pid=self.editor.book.identifier + '_drain_queue',
-                                        args=(queue, 'sync'), 
+                                        args=[queue, 'sync'],
                                         kwargs={},
-                                        logger=self.editor.book.logger,
                                         callback=None)
         ca.run_in_background(self.update_run_all_progress, 2000, update)
+        
+    def update_progress(self, args):
+        op, gui_id = args
+        identifier = self.editor.book.identifier
+        if not identifier in self.ProcessHandler.OperationObjects:
+            return True
+        if op not in self.ProcessHandler.OperationObjects[identifier]:
+            return True
+        else:
+            op_obj = self.ProcessHandler.OperationObjects[identifier][op]
+        completed = len(op_obj.completed)
+        fraction = float(completed)/float(self.editor.book.page_count-2)
+        setattr(self, gui_id + '_fraction', fraction)
+        progress = getattr(self, gui_id + '_progress')
+        progress.set_fraction(fraction)
+        progress.set_text(str(int(fraction*100)) + '%')
+        if fraction == 1.0:
+            return False
+        else:
+            return True
 
     def update_run_all_progress(self, update):
+        identifier = self.editor.book.identifier
+        if not identifier in self.ProcessHandler.OperationObjects:
+            return True
         num_tasks = len(update)
         total_fraction = 0.0
-        if 'cropper' in update:
-            if self.ProcessHandler.Cropper is not None:
+        if 'cropping' in update:
+            if 'Crop' in self.ProcessHandler.OperationObjects[identifier]:
                 total_fraction += self.cropping_fraction/num_tasks
         if 'ocr' in update:
-            if self.ProcessHandler.OCR is not None:
+            if 'OCR' in self.ProcessHandler.OperationObjects[identifier]:
                 total_fraction += self.ocr_fraction/num_tasks
-        if 'derive' in update:
-            derive_fraction = 0.0
-            if self.ProcessHandler.Derive is not None:
-                for d, fraction in self.derive_fractions.items():
-                    derive_fraction += fraction/len(self.derive_fractions)
-                total_fraction += derive_fraction/num_tasks
+        if 'pdf' in update:
+            if 'Derive' in self.ProcessHandler.OperationObjects[identifier]:
+                total_fraction += self.pdf_fraction/num_tasks
+        if 'djvu' in update:
+            if 'Derive' in self.ProcessHandler.OperationObjects[identifier]:
+                total_fraction += self.djvu_fraction/num_tasks
         self.global_progress.set_fraction(total_fraction)
         self.global_progress.set_text(str(int(total_fraction*100)) + '%')
         if total_fraction == 1.0:
@@ -2686,23 +2674,7 @@ class ExportHandler(object):
         args = [cls, mth, self.editor.book, None, {'crop': 'cropBox'}]
         kwargs = {}
         self.ProcessHandler.add_process(fnc, pid, args, kwargs)  
-        #self.editor.book.logger))
-        ca.run_in_background(self.update_cropping_progress, 2000)
-
-    def update_cropping_progress(self, *args):
-        identifier = self.editor.book.identifier
-        if 'Crop' not in self.ProcessHandler.OperationObjects[identifier]:
-            return True
-        else:
-            op_obj = self.ProcessHandler.OperationObjects[identifier]['Crop']
-        completed = len(op_obj.completed)
-        self.cropping_fraction = float(completed)/float(self.editor.book.page_count-2)
-        self.cropping_progress.set_fraction(self.cropping_fraction)
-        self.cropping_progress.set_text(str(int(self.cropping_fraction*100)) + '%')
-        if self.cropping_fraction == 1.0:
-            return False
-        else:
-            return True
+        ca.run_in_background(self.update_progress, 2000, args=('Crop', 'cropping'))
 
     def run_ocr(self, widget):
         fnc = self.ProcessHandler.run_pipeline_distributed
@@ -2710,37 +2682,32 @@ class ExportHandler(object):
         mth = 'tesseract_hocr_pipeline'
         pid = '.'.join((self.editor.book.identifier, fnc.__name__, cls, mth))
         args = [cls, mth, self.editor.book, None, {'lang': self.language}]
-        self.ProcessHandler.add_process(func=fnc,
-                                        pid=pid,
-                                        args=args,
-                                        kwargs={})
-        ca.run_in_background(self.update_ocr_progress, 2000)
-
-    def update_ocr_progress(self, *args):
-        identifier = self.editor.book.identifier
-        if 'OCR' not in self.ProcessHandler.OperationObjects[identifier]:
-            return True
-        else:
-            op_obj = self.ProcessHandler.OperationObjects[identifier]['OCR']
-        completed = len(op_obj.completed)
-        self.ocr_fraction = float(completed)/float(self.editor.book.page_count-2)
-        self.ocr_progress.set_fraction(self.ocr_fraction)
-        self.ocr_progress.set_text(str(int(self.ocr_fraction*100)) + '%')
-        if self.ocr_fraction == 1.0:
-            return False
-        else:
-            return True
+        self.ProcessHandler.add_process(fnc, pid, args, {})
+        ca.run_in_background(self.update_progress, 2000, args=('OCR', 'ocr'))
 
     def run_derive(self, widget):
-        formats = self.get_derive_format_args()
-        if formats:
-            self.ProcessHandler.add_process(self.ProcessHandler.run_pipeline,
-                                            self.editor.book.identifier +
-                                            '_run_make_pdf_with_hocr2pdf',
-                                            (self.editor.book.identifier,
-                                             'Derive', 'make_pdf_with_hocr2pdf',
-                                             self.editor.book, (1, self.editor.book.page_count-1)))
-            #ca.run_in_background(self.update_derive_progress, 2000)
+        if self.derive_pdf.get_active():
+            self.make_pdf(widget)
+        if self.derive_djvu.get_active():
+            self.make_djvu(widget)
+
+    def make_pdf(self, widget):
+        fnc = self.ProcessHandler.run_pipeline_distributed
+        cls = 'Derive'
+        mth = 'make_pdf_with_hocr2pdf'
+        pid = '.'.join((self.editor.book.identifier, fnc.__name__, cls, mth))
+        args = [cls, mth, self.editor.book, None, self.return_pdf_args()]
+        self.ProcessHandler.add_process(fnc, pid, args, {})
+        ca.run_in_background(self.update_progress, 2000, args=('Derive', 'pdf'))
+
+    def make_djvu(self, widget):
+        fnc = self.ProcessHandler.run_pipeline_distributed
+        cls = 'Derive'
+        mth = 'make_djvu_with_c44'
+        pid = '.'.join((self.editor.book.identifier, fnc.__name__, cls, mth))
+        args = [cls, mth, self.editor.book, None, self.return_djvu_args()]
+        self.ProcessHandler.add_process(fnc, pid, args, {})
+        ca.run_in_background(self.update_progress, 2000, args=('Derive', 'djvu'))
 
     def get_derive_format_args(self):
         formats = {}
@@ -2754,27 +2721,3 @@ class ExportHandler(object):
             return None
         else:
             return formats
-
-    def update_derive_progress(self):
-        if self.ProcessHandler.Derive is None:
-            return True
-        self.derive_fractions = {}
-        for name, attr in self.derivatives.items():
-            if not attr[0].get_active():
-                continue
-            completed = 0
-            if self.editor.book.identifier + '_' + name in self.ProcessHandler.Derive.ImageOps.completed_ops:
-                self.derive_fractions[name] = 1.0
-            else:
-                for leaf, comp in self.ProcessHandler.Derive.ImageOps.completed_ops.items():
-                    for msg in comp:
-                        if re.search(name, msg):
-                            completed += 1
-                            break
-                self.derive_fractions[name] = float(completed)/float(self.editor.book.page_count-2)
-            self.derive_progress[name].set_fraction(self.derive_fractions[name])
-            self.derive_progress[name].set_text(str(int(self.derive_fractions[name]*100)) + '%')
-        for d, fraction in self.derive_fractions.items():
-            if fraction != 1.0:
-                return True
-        return False

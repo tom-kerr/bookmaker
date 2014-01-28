@@ -14,7 +14,7 @@ from core.featuredetection import FeatureDetection
 from core.derive import Derive
 from core.crop import Crop
 from core.ocr import OCR
-#from gui.common import Common
+from gui.common import CommonActions as ca
 
 
 class ProcessHandling(object):
@@ -41,6 +41,7 @@ class ProcessHandling(object):
         self.handled_exceptions = []
         self.polling_threads = False
         self.OperationObjects = {}
+        self.CompletedOps = {}
 
     def _init_polls(self):        
         if not self.polling_threads:
@@ -168,7 +169,7 @@ class ProcessHandling(object):
             identifier = pid.split('_')[0]
             if Environment.interface == 'gui':
                 self.finish(identifier)
-                Common.dialog(message=msg)
+                ca.dialog(message=msg)
             elif Environment.interface == 'shell':
                 self.finish(identifier)
                 raise Exception(msg)
