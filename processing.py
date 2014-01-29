@@ -11,7 +11,8 @@ import logging
 from util import Util
 from environment import Environment, Scandata
 from core.featuredetection import FeatureDetection
-from core.derive import Derive
+from core.pdf import PDF
+from core.djvu import Djvu
 from core.crop import Crop
 from core.ocr import OCR
 from gui.common import CommonActions as ca
@@ -41,8 +42,7 @@ class ProcessHandling(object):
         self.handled_exceptions = []
         self.polling_threads = False
         self.OperationObjects = {}
-        self.CompletedOps = {}
-
+        
     def _init_polls(self):        
         if not self.polling_threads:
             self._init_thread_poll()

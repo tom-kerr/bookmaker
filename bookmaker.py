@@ -52,7 +52,7 @@ def main(args):
                               'callback': None}
                 
             if 'djvu' in formats:
-                cls = 'Derive'
+                cls = 'Djvu'
                 mth = 'make_djvu_with_c44'
                 pid = '.'.join((book.identifier, fnc.__name__, cls, mth))
                 queue[pid] = {'func': fnc,
@@ -61,7 +61,7 @@ def main(args):
                               'callback': 'assemble_djvu_with_djvm'}
             
             if 'pdf' in formats:
-                cls = 'Derive'
+                cls = 'PDF'
                 mth = 'make_pdf_with_hocr2pdf'
                 pid = '.'.join((book.identifier, fnc.__name__, cls, mth))
                 queue[pid] = {'func': fnc,

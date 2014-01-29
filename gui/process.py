@@ -39,8 +39,7 @@ class ProcessingGui(object):
                          'There are processes running, are you sure you want to quit?',
                          {Gtk.STOCK_OK: Gtk.ResponseType.OK,
                           Gtk.STOCK_CANCEL: Gtk.ResponseType.CANCEL}):
-                try:
-                    
+                try:                    
                     self.ProcessHandler.finish()
                 except Exception as e:
                     ca.dialog(None, Gtk.MessageType.ERROR,
@@ -233,8 +232,8 @@ class ProcessingGui(object):
                 window = Gtk.Window(Gtk.WindowType.TOPLEVEL)
                 window.connect('destroy', self.close_editor, identifier)
                 ca.set_window_size(window,
-                                       Gdk.Screen.width()-1,
-                                       Gdk.Screen.height()-1)
+                                   Gdk.Screen.width()-1,
+                                   Gdk.Screen.height()-1)
                 editor = Editor(window, self.books[identifier])
             except Exception as e:
                 ca.dialog(None, Gtk.MessageType.ERROR, str(e))
@@ -284,7 +283,6 @@ class ProcessingGui(object):
             args = [queue, 'sync']
             kwargs = {'qpid': identifier, 
                       'qlogger': logger}
-
             if self.ProcessHandler.add_process(fnc, pid, args, kwargs, logger):
                 self.books[identifier].start_time = Util.microseconds()
                 path = self.model.get_path(self.books[identifier].entry)
@@ -304,21 +302,29 @@ class ProcessingGui(object):
         if identifier not in self.books:
             return False
         if not identifier in self.ProcessHandler.item_queue:
-            path = self.model.get_path(self.books[identifier].entry)
+            path = self.model.get_path(self.books[identifier].entry)            
             if (identifier + '_main' in self.ProcessHandler.handled_exceptions or
                 identifier + '_featuredetection' in self.ProcessHandler.handled_exceptions):
                 self.model[path][1] = 'ERROR'
                 self.model[path][3] = '--'
                 #self.model[path][4] = '--'
+                
+            if not 'FeatureDetection' in (self.ProcessHandler.OperationObjects[identifier]):
                 return True
-            
             op_obj = self.ProcessHandler.OperationObjects[identifier]['FeatureDetection']
-            completed = len(op_obj.completed)
+            op_num = len(op_obj.completed)
+            completed = 0
+            avg_exec_time = 0
+            for op, leaf_t in op_obj.completed.items():
+                c = len(leaf_t)
+                completed += c
+                if c > 0:
+                    avg_exec_time += op_obj.get_avg_exec_time(op)
             if completed == 0:
                 return True
-            fraction = float(completed) / float(self.books[identifier].page_count)
-            avg_exec_time = op_obj.get_avg_exec_time()
-            remaining_page_count = self.books[identifier].page_count - completed
+            avg_exec_time = avg_exec_time/op_num
+            fraction = float(completed) / (float(self.books[identifier].page_count) * op_num)
+            remaining_page_count = (self.books[identifier].page_count * op_num) - completed
             estimated_secs = int(avg_exec_time * remaining_page_count)
             estimated_mins = int(estimated_secs/60)
             estimated_secs -= estimated_mins * 60

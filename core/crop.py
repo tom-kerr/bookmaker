@@ -8,7 +8,6 @@ from environment import Environment
 class Crop(Operation):
     """ Handles the cropping of images.
     """
-
     components = {'cropper': {'class': 'Cropper',
                               'callback': None}}
 
@@ -31,10 +30,8 @@ class Crop(Operation):
             try:
                 self.Cropper.run(leaf, **kwargs)
             except:
-                self.ProcessHandler.join((self.book.identifier + 
-                                          '_Crop_cropper_pipeline',
-                                          Util.exception_info(),
-                                          self.book.logger))
+                pid = self.make_pid_string('cropper_pipeline')
+                self.ProcessHandler.join((pid, Util.exception_info()))
             else:
                 exec_time = self.Cropper.get_last_exec_time()
-                self.complete_process(leaf, exec_time)
+                self.complete_process('Cropper', leaf, exec_time)

@@ -32,7 +32,6 @@ class FeatureDetection(Operation):
             pid = self.make_pid_string('__init__')
             self.ProcessHandler.join((pid, Util.exception_info()))
                                       
-
     def pipeline(self, start=None, end=None):
         if self.book.settings['respawn']:
             self.book.scandata.new(self.book.identifier, self.book.page_count,
@@ -46,6 +45,7 @@ class FeatureDetection(Operation):
             leaf_exec_time = 0
             for item in self.components:
                 component, callback = item
+                cls = component.__class__.__name__
                 try:
                     component.run(leaf, callback=callback)
                     exec_time = component.get_last_exec_time()
@@ -54,13 +54,12 @@ class FeatureDetection(Operation):
                     pid = self.make_pid_string('pipeline.'+ str(start))
                     self.ProcessHandler.join((pid, Util.exception_info()))  
                 else:
+                    self.complete_process(cls, leaf, leaf_exec_time)
                     self.book.logger.debug(
                         'leaf {} completed {}: {} Seconds'.\
                             format(leaf, 
                                    str(component.__class__.__name__),
-                                   str(round(exec_time, 3)) ))
-                                     
-            self.complete_process(leaf, leaf_exec_time)
+                                   str(round(exec_time, 3)) ))                    
             self.book.logger.debug('Finished FeatureDetection processing leaf ' + 
                                    str(leaf) + ' in ' + str(round(leaf_exec_time, 3)) + 
                                    ' Seconds')

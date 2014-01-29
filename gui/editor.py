@@ -2027,7 +2027,7 @@ class ExportHandler(object):
         self.stack_controls.set_size_request(self.editor.window.width/2,
                                              self.editor.window.height-50),
                                  
-        self.init_cropping()
+        self.init_cropper()
         self.init_ocr()
 
         self.stack_controls_frame.add(self.stack_controls)
@@ -2051,19 +2051,19 @@ class ExportHandler(object):
                               self.ocr_lang_options,
                               self.global_derive_button), True)
 
-    def init_cropping(self):
-        kwargs = {'label': 'Cropping',
+    def init_cropper(self):
+        kwargs = {'label': 'Cropper',
                   'shadow_type': Gtk.ShadowType.OUT,
                   'label_xalign': 0.5,
                   'label_yalign': 0.5,
                   'visible': True}
-        self.cropping_frame = Gtk.Frame(**kwargs)
-        self.cropping_frame.set_size_request(self.editor.window.width/3, 100),
+        self.cropper_frame = Gtk.Frame(**kwargs)
+        self.cropper_frame.set_size_request(self.editor.window.width/3, 100),
                                             
         kwargs = {'orientation': Gtk.Orientation.VERTICAL,
                   'visible': True}
-        self.cropping_vbox = Gtk.Box(**kwargs)
-        self.cropping_vbox.set_size_request(-1, 150),
+        self.cropper_vbox = Gtk.Box(**kwargs)
+        self.cropper_vbox.set_size_request(-1, 150),
                                            
         kwargs = {'orientation': Gtk.Orientation.HORIZONTAL,
                   'visible': True}
@@ -2073,19 +2073,19 @@ class ExportHandler(object):
         kwargs = {'show_text': True,
                   'text': '0%',
                   'visible': True}
-        self.cropping_progress = Gtk.ProgressBar(**kwargs)
+        self.cropper_progress = Gtk.ProgressBar(**kwargs)
         
-        kwargs = {'label': 'Initialize Cropping',
+        kwargs = {'label': 'Initialize Cropper',
                   'visible': True}
         self.init_crop_button = Gtk.Button(**kwargs)
         self.init_crop_button.set_size_request(-1, -1)
         self.init_crop_button.connect('clicked', self.run_cropper)
 
-        self.cropping_vbox.pack_start(self.controls_hbox, True, False, 0)
-        self.cropping_vbox.pack_start(self.init_crop_button, True, True, 0)
-        self.cropping_vbox.pack_start(self.cropping_progress, True, True, 0)
-        self.cropping_frame.add(self.cropping_vbox)
-        self.stack_controls.put(self.cropping_frame, 
+        self.cropper_vbox.pack_start(self.controls_hbox, True, False, 0)
+        self.cropper_vbox.pack_start(self.init_crop_button, True, True, 0)
+        self.cropper_vbox.pack_start(self.cropper_progress, True, True, 0)
+        self.cropper_frame.add(self.cropper_vbox)
+        self.stack_controls.put(self.cropper_frame, 
                                 ((self.editor.window.width/4) - 
                                  (self.editor.window.width/3)/2 ), 0)
 
@@ -2112,7 +2112,8 @@ class ExportHandler(object):
                   'visible': True}
         self.ocr_hbox = Gtk.Box(**kwargs)
         self.ocr_hbox.set_size_request(-1, 50)
-                                      
+
+        self.language = None
         self.ocr_lang_options = Gtk.ComboBoxText()
         for num, lang in enumerate(Tesseract.languages):
             self.ocr_lang_options.insert_text(int(num), str(lang))
@@ -2562,8 +2563,8 @@ class ExportHandler(object):
         self.disable_interface()
         queue = self.ProcessHandler.new_queue()
         update = []
-        
         fnc = self.ProcessHandler.run_pipeline_distributed
+
         cls = 'Crop'
         mth = 'cropper_pipeline'
         pid = '.'.join((self.editor.book.identifier, fnc.__name__, cls, mth))
@@ -2572,9 +2573,9 @@ class ExportHandler(object):
                                None, {'crop': 'cropBox'}],
                       'kwargs': {},
                       'callback': None}
-        ca.run_in_background(self.update_progress, 2000, args=('Crop', 'cropping'))
+        ca.run_in_background(self.update_progress, 2000, args=('Crop', 'cropper'))
         update.append('cropper')
-                                       
+
         if self.language is not None:
             cls = 'OCR'
             mth = 'tesseract_hocr_pipeline'
@@ -2590,7 +2591,7 @@ class ExportHandler(object):
         if self.check_derive_format_selected():
             formats = self.get_derive_format_args()
             if 'djvu' in formats:
-                cls = 'Derive'
+                cls = 'Djvu'
                 mth = 'make_djvu_with_c44'
                 pid = '.'.join((self.editor.book.identifier, fnc.__name__, cls, mth))
                 queue[pid] = {'func': fnc,
@@ -2598,11 +2599,11 @@ class ExportHandler(object):
                                        None, self.return_djvu_args()],
                               'kwargs': {},
                               'callback': 'assemble_djvu_with_djvm'}
-                ca.run_in_background(self.update_progress, 2000, args=('Derive', 'djvu'))
+                ca.run_in_background(self.update_progress, 2000, args=('Djvu', 'djvu'))
                 update.append('djvu')
             
             if 'pdf' in formats:
-                cls = 'Derive'
+                cls = 'PDF'
                 mth = 'make_pdf_with_hocr2pdf'
                 pid = '.'.join((self.editor.book.identifier, fnc.__name__, cls, mth))
                 queue[pid] = {'func': fnc,
@@ -2610,7 +2611,7 @@ class ExportHandler(object):
                                        None, self.return_pdf_args()],
                               'kwargs': {},
                               'callback': 'assemble_pdf_with_pypdf'}
-                ca.run_in_background(self.update_progress, 2000, args=('Derive', 'pdf'))
+                ca.run_in_background(self.update_progress, 2000, args=('PDF', 'pdf'))
                 update.append('pdf')
 
         self.ProcessHandler.add_process(func=self.ProcessHandler.drain_queue,
@@ -2629,8 +2630,11 @@ class ExportHandler(object):
             return True
         else:
             op_obj = self.ProcessHandler.OperationObjects[identifier][op]
-        completed = len(op_obj.completed)
-        fraction = float(completed)/float(self.editor.book.page_count-2)
+        completed = 0
+        op_num = len(op_obj.completed)
+        for op, leaf_t, in op_obj.completed.items():
+            completed += len(leaf_t)
+        fraction = float(completed)/(float(self.editor.book.page_count-2)*op_num)
         setattr(self, gui_id + '_fraction', fraction)
         progress = getattr(self, gui_id + '_progress')
         progress.set_fraction(fraction)
@@ -2646,17 +2650,17 @@ class ExportHandler(object):
             return True
         num_tasks = len(update)
         total_fraction = 0.0
-        if 'cropping' in update:
+        if 'cropper' in update:
             if 'Crop' in self.ProcessHandler.OperationObjects[identifier]:
-                total_fraction += self.cropping_fraction/num_tasks
+                total_fraction += self.cropper_fraction/num_tasks
         if 'ocr' in update:
             if 'OCR' in self.ProcessHandler.OperationObjects[identifier]:
                 total_fraction += self.ocr_fraction/num_tasks
         if 'pdf' in update:
-            if 'Derive' in self.ProcessHandler.OperationObjects[identifier]:
+            if 'PDF' in self.ProcessHandler.OperationObjects[identifier]:
                 total_fraction += self.pdf_fraction/num_tasks
         if 'djvu' in update:
-            if 'Derive' in self.ProcessHandler.OperationObjects[identifier]:
+            if 'Djvu' in self.ProcessHandler.OperationObjects[identifier]:
                 total_fraction += self.djvu_fraction/num_tasks
         self.global_progress.set_fraction(total_fraction)
         self.global_progress.set_text(str(int(total_fraction*100)) + '%')
@@ -2674,7 +2678,7 @@ class ExportHandler(object):
         args = [cls, mth, self.editor.book, None, {'crop': 'cropBox'}]
         kwargs = {}
         self.ProcessHandler.add_process(fnc, pid, args, kwargs)  
-        ca.run_in_background(self.update_progress, 2000, args=('Crop', 'cropping'))
+        ca.run_in_background(self.update_progress, 2000, args=('Crop', 'cropper'))
 
     def run_ocr(self, widget):
         fnc = self.ProcessHandler.run_pipeline_distributed
@@ -2693,21 +2697,23 @@ class ExportHandler(object):
 
     def make_pdf(self, widget):
         fnc = self.ProcessHandler.run_pipeline_distributed
-        cls = 'Derive'
+        cls = 'PDF'
         mth = 'make_pdf_with_hocr2pdf'
         pid = '.'.join((self.editor.book.identifier, fnc.__name__, cls, mth))
         args = [cls, mth, self.editor.book, None, self.return_pdf_args()]
-        self.ProcessHandler.add_process(fnc, pid, args, {})
-        ca.run_in_background(self.update_progress, 2000, args=('Derive', 'pdf'))
+        self.ProcessHandler.add_process(fnc, pid, args, {},
+                                        callback='assemble_pdf_with_pypdf')
+        ca.run_in_background(self.update_progress, 2000, args=('PDF', 'pdf'))
 
     def make_djvu(self, widget):
         fnc = self.ProcessHandler.run_pipeline_distributed
-        cls = 'Derive'
+        cls = 'Djvu'
         mth = 'make_djvu_with_c44'
         pid = '.'.join((self.editor.book.identifier, fnc.__name__, cls, mth))
         args = [cls, mth, self.editor.book, None, self.return_djvu_args()]
-        self.ProcessHandler.add_process(fnc, pid, args, {})
-        ca.run_in_background(self.update_progress, 2000, args=('Derive', 'djvu'))
+        self.ProcessHandler.add_process(fnc, pid, args, {}, 
+                                        callback='assemble_djvu_with_djvm')
+        ca.run_in_background(self.update_progress, 2000, args=('Djvu', 'djvu'))
 
     def get_derive_format_args(self):
         formats = {}

@@ -4,11 +4,11 @@ class Operation(object):
     """ Base Class for processing operations.
     """
     def __init__(self, components):
-        self._import_components(components)
         self.halt = False
         self.completed = {}
-        self.exec_times = []
-
+        self.exec_times = {}
+        self._import_components(components)        
+        
     def _import_components(self, components):
         self.imports = {}
         for component, info  in components.items():
@@ -16,6 +16,8 @@ class Operation(object):
             globals()[_class] = __import__('components.'+component,
                                            globals(), locals(),
                                            [_class,], -1)
+            self.completed[_class] = {}
+            self.exec_times[_class] = []
         self.imports = components
 
     def init_components(self, book):
@@ -40,10 +42,16 @@ class Operation(object):
             component, callback = item
             component.Util.end_active_processes()     
 
-    def complete_process(self, leaf, exec_time):
-        self.completed[leaf] = exec_time
-        self.exec_times.append(exec_time)
+    def complete_process(self, cls, leaf, exec_time):
+        if isinstance(leaf, list):
+            etime = exec_time/len(leaf)
+            for l in leaf:
+                self.complete_process(cls, l, etime)
+            return
+        else:
+            self.completed[cls][leaf] = exec_time
+            self.exec_times[cls].append(exec_time)
 
-    def get_avg_exec_time(self):
-        return sum(self.exec_times)/len(self.exec_times)
+    def get_avg_exec_time(self, cls):
+        return sum(self.exec_times[cls])/len(self.exec_times[cls])
 
