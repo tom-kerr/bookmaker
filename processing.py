@@ -269,6 +269,7 @@ class ProcessHandling(object):
             if identifier not in self.OperationObjects:
                 self.OperationObjects[identifier] = {}
             self.OperationObjects[identifier][_class] = globals()[_class](self, book)
+            self.OperationObjects[identifier][_class].init_bookkeeping()
             function = getattr(self.OperationObjects[identifier][_class], method)
             return function
 
@@ -288,10 +289,9 @@ class ProcessHandling(object):
             if not kwargs:
                 kwargs = {}
             identifier = book.identifier
-            function = self._create_operation_instance(identifier, cls, 
-                                                       mth, book)
+            function = self._create_operation_instance(identifier, cls, mth, book)
             queue = self.new_queue()
-            for chunk in range(0, self.cores):
+            for chunk in range(0, self.cores - self.processes):
                 start, end = self.get_chunk(book.page_count, chunk)
                 kwargs['start'], kwargs['end'] = start, end
                 pid = '.'.join((book.identifier, cls, mth, str(start)))
@@ -302,8 +302,17 @@ class ProcessHandling(object):
             return f(self, queue, identifier, cls, callback)
         return distribute
 
+    def add_default_op_cb(self, callback):
+        if not callback:
+            callback = []
+        elif not isinstance(callback, list):
+            callback = [callback, ]
+        callback.append('set_finished')
+        return callback
+
     @multi_threaded
     def run_pipeline_distributed(self, queue, identifier, cls, callback=None):
+        callback = self.add_default_op_cb(callback)
         self.drain_queue(queue, 'async')
         if callback:
             self.execute_callback(identifier, cls, callback)
@@ -324,7 +333,10 @@ class ProcessHandling(object):
             self.execute_callback(identifier, cls, callback)
 
     def execute_callback(self, identifier, _class, callback):
-        if isinstance(callback, str):
-            getattr(self.OperationObjects[identifier][_class], callback)()
-        elif hasattr(callback, '__call__'):
-            callback()
+        if not isinstance(callback, list):
+            callback = [callback, ]
+        for cb in callback:
+            if isinstance(cb, str):
+                getattr(self.OperationObjects[identifier][_class], cb)()
+            elif hasattr(cb, '__call__'):
+                cb()

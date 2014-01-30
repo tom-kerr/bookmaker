@@ -2630,19 +2630,21 @@ class ExportHandler(object):
             return True
         else:
             op_obj = self.ProcessHandler.OperationObjects[identifier][op]
-        completed = 0
-        op_num = len(op_obj.completed)
-        for op, leaf_t, in op_obj.completed.items():
-            completed += len(leaf_t)
-        fraction = float(completed)/(float(self.editor.book.page_count-2)*op_num)
-        setattr(self, gui_id + '_fraction', fraction)
-        progress = getattr(self, gui_id + '_progress')
-        progress.set_fraction(fraction)
-        progress.set_text(str(int(fraction*100)) + '%')
-        if fraction == 1.0:
-            return False
-        else:
-            return True
+            progress = getattr(self, gui_id + '_progress')
+            if op_obj.completed['__finished__']:
+                progress.set_fraction(1.0) #bug? always sets to 101% 
+                return False
+            else:
+                completed = 0
+                op_num = len(op_obj.completed) - 1
+                for op, leaf_t, in op_obj.completed.items():
+                    if op != '__finished__':
+                        completed += len(leaf_t)
+                fraction = float(completed)/(float(self.editor.book.page_count-2)*op_num)
+                setattr(self, gui_id + '_fraction', fraction)
+                progress.set_fraction(fraction)
+                progress.set_text(str(int(fraction*100)) + '%')
+                return True
 
     def update_run_all_progress(self, update):
         identifier = self.editor.book.identifier

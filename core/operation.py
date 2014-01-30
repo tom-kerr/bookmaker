@@ -5,10 +5,17 @@ class Operation(object):
     """
     def __init__(self, components):
         self.halt = False
-        self.completed = {}
-        self.exec_times = {}
         self._import_components(components)        
-        
+        self.init_bookkeeping()
+
+    def init_bookkeeping(self):
+        self.completed = {'__finished__': False}
+        self.exec_times = {}
+        for component, info  in self.imports.items():
+            _class = info['class']
+            self.completed[_class] = {}
+            self.exec_times[_class] = []
+
     def _import_components(self, components):
         self.imports = {}
         for component, info  in components.items():
@@ -16,8 +23,6 @@ class Operation(object):
             globals()[_class] = __import__('components.'+component,
                                            globals(), locals(),
                                            [_class,], -1)
-            self.completed[_class] = {}
-            self.exec_times[_class] = []
         self.imports = components
 
     def init_components(self, book):
@@ -51,6 +56,9 @@ class Operation(object):
         else:
             self.completed[cls][leaf] = exec_time
             self.exec_times[cls].append(exec_time)
+
+    def set_finished(self):
+        self.completed['__finished__'] = True
 
     def get_avg_exec_time(self, cls):
         return sum(self.exec_times[cls])/len(self.exec_times[cls])
