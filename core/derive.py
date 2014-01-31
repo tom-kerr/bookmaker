@@ -7,6 +7,7 @@ from lxml import etree
 
 from util import Util
 from .operation import Operation
+from components.tesseract import Tesseract
 
 
 class PDF(Operation):

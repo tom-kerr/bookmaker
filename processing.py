@@ -124,7 +124,9 @@ class ProcessHandling(object):
                                    ' minutes')
                 inactive[pid] = thread
         for pid, thread in inactive.items():
+            identifier, cls = pid.split('.')[:2]
             if thread.func not in ProcessHandling.thread_count_ignore:
+                self.OperationObjects[identifier][cls].thread_count -= 1
                 self.processes -= 1
             self._inactive_threads[pid] = thread
             del self._active_threads[pid]
@@ -262,15 +264,15 @@ class ProcessHandling(object):
                                    'Pid: ' + str(pid))                                   
             return True
 
-    def _create_operation_instance(self, identifier, _class, method, book):
-        if _class not in globals():
-            raise LookupError('Could not find module \'' + _class + '\'')
+    def _create_operation_instance(self, identifier, cls, method, book):
+        if cls not in globals():
+            raise LookupError('Could not find module \'' + cls + '\'')
         else:
             if identifier not in self.OperationObjects:
                 self.OperationObjects[identifier] = {}
-            self.OperationObjects[identifier][_class] = globals()[_class](self, book)
-            self.OperationObjects[identifier][_class].init_bookkeeping()
-            function = getattr(self.OperationObjects[identifier][_class], method)
+            self.OperationObjects[identifier][cls] = globals()[cls](self, book)
+            self.OperationObjects[identifier][cls].init_bookkeeping()
+            function = getattr(self.OperationObjects[identifier][cls], method)
             return function
 
     def get_chunk(self, pagecount, chunk):
@@ -291,7 +293,9 @@ class ProcessHandling(object):
             identifier = book.identifier
             function = self._create_operation_instance(identifier, cls, mth, book)
             queue = self.new_queue()
-            for chunk in range(0, self.cores - self.processes):
+            available_cores = self.cores - self.processes
+            self.OperationObjects[identifier][cls].thread_count = available_cores
+            for chunk in range(0, available_cores):
                 start, end = self.get_chunk(book.page_count, chunk)
                 kwargs['start'], kwargs['end'] = start, end
                 pid = '.'.join((book.identifier, cls, mth, str(start)))
@@ -340,3 +344,57 @@ class ProcessHandling(object):
                 getattr(self.OperationObjects[identifier][_class], cb)()
             elif hasattr(cb, '__call__'):
                 cb()
+
+    def get_time_elapsed(self, start_time):
+        current_time = time.time()
+        elapsed_secs = int(current_time - start_time)
+        elapsed_mins = int(elapsed_secs/60)
+        elapsed_secs -= elapsed_mins * 60
+        return elapsed_mins, elapsed_secs
+
+    def get_time_remaining(self, total, completed, avg_exec_time, thread_count):
+        fraction = float(completed) / (float(total))
+        remaining_page_count = total - completed
+        estimated_secs = int((int(avg_exec_time * remaining_page_count))/thread_count)
+        estimated_mins = int(estimated_secs/60)
+        estimated_secs -= estimated_mins * 60
+        return estimated_mins, estimated_secs
+
+    def get_operation_state(self, book, identifier, cls, total):
+        state = {'finished': False}
+        op_obj = self.OperationObjects[identifier][cls]
+        thread_count = self.OperationObjects[identifier][cls].thread_count
+        if op_obj.completed['__finished__'] or thread_count == 0:
+            elapsed_mins, elapsed_secs = \
+                self.get_time_elapsed(book.start_time)
+            state['finished'] = True
+            state['completed'] = total
+            state['fraction'] = 1.0
+            state['estimated_mins'] = 0.0
+            state['estimated_secs'] = 0.0
+            state['elapsed_mins'] = elapsed_mins
+            state['elapsed_secs'] = elapsed_secs
+        else:
+            completed = 0
+            op_num = len(op_obj.completed) - 1
+            avg_exec_time = 0
+            for op, leaf_t, in op_obj.completed.items():
+                if op != '__finished__':
+                    c = len(leaf_t)
+                    completed += c
+                    if c > 0:
+                        avg_exec_time += op_obj.get_avg_exec_time(op)
+            fraction = float(completed)/(float(total)*op_num)
+            estimated_mins, estimated_secs = \
+                self.get_time_remaining(total, completed,
+                                        avg_exec_time,
+                                        thread_count)
+            elapsed_mins, elapsed_secs = \
+                self.get_time_elapsed(book.start_time)            
+            state['completed'] = completed
+            state['fraction'] = fraction
+            state['estimated_mins'] = estimated_mins
+            state['estimated_secs'] = estimated_secs
+            state['elapsed_mins'] = elapsed_mins
+            state['elapsed_secs'] = elapsed_secs
+        return state

@@ -9,6 +9,7 @@ class Operation(object):
         self.init_bookkeeping()
 
     def init_bookkeeping(self):
+        self.thread_count = 0
         self.completed = {'__finished__': False}
         self.exec_times = {}
         for component, info  in self.imports.items():

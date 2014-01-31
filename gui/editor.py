@@ -11,11 +11,7 @@ gi.require_version("Gdk", "3.0")
 from gi.repository import Gtk, Gdk, GdkPixbuf
 from gi.repository import GObject
 GObject.threads_init()
-
 import cairo
-
-#import gtk, cairo, gobject
-#GObject.threads_init()
 
 from environment import Environment
 from util import Util
@@ -2622,28 +2618,31 @@ class ExportHandler(object):
         ca.run_in_background(self.update_run_all_progress, 2000, update)
         
     def update_progress(self, args):
-        op, gui_id = args
+        cls, gui_id = args
         identifier = self.editor.book.identifier
         if not identifier in self.ProcessHandler.OperationObjects:
             return True
-        if op not in self.ProcessHandler.OperationObjects[identifier]:
+        if cls not in self.ProcessHandler.OperationObjects[identifier]:
             return True
         else:
-            op_obj = self.ProcessHandler.OperationObjects[identifier][op]
             progress = getattr(self, gui_id + '_progress')
-            if op_obj.completed['__finished__']:
-                progress.set_fraction(1.0) #bug? always sets to 101% 
+
+            total = self.editor.book.page_count-2
+            state = self.ProcessHandler.get_operation_state(self.editor.book, 
+                                                            identifier, cls, 
+                                                            total)
+                        
+            if state['finished']:
+                progress.set_fraction(1.0)
+                progress.set_text('100%')
                 return False
             else:
-                completed = 0
-                op_num = len(op_obj.completed) - 1
-                for op, leaf_t, in op_obj.completed.items():
-                    if op != '__finished__':
-                        completed += len(leaf_t)
-                fraction = float(completed)/(float(self.editor.book.page_count-2)*op_num)
+                fraction = state['fraction']
                 setattr(self, gui_id + '_fraction', fraction)
-                progress.set_fraction(fraction)
-                progress.set_text(str(int(fraction*100)) + '%')
+                progress.set_fraction(fraction)                
+                string = str(int(fraction*100)) + '% -- Time Remaining: ' \
+                    + str(state['estimated_mins']) + 'mins ' + str(state['estimated_secs']) + 'secs' 
+                progress.set_text(string)
                 return True
 
     def update_run_all_progress(self, update):
@@ -2679,6 +2678,7 @@ class ExportHandler(object):
         pid = '.'.join((self.editor.book.identifier, fnc.__name__, cls, mth ))
         args = [cls, mth, self.editor.book, None, {'crop': 'cropBox'}]
         kwargs = {}
+        self.editor.book.start_time = Util.microseconds()
         self.ProcessHandler.add_process(fnc, pid, args, kwargs)  
         ca.run_in_background(self.update_progress, 2000, args=('Crop', 'cropper'))
 

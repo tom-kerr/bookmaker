@@ -307,37 +307,26 @@ class ProcessingGui(object):
                 identifier + '_featuredetection' in self.ProcessHandler.handled_exceptions):
                 self.model[path][1] = 'ERROR'
                 self.model[path][3] = '--'
-                #self.model[path][4] = '--'
-                
-            if not 'FeatureDetection' in (self.ProcessHandler.OperationObjects[identifier]):
-                return True
-            op_obj = self.ProcessHandler.OperationObjects[identifier]['FeatureDetection']
-            op_num = len(op_obj.completed)
-            completed = 0
-            avg_exec_time = 0
-            for op, leaf_t in op_obj.completed.items():
-                c = len(leaf_t)
-                completed += c
-                if c > 0:
-                    avg_exec_time += op_obj.get_avg_exec_time(op)
-            if completed == 0:
-                return True
-            avg_exec_time = avg_exec_time/op_num
-            fraction = float(completed) / (float(self.books[identifier].page_count) * op_num)
-            remaining_page_count = (self.books[identifier].page_count * op_num) - completed
-            estimated_secs = int(avg_exec_time * remaining_page_count)
-            estimated_mins = int(estimated_secs/60)
-            estimated_secs -= estimated_mins * 60
-            self.model[path][3] = str(estimated_mins) + ' min ' + str(estimated_secs) + 'sec'
-
-            current_time = time.time()
-            elapsed_secs = int(current_time - self.books[identifier].start_time)
-            elapsed_mins = int(elapsed_secs/60)
-            elapsed_secs -= elapsed_mins * 60
-            self.model[path][4] = str(elapsed_mins) + ' min ' + str(elapsed_secs) + 'sec'
-
-            self.model[path][5] = fraction*100
-            if fraction == 1.0:
-                self.model[path][1] = 'finished'
                 return False
+                
+            if not 'FeatureDetection' in \
+                    self.ProcessHandler.OperationObjects[identifier]:
+                return True
+
+            op_num = len(self.ProcessHandler.OperationObjects[identifier]['FeatureDetection'].components)
+            
+            total = self.books[identifier].page_count * op_num
+            state = self.ProcessHandler.get_operation_state(self.books[identifier], 
+                                                            identifier, 'FeatureDetection',
+                                                            total)
+            if state['finished']:
+                self.model[path][1] = 'finished'
+                self.model[path][3] = '--'
+                self.model[path][5] = 100.0
+                return False
+            self.model[path][3] = (str(state['estimated_mins']) + ' min ' + 
+                                   str(state['estimated_secs']) + 'sec')
+            self.model[path][4] = (str(state['elapsed_mins']) + ' min ' + 
+                                   str(state['elapsed_secs']) + 'sec')
+            self.model[path][5] = state['fraction']*100            
         return True
