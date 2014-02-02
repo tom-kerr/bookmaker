@@ -207,9 +207,6 @@ class ProcessingGui(object):
             selected.append(model.get_value(model.get_iter(iter), 0))
         return selected
 
-    #def check_item_state(self, book):
-
-
     def remove_book(self, widget, data):
         ids = self.get_selected()
         if ids is None:
@@ -236,8 +233,8 @@ class ProcessingGui(object):
                 window = Gtk.Window(Gtk.WindowType.TOPLEVEL)
                 window.connect('destroy', self.close_editor, identifier)
                 ca.set_window_size(window,
-                                   Gdk.Screen.width()-1,
-                                   Gdk.Screen.height()-1)
+                                   Gdk.Screen.width()-40,
+                                   Gdk.Screen.height()-50)
                 editor = Editor(window, self.books[identifier])
             except Exception as e:
                 ca.dialog(None, Gtk.MessageType.ERROR, str(e))
@@ -287,7 +284,6 @@ class ProcessingGui(object):
         args = [queue, 'sync']
         #kwargs = {'qpid': identifier, 
         #          'qlogger': logger}
-
         self.ProcessHandler.add_process(fnc, pid, args)
                 
     def follow_progress(self, identifier):

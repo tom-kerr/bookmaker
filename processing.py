@@ -52,13 +52,21 @@ class ProcessHandling(object):
         if not self._polling_threads:
             self._init_thread_poll()
         if Environment.interface == 'shell':
-            self._init_progress_poll()
+            #if not self._polling_exceptions:
+            self._init_exception_poll()
+            #self._init_progress_poll()
 
     def _init_thread_poll(self):
         self._polling_threads = True
         self._thread_poll = Thread(target=self._poll_threads,
                                    name='_poll_threads')
         self._thread_poll.start()
+
+    def _init_exception_poll(self):
+        self._polling_exceptions = True
+        self._exception_poll = Thread(target=self._check_exception_queue,
+                                      name='_poll_exceptions')
+        self._exception_poll.start()
 
     def _init_progress_poll(self):
         #add some progress indicator for command line users
@@ -69,6 +77,7 @@ class ProcessHandling(object):
             if not self._polling_threads:
                 return
             time.sleep(1.0)
+            #self._check_exception_queue()
             self._clear_inactive()
             self._submit_waiting()
             if not self._are_active_processes():
@@ -92,7 +101,9 @@ class ProcessHandling(object):
     def _wait_till_idle(self, pids):
         finished = set()
         while True:
-            self._check_exception_queue()
+            if not self._polling_threads:
+                return
+            #self._check_exception_queue()
             active_pids = set()
             for pid, thread in self._active_threads.items():
                 active_pids.add(pid)
@@ -150,7 +161,8 @@ class ProcessHandling(object):
             self._destroy_thread(pid)
         if not identifier:
             self._item_queue = self.new_queue()
-        #self._polling_threads = False
+        self._polling_threads = False
+        self._polling_exceptions = False
 
     def _destroy_thread(self, pid):
         if pid in self._active_threads:
@@ -169,20 +181,26 @@ class ProcessHandling(object):
                 del self._handled_exceptions[remove]
 
     def _check_exception_queue(self):
-        try:
-            pid, traceback = self._exception_queue.get_nowait()
-        except Empty:
-            pass
-        else:
-            self._handled_exceptions.append(pid)
-            msg = 'Exception in ' + pid + ':\n' + traceback
-            identifier = pid.split('_')[0]
-            if Environment.interface == 'gui':
-                self.finish(identifier)
-                ca.dialog(message=msg)
-            elif Environment.interface == 'shell':
-                self.finish(identifier)
-                raise Exception(msg)
+        while True:
+            if not self._polling_exceptions:
+                return
+            time.sleep(1.0)
+            try:
+                pid, traceback = self._exception_queue.get_nowait()
+            except Empty:
+                pass
+            else:
+                self._handled_exceptions.append(pid)
+                msg = 'Exception in ' + pid + ':\n' + traceback
+                identifier = pid.split('_')[0]
+                if Environment.interface == 'gui':
+                    self.finish(identifier)
+                    ca.dialog(message=msg)
+                    return True
+                elif Environment.interface == 'shell':
+                    self.finish(identifier)
+                    print (msg)
+                    raise Exception(msg)
 
     def had_exception(self, identifier, cls=None, mth=None):
         if cls: 
@@ -256,7 +274,8 @@ class ProcessHandling(object):
         if qlogger and qpid:
             qend = Util.microseconds()
             qexec_time = str(round((qend - qstart)/60, 2))
-            qlogger.info('Drained queue ' + qpid + ' in ' + qexec_time + ' minutes')
+            qlogger.info('Drained queue ' + qpid + ' in ' + 
+                         qexec_time + ' minutes')
 
     def threads_available_for(self, pid):
         pid = '.'.join(pid.split('.')[:3])
@@ -288,7 +307,6 @@ class ProcessHandling(object):
             return False
         else:
             args, kwargs = self._parse_args(args, kwargs)
-            #print ('ADD PROC\n', pid, callback)
             new_thread = Thread(target=func, name=pid, 
                                 args=args, kwargs=kwargs)
             new_thread.func = func.__name__

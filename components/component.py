@@ -38,9 +38,9 @@ class Component(object):
                     if not isinstance(value, list):
                         value = [value,]
                     for v in value:
-                        if v not in (None, ''):
+                        if v not in (None, '', False):
                             cmd.append(str(v))
-
+        
         output = self.Util.exec_cmd(cmd, stdout, stdin,
                                     retval, return_output,
                                     print_output, current_wd, 

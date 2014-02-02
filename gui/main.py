@@ -93,8 +93,8 @@ class BookmakerGUI:
                     ca.dialog(None, Gtk.MessageType.ERROR, str(e))
                     return
                 ca.set_window_size(window,
-                                   int(Gdk.Screen.width()*0.95),
-                                   int(Gdk.Screen.height()*0.95))
+                                   int(Gdk.Screen.width()-40),
+                                   int(Gdk.Screen.height()-50))
             #try:
             self.editor = Editor(window, book_data)
             #except Exception as E:

@@ -41,19 +41,21 @@ class Editor(object):
         self.window.show()
 
     def quit(self, widget, data):
-        return False
-        if (self.ImageEditor.save_needed['l'][0] or self.ImageEditor.save_needed['r'][0] or
+        if (self.ImageEditor.save_needed['l'][0] or 
+            self.ImageEditor.save_needed['r'][0] or
             (self.ExportHandler.ProcessHandler.processes != 0)):
             if ca.dialog(None, Gtk.MessageType.QUESTION,
-                             'There are unsaved changes/running processes, are you sure you want to quit?',
+                         'There are unsaved changes/running processes, '+
+                         'are you sure you want to quit?',
                              {Gtk.STOCK_OK: Gtk.ResponseType.OK,
                               Gtk.STOCK_CANCEL: Gtk.ResponseType.CANCEL}):
                 try:
                     self.ExportHandler.ProcessHandler.finish()
                 except Exception as e:
                     ca.dialog(None, Gtk.MessageType.ERROR,
-                                  'Failed to stop processes! \nException: ' + str(e),
-                                  {Gtk.STOCK_OK: Gtk.ResponseType.OK})
+                              'Failed to stop processes! \nException: ' + 
+                              str(e),
+                              {Gtk.STOCK_OK: Gtk.ResponseType.OK})
                     return True
                 else:
                     return False
@@ -211,25 +213,25 @@ class ImageEditor(object):
     def build_vertical_controls(self):
         kwargs = {'visible': True}
         self.vertical_controls_layout = Gtk.Layout(**kwargs)
-        gray = Gdk.Color.parse('gray')[1]
+        gray = Gdk.Color.parse('light gray')[1]
         self.vertical_controls_layout.modify_bg(Gtk.StateType.NORMAL, gray)
-        w = ImageEditor.vspace - 25
+        w = ImageEditor.vspace
         h = int(self.editor.window.height - ImageEditor.hspace)        
         self.vertical_controls_layout.set_size_request(w, h)
         self.build_display_controls()
-        x, y = 0, int(self.editor.window.height - ImageEditor.hspace) - 260
+        x, y = 0, int(self.editor.window.height - ImageEditor.hspace) - h
         self.vertical_controls_layout.put(self.frame, x, y)
 
     def build_display_controls(self):
         kwargs = {'visible': True}
         self.display_controls_eventbox = Gtk.EventBox(**kwargs)
-        w, h = -1, 260
+        w, h = ImageEditor.vspace-25, 260
         self.display_controls_eventbox.set_size_request(w, h)
         
         kwargs = {'orientation': Gtk.Orientation.VERTICAL,
                   'visible': True}
         self.display_controls = Gtk.Box(**kwargs)
-        w, h = -1, 260
+        w, h = ImageEditor.vspace-25, 260
         self.display_controls.set_size_request(w, h)
         self.display_controls_eventbox.add(self.display_controls)
 
@@ -243,6 +245,7 @@ class ImageEditor(object):
                   'label_yalign': 0.5,
                   'visible': True}
         self.draw_options_frame = Gtk.Frame(**kwargs)
+        self.draw_options_frame.set_size_request(w/2,-1)
         self.draw_options_frame.add(self.draw_options)
 
         self.init_active_crop_options()
@@ -261,7 +264,7 @@ class ImageEditor(object):
         kwargs = {'label': 'Display Controls',
                   'label_xalign': 0.5,
                   'label_yalign': 0.5,
-                  'shadow_type': Gtk.ShadowType.ETCHED_IN,
+                  'shadow_type': Gtk.ShadowType.ETCHED_OUT,
                   'visible': True}
         self.frame = Gtk.Frame(**kwargs)
         self.frame.add(self.display_controls_eventbox)
@@ -408,9 +411,9 @@ class ImageEditor(object):
     def build_horizontal_controls(self):       
         kwargs = {'visible': True}
         self.horizontal_controls_layout = Gtk.Layout(**kwargs)
-        gray = Gdk.Color.parse('gray')[1]
+        gray = Gdk.Color.parse('light gray')[1]
         self.horizontal_controls_layout.modify_bg(Gtk.StateType.NORMAL, gray)
-        w, h = self.editor.window.width, ImageEditor.hspace
+        w, h = self.editor.window.width, ImageEditor.hspace+50
         self.horizontal_controls_layout.set_size_request(w, h)
         
         kwargs = {'visible': True}
@@ -798,7 +801,7 @@ class ImageEditor(object):
             if (leaf > self.selected and
                 self.book.cropBox.hand_side[leaf] ==
                 self.book.cropBox.hand_side[self.selected]):
-                new_box[leaf] = copy(self.book.copBox.box[self.selected])
+                new_box[leaf] = copy(self.book.cropBox.box[self.selected])
                 new_box_with_skew_padding[leaf] = copy(self.book.cropBox.box_with_skew_padding[self.selected])
                 affected.append(leaf)
             else:
@@ -2060,12 +2063,12 @@ class ExportHandler(object):
                   'label_yalign': 0.5,
                   'visible': True}
         self.cropper_frame = Gtk.Frame(**kwargs)
-        self.cropper_frame.set_size_request(self.editor.window.width/3, 100),
+        self.cropper_frame.set_size_request(self.editor.window.width/3, -1),
                                             
         kwargs = {'orientation': Gtk.Orientation.VERTICAL,
                   'visible': True}
         self.cropper_vbox = Gtk.Box(**kwargs)
-        self.cropper_vbox.set_size_request(-1, 150),
+        self.cropper_vbox.set_size_request(-1, -1),
                                            
         kwargs = {'orientation': Gtk.Orientation.HORIZONTAL,
                   'visible': True}
@@ -2162,19 +2165,19 @@ class ExportHandler(object):
         kwargs = {'shadow_type': Gtk.ShadowType.NONE,
                   'visible': True}
         self.derivative_controls_frame = Gtk.Frame(**kwargs)
-        w, h = self.editor.window.width/2, self.editor.window.height-50
+        w, h = int(self.editor.window.width/2)-25, self.editor.window.height-50
         self.derivative_controls_frame.set_size_request(w, h)
                                                             
         self.init_derivatives()
 
         self.derivative_controls_frame.add(self.derivative_controls)
-        self.main_layout.put(self.derivative_controls_frame, self.editor.window.width/2, 0)
+        self.main_layout.put(self.derivative_controls_frame, w, 0)
 
     def init_derivatives(self):
         kwargs = {'orientation': Gtk.Orientation.VERTICAL,
                   'visible': True}
         self.formats_vbox = Gtk.Box(**kwargs)
-        w, h = int(self.editor.window.width*.47), -1
+        w, h = -1, -1
         self.formats_vbox.set_size_request(w, h)
                                           
         for d in ('pdf', 'djvu', 'epub', 'text'):
@@ -2235,7 +2238,7 @@ class ExportHandler(object):
         kwargs = {'shadow_type': Gtk.ShadowType.OUT,
                   'visible': True}
         self.pdf_frame = Gtk.Frame(**kwargs)
-        self.pdf_frame.set_size_request(self.editor.window.width/2, 100)
+        self.pdf_frame.set_size_request(-1, 100)
         
         kwargs = {'orientation': Gtk.Orientation.VERTICAL,
                   'visible': True}
@@ -2310,7 +2313,7 @@ class ExportHandler(object):
         kwargs = {'shadow_type': Gtk.ShadowType.OUT,
                   'visible': True}
         self.djvu_frame = Gtk.Frame(**kwargs)
-        self.djvu_frame.set_size_request(int(self.editor.window.width*.45), -1)
+        self.djvu_frame.set_size_request(-1, -1)
                                         
         self.djvu_table = Gtk.Table(4, 4)
         self.djvu_table.show()
@@ -2657,18 +2660,16 @@ class ExportHandler(object):
         op_obj = self.ProcessHandler.OperationObjects[identifier]
         num_tasks = len(update)
         total_fraction = 0.0
-        if 'cropper' in update:
-            if 'Crop' in op_obj:
-                total_fraction += self.cropper_fraction/num_tasks
-        if 'ocr' in update:
-            if 'OCR' in op_obj:
-                total_fraction += self.ocr_fraction/num_tasks
-        if 'pdf' in update:
-            if 'PDF' in op_obj:
-                total_fraction += self.pdf_fraction/num_tasks
-        if 'djvu' in update:
-            if 'Djvu' in op_obj:
-                total_fraction += self.djvu_fraction/num_tasks
+        for op, cls in {'cropper': 'Crop',
+                        'ocr': 'OCR',
+                        'pdf': 'PDF',
+                        'djvu': 'Djvu'}.items():
+            if op in update:
+                if cls in op_obj:
+                    state = self.ProcessHandler.get_op_state\
+                        (self.editor.book, identifier,
+                         cls, self.editor.book.page_count)
+                    total_fraction += getattr(self, op+'_fraction')
         self.global_progress.set_fraction(total_fraction)
         self.global_progress.set_text(str(int(total_fraction*100)) + '%')
         if total_fraction == 1.0:
@@ -2709,8 +2710,9 @@ class ExportHandler(object):
         mth = 'make_pdf_with_hocr2pdf'
         pid = '.'.join((self.editor.book.identifier, fnc.__name__, cls, mth))
         args = [cls, mth, self.editor.book, None, self.return_pdf_args()]
-        self.ProcessHandler.add_process(fnc, pid, args, {},
-                                        callback='assemble_pdf_with_pypdf')
+        self.ProcessHandler.add_process(fnc, pid, args, 
+                                        {'callback': 'assemble_pdf_with_pypdf'})
+                                        
         ca.run_in_background(self.update_progress, 2000, args=('PDF', 'pdf'))
 
     def make_djvu(self, widget):
@@ -2719,8 +2721,8 @@ class ExportHandler(object):
         mth = 'make_djvu_with_c44'
         pid = '.'.join((self.editor.book.identifier, fnc.__name__, cls, mth))
         args = [cls, mth, self.editor.book, None, self.return_djvu_args()]
-        self.ProcessHandler.add_process(fnc, pid, args, {}, 
-                                        callback='assemble_djvu_with_djvm')
+        self.ProcessHandler.add_process(fnc, pid, args, 
+                                        {'callback': 'assemble_djvu_with_djvm'})
         ca.run_in_background(self.update_progress, 2000, args=('Djvu', 'djvu'))
 
     def get_derive_format_args(self):

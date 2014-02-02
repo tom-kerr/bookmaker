@@ -87,27 +87,20 @@ class Tesseract(Component):
         else:
             return output
 
-    """
-    def parse_hocr_files(self):
-        hocr_files = self.get_hocr_files()
-        if not hocr_files:
-            raise IOError('Could not parse hocr files; no files found.')
-        self.ocr_data = []
-        for leaf, hocr in hocr_files.items():
-            self.ocr_data.append(OCR.parse_hocr(hocr))
-        return True
-        """
-
-    def get_hocr_files(self):
+    def get_hocr_files(self, start=None, end=None):
+        if None in (start, end):
+            start, end = 1, self.book.page_count-1
         files = {}
-        for leaf in range(1, self.book.page_count-1):
+        for leaf in range(start, end):
             leafnum = "%04d" % leaf
-            base = self.book.dirs['tesseract_ocr'] + '/' + self.book.identifier + '_' + leafnum
+            base = self.book.dirs['tesseract_ocr'] + '/' + \
+                self.book.identifier + '_' + leafnum
             if os.path.exists(base + '.html'):
                 try:
                     os.rename(base + '.html', base + '.hocr')
                 except:
-                    raise IOError('Failed to rename tesseract hocr output for leaf ' + str(leaf))
+                    raise IOError('Failed to rename tesseract hocr output for leaf ' 
+                                  + str(leaf))
             if os.path.exists(base + '.hocr'):
                 files[leaf] = base + '.hocr'
         return files

@@ -20,6 +20,8 @@ class PDF(Operation):
         try:
             super(PDF, self).__init__(PDF.components)
             self.init_components(self.book)
+            print ('raising')
+            raise Exception('ASDsd')
         except:
             pid = self.make_pid_string('__init__')
             self.ProcessHandler.join((pid, Util.exception_info()))
@@ -39,7 +41,7 @@ class PDF(Operation):
         tesseract = Tesseract(self.book)
         if None in (start, end):
             start, end = 1, self.book.page_count-1
-        hocr_files = tesseract.get_hocr_files()
+        hocr_files = tesseract.get_hocr_files(start, end)
         dummy_hocr = self.book.dirs['derived'] + '/html.hocr'
         for leaf in range(start, end):
             self.book.logger.debug('hocr2pdf: leaf ' + str(leaf))
