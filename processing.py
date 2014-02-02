@@ -21,58 +21,64 @@ from gui.common import CommonActions as ca
 class ProcessHandling(object):
     """
     """
-    thread_count_ignore = ('drain_queue',
+    _thread_count_ignore = ('drain_queue',
                            'handle_thread_exceptions',
                            'distribute',
                            'run_pipeline')
 
-    def __init__(self, max_threads=None):
+    def __init__(self, max_threads=None, min_threads=None):        
+        try:
+            self.cores = multiprocessing.cpu_count()
+        except NotImplemented:
+            self.cores = 1
         if max_threads:
-            self.cores = max_threads
+            self.max_threads = max_threads
         else:
-            try:
-                self.cores = multiprocessing.cpu_count()
-            except NotImplemented:
-                self.cores = 1
+            self.max_threads = self.cores
+        if min_threads:
+            self.min_threads = min_threads
+        else:
+            self.min_threads = self.max_threads
         self.processes = 0
         self._active_threads = {}
         self._inactive_threads = self.new_queue()
-        self.item_queue = self.new_queue()
-        self._ExceptionQueue = Queue()
-        self.handled_exceptions = []
-        self.polling_threads = False
+        self._item_queue = self.new_queue()
+        self._exception_queue = Queue()
+        self._handled_exceptions = []
+        self._polling_threads = False
         self.OperationObjects = {}
         
     def _init_polls(self):        
-        if not self.polling_threads:
+        if not self._polling_threads:
             self._init_thread_poll()
         if Environment.interface == 'shell':
             self._init_progress_poll()
 
     def _init_thread_poll(self):
-        self.polling_threads = True
+        self._polling_threads = True
         self._thread_poll = Thread(target=self._poll_threads,
                                    name='_poll_threads')
         self._thread_poll.start()
 
     def _init_progress_poll(self):
+        #add some progress indicator for command line users
         pass
 
     def _poll_threads(self):
         while True:
-            if not self.polling_threads:
+            if not self._polling_threads:
                 return
             time.sleep(1.0)
             self._clear_inactive()
             self._submit_waiting()
             if not self._are_active_processes():
-                self.polling_threads = False
+                self._polling_threads = False
                 return
 
     def _are_active_processes(self):
         if (self.processes == 0 and
             not [thread.func for pid, thread in self._active_threads.items()
-                 if thread.func in ProcessHandling.thread_count_ignore]):
+                 if thread.func in ProcessHandling._thread_count_ignore]):
             return False
         else:
             return True
@@ -83,15 +89,15 @@ class ProcessHandling(object):
         else:
             return False
 
-    def wait_till_idle(self, pids):
+    def _wait_till_idle(self, pids):
         finished = set()
         while True:
-            self.check_ExceptionQueue()
+            self._check_exception_queue()
             active_pids = set()
             for pid, thread in self._active_threads.items():
                 active_pids.add(pid)
             for id in pids:
-                if id not in active_pids and id not in self.item_queue:
+                if id not in active_pids and id not in self._item_queue:
                     finished.add(id)
             if len(finished) == len(pids):
                 break
@@ -99,19 +105,20 @@ class ProcessHandling(object):
                 time.sleep(1)
 
     def _wait(self, func, pid, args):
-        if not pid in self.item_queue:
-            self.item_queue[pid] = (func, args)
+        if not pid in self._item_queue:
+            self._item_queue[pid] = (func, args)
 
     def _submit_waiting(self):
         queue = []
-        for pid, item in self.item_queue.items():
+        for pid, item in self._item_queue.items():
             if self.add_process(item[0], pid, item[1]):
                 queue.append(pid)
+                time.sleep(1)
             else:
                 break
         queue.reverse()
         for pid in queue:
-            del self.item_queue[pid]
+            del self._item_queue[pid]
 
     def _clear_inactive(self):
         inactive = {}
@@ -125,7 +132,7 @@ class ProcessHandling(object):
                 inactive[pid] = thread
         for pid, thread in inactive.items():
             identifier, cls = pid.split('.')[:2]
-            if thread.func not in ProcessHandling.thread_count_ignore:
+            if thread.func not in ProcessHandling._thread_count_ignore:
                 self.OperationObjects[identifier][cls].thread_count -= 1
                 self.processes -= 1
             self._inactive_threads[pid] = thread
@@ -140,33 +147,34 @@ class ProcessHandling(object):
                 if pid.startswith(identifier):
                     destroy.append(pid)
         for pid in destroy:
-            self.destroy_thread(pid)
-        #self.item_queue = self.new_queue()
-        #self.polling_threads = False
+            self._destroy_thread(pid)
+        if not identifier:
+            self._item_queue = self.new_queue()
+        #self._polling_threads = False
 
-    def destroy_thread(self, pid):
+    def _destroy_thread(self, pid):
         if pid in self._active_threads:
             thread = self._active_threads[pid]
             thread.logger.info('Destroying Thread ' + str(pid))
-            if thread.func not in ProcessHandling.thread_count_ignore:
+            if thread.func not in ProcessHandling._thread_count_ignore:
                 self.processes -= 1
             del self._active_threads[pid]
 
-    def clear_exceptions(self, pid):
+    def _clear_exceptions(self, pid):
         remove = None
-        for num, item in enumerate(self.handled_exceptions):
+        for num, item in enumerate(self._handled_exceptions):
             if item == pid:
                 remove = num
             if remove is not None:
-                del self.handled_exceptions[remove]
+                del self._handled_exceptions[remove]
 
-    def check_ExceptionQueue(self):
+    def _check_exception_queue(self):
         try:
-            pid, traceback = self._ExceptionQueue.get_nowait()
+            pid, traceback = self._exception_queue.get_nowait()
         except Empty:
             pass
         else:
-            self.handled_exceptions.append(pid)
+            self._handled_exceptions.append(pid)
             msg = 'Exception in ' + pid + ':\n' + traceback
             identifier = pid.split('_')[0]
             if Environment.interface == 'gui':
@@ -176,18 +184,30 @@ class ProcessHandling(object):
                 self.finish(identifier)
                 raise Exception(msg)
 
-    def join(self, args):
-        self._ExceptionQueue.put(args)
-        self._ExceptionQueue.join()
+    def had_exception(self, identifier, cls=None, mth=None):
+        if cls: 
+            _pid = '.'.join((identifier, cls))
+            if mth: 
+                _pid = '.'.join((_pid, mth))
+        else:
+            _pid = identifier
+        for pid in self._handled_exceptions:
+            if _pid in pid:
+                return True
+        return False
 
-    def parse_args(self, args, kwargs):
+    def join(self, args):
+        self._exception_queue.put(args)
+        self._exception_queue.join()
+
+    def _parse_args(self, args, kwargs):
         if not isinstance(args, list):
             args = list([args,]) if args is not None else []
         if kwargs is None:
             kwargs = {}
         return args, kwargs
 
-    def parse_queue_data(self, data):
+    def _parse_queue_data(self, data):
         d = []
         if 'func' not in data:
             raise LookupError('Failed to find \'func\' argument; nothing to do.')
@@ -210,8 +230,8 @@ class ProcessHandling(object):
         pids = []
         for pid, data in queue.items():
             pids.append(pid)
-            func, args, kwargs, callback = self.parse_queue_data(data)
-            args, kwargs = self.parse_args(args, kwargs)
+            func, args, kwargs, callback = self._parse_queue_data(data)
+            args, kwargs = self._parse_args(args, kwargs)
             identifier = pid.split('.')[0]
             logger = logging.getLogger(identifier)
             #print ('DRAIN\n', mode, pid, callback)
@@ -232,22 +252,42 @@ class ProcessHandling(object):
             elif mode == 'async':
                 self.add_process(func, pid, args, kwargs, callback)                
         if mode == 'async':
-            self.wait_till_idle(pids)      
+            self._wait_till_idle(pids)      
         if qlogger and qpid:
             qend = Util.microseconds()
             qexec_time = str(round((qend - qstart)/60, 2))
             qlogger.info('Drained queue ' + qpid + ' in ' + qexec_time + ' minutes')
+
+    def threads_available_for(self, pid):
+        pid = '.'.join(pid.split('.')[:3])
+        active = 0
+        for _pid in self._active_threads:
+            if pid in _pid:
+                active += 1
+        if active > 0:
+            available_threads = self.max_threads - active
+            if available_threads > 0:
+                return True
+            else:
+                return False
+        else:
+            available_threads = self.max_threads - self.processes
+            if available_threads >= self.min_threads and \
+                    available_threads <= self.max_threads:
+                return True
+            else:
+                return False
                         
     def add_process(self, func, pid, args=None, kwargs=None, callback=None):
         self._init_polls()
         if self._already_processing(pid):
             return False
-        self.clear_exceptions(pid)
-        if self.processes >= self.cores:
+        self._clear_exceptions(pid)
+        if not self.threads_available_for(pid):
             self._wait(func, pid, args)
             return False
         else:
-            args, kwargs = self.parse_args(args, kwargs)
+            args, kwargs = self._parse_args(args, kwargs)
             #print ('ADD PROC\n', pid, callback)
             new_thread = Thread(target=func, name=pid, 
                                 args=args, kwargs=kwargs)
@@ -258,7 +298,7 @@ class ProcessHandling(object):
             new_thread.start_time = Util.microseconds()
             new_thread.start()
             self._active_threads[pid] = new_thread
-            if new_thread.func not in ProcessHandling.thread_count_ignore:
+            if new_thread.func not in ProcessHandling._thread_count_ignore:
                 self.processes += 1
             new_thread.logger.info('New Thread Started --> ' +
                                    'Pid: ' + str(pid))                                   
@@ -275,13 +315,13 @@ class ProcessHandling(object):
             function = getattr(self.OperationObjects[identifier][cls], method)
             return function
 
-    def get_chunk(self, pagecount, chunk):
-        remainder = pagecount % self.cores
+    def _get_chunk(self, threads, pagecount, chunk):
+        remainder = pagecount % threads
         pagecount = pagecount - remainder
-        chunksize = pagecount/self.cores
+        chunksize = pagecount/threads
         start = chunksize * chunk
         end = start + chunksize
-        if chunk == self.cores-1:
+        if chunk == threads-1:
             end += remainder
         return int(start), int(end)
     
@@ -293,10 +333,11 @@ class ProcessHandling(object):
             identifier = book.identifier
             function = self._create_operation_instance(identifier, cls, mth, book)
             queue = self.new_queue()
-            available_cores = self.cores - self.processes
-            self.OperationObjects[identifier][cls].thread_count = available_cores
-            for chunk in range(0, available_cores):
-                start, end = self.get_chunk(book.page_count, chunk)
+            available_threads = self.cores - self.processes
+            self.OperationObjects[identifier][cls].thread_count = available_threads
+            book.start_time = Util.microseconds()
+            for chunk in range(0, available_threads):
+                start, end = self._get_chunk(available_threads, book.page_count, chunk)
                 kwargs['start'], kwargs['end'] = start, end
                 pid = '.'.join((book.identifier, cls, mth, str(start)))
                 queue[pid] = {'func': function,
@@ -306,7 +347,7 @@ class ProcessHandling(object):
             return f(self, queue, identifier, cls, callback)
         return distribute
 
-    def add_default_op_cb(self, callback):
+    def _add_default_op_cb(self, callback):
         if not callback:
             callback = []
         elif not isinstance(callback, list):
@@ -316,7 +357,7 @@ class ProcessHandling(object):
 
     @multi_threaded
     def run_pipeline_distributed(self, queue, identifier, cls, callback=None):
-        callback = self.add_default_op_cb(callback)
+        callback = self._add_default_op_cb(callback)
         self.drain_queue(queue, 'async')
         if callback:
             self.execute_callback(identifier, cls, callback)
@@ -324,6 +365,7 @@ class ProcessHandling(object):
     def run_pipeline(self, cls, mth, book, 
                      args=None, kwargs=None, callback=None):
         identifier = book.identifier
+        callback = self._add_default_op_cb(callback)
         function = self._create_operation_instance(identifier, cls, 
                                                    mth, book)
         queue = self.new_queue()
@@ -360,7 +402,7 @@ class ProcessHandling(object):
         estimated_secs -= estimated_mins * 60
         return estimated_mins, estimated_secs
 
-    def get_operation_state(self, book, identifier, cls, total):
+    def get_op_state(self, book, identifier, cls, total):
         state = {'finished': False}
         op_obj = self.OperationObjects[identifier][cls]
         thread_count = self.OperationObjects[identifier][cls].thread_count
@@ -386,7 +428,7 @@ class ProcessHandling(object):
                         avg_exec_time += op_obj.get_avg_exec_time(op)
             fraction = float(completed)/(float(total)*op_num)
             estimated_mins, estimated_secs = \
-                self.get_time_remaining(total, completed,
+                self.get_time_remaining(total, completed/op_num,
                                         avg_exec_time,
                                         thread_count)
             elapsed_mins, elapsed_secs = \

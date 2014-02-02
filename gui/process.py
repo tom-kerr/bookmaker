@@ -26,6 +26,7 @@ class ProcessingGui(object):
         self.editing = []
         self.books = {}
         self.ProcessHandler = ProcessHandling()
+        self._poll = True
         self.init_main()
         self.init_tasklist()
         self.init_buttons()
@@ -39,7 +40,7 @@ class ProcessingGui(object):
                          'There are processes running, are you sure you want to quit?',
                          {Gtk.STOCK_OK: Gtk.ResponseType.OK,
                           Gtk.STOCK_CANCEL: Gtk.ResponseType.CANCEL}):
-                try:                    
+                try:     
                     self.ProcessHandler.finish()
                 except Exception as e:
                     ca.dialog(None, Gtk.MessageType.ERROR,
@@ -47,9 +48,12 @@ class ProcessingGui(object):
                                   {Gtk.STOCK_OK: Gtk.ResponseType.OK})
                     return True
                 else:
+                    self._poll = False
                     return False
             else:
                 return True
+        else:
+            self._poll = False
 
     def init_main(self):
         kwargs = {'orientation': Gtk.Orientation.VERTICAL}
@@ -264,7 +268,6 @@ class ProcessingGui(object):
         ids = self.get_selected()
         if ids is None:
             return
-
         queue = self.ProcessHandler.new_queue()
         for identifier in ids:
             fnc = self.ProcessHandler.run_pipeline_distributed
@@ -276,57 +279,52 @@ class ProcessingGui(object):
                           'args': [cls, mth, self.books[identifier], None, None],
                           'kwargs': {},
                           'callback': 'post_process'}
+            self.follow_progress(identifier)
 
-            fnc = self.ProcessHandler.drain_queue
-            logger = self.books[identifier].logger
-            pid = '.'.join((identifier, fnc.__name__))
-            args = [queue, 'sync']
-            kwargs = {'qpid': identifier, 
-                      'qlogger': logger}
-            if self.ProcessHandler.add_process(fnc, pid, args, kwargs, logger):
-                self.books[identifier].start_time = Util.microseconds()
-                path = self.model.get_path(self.books[identifier].entry)
-                self.model[path][1] = 'processing'
-                self.follow_progress(identifier)
-            else:
-                self.wait(identifier)
+        fnc = self.ProcessHandler.drain_queue
+        #logger = self.books[identifier].logger
+        pid = '.'.join((identifier, fnc.__name__))
+        args = [queue, 'sync']
+        #kwargs = {'qpid': identifier, 
+        #          'qlogger': logger}
 
-    def wait(self, identifier):
-        path = self.model.get_path(self.books[identifier].entry)
-        self.model[path][1] = 'waiting...'
-
+        self.ProcessHandler.add_process(fnc, pid, args)
+                
     def follow_progress(self, identifier):
-        GObject.timeout_add(300, self.update_progress, identifier)
+        GObject.timeout_add(1000, self.update_progress, identifier)
 
     def update_progress(self, identifier):
-        if identifier not in self.books:
+        if not self._poll:
             return False
-        if not identifier in self.ProcessHandler.item_queue:
-            path = self.model.get_path(self.books[identifier].entry)            
-            if (identifier + '_main' in self.ProcessHandler.handled_exceptions or
-                identifier + '_featuredetection' in self.ProcessHandler.handled_exceptions):
+        path = self.model.get_path(self.books[identifier].entry)
+        if identifier not in self.ProcessHandler.OperationObjects:
+            self.model[path][1] = 'waiting...'
+            return True
+        if not identifier in self.ProcessHandler._item_queue:
+            #self.books[identifier].start_time = Util.microseconds()
+            self.model[path][1] = 'processing'
+
+            if self.ProcessHandler.had_exception(identifier, cls='FeatureDetection'):
                 self.model[path][1] = 'ERROR'
                 self.model[path][3] = '--'
-                return False
-                
-            if not 'FeatureDetection' in \
-                    self.ProcessHandler.OperationObjects[identifier]:
-                return True
+                return False 
 
-            op_num = len(self.ProcessHandler.OperationObjects[identifier]['FeatureDetection'].components)
-            
-            total = self.books[identifier].page_count * op_num
-            state = self.ProcessHandler.get_operation_state(self.books[identifier], 
-                                                            identifier, 'FeatureDetection',
-                                                            total)
+            op_obj = self.ProcessHandler.OperationObjects[identifier]                
+            if not 'FeatureDetection' in op_obj:
+                return True            
+            total = self.books[identifier].page_count
+            state = self.ProcessHandler.get_op_state(self.books[identifier], 
+                                                     identifier, 
+                                                     'FeatureDetection',
+                                                     total)
             if state['finished']:
                 self.model[path][1] = 'finished'
                 self.model[path][3] = '--'
                 self.model[path][5] = 100.0
                 return False
             self.model[path][3] = (str(state['estimated_mins']) + ' min ' + 
-                                   str(state['estimated_secs']) + 'sec')
+                                   str(state['estimated_secs']) + ' sec')
             self.model[path][4] = (str(state['elapsed_mins']) + ' min ' + 
-                                   str(state['elapsed_secs']) + 'sec')
+                                   str(state['elapsed_secs']) + ' sec')
             self.model[path][5] = state['fraction']*100            
         return True

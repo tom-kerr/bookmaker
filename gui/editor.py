@@ -185,6 +185,8 @@ class ImageEditor(object):
                   'width': self.editor.window.height,
                   'visible': True}
         self.main_layout = Gtk.Layout(**kwargs)
+        gray = Gdk.Color.parse('black')[1]
+        self.main_layout.modify_bg(Gtk.StateType.NORMAL, gray)
         self.main_layout.set_events(Gdk.EventMask.BUTTON_PRESS_MASK
                                     | Gdk.EventMask.POINTER_MOTION_MASK
                                     | Gdk.EventMask.POINTER_MOTION_HINT_MASK)
@@ -209,6 +211,8 @@ class ImageEditor(object):
     def build_vertical_controls(self):
         kwargs = {'visible': True}
         self.vertical_controls_layout = Gtk.Layout(**kwargs)
+        gray = Gdk.Color.parse('gray')[1]
+        self.vertical_controls_layout.modify_bg(Gtk.StateType.NORMAL, gray)
         w = ImageEditor.vspace - 25
         h = int(self.editor.window.height - ImageEditor.hspace)        
         self.vertical_controls_layout.set_size_request(w, h)
@@ -404,6 +408,8 @@ class ImageEditor(object):
     def build_horizontal_controls(self):       
         kwargs = {'visible': True}
         self.horizontal_controls_layout = Gtk.Layout(**kwargs)
+        gray = Gdk.Color.parse('gray')[1]
+        self.horizontal_controls_layout.modify_bg(Gtk.StateType.NORMAL, gray)
         w, h = self.editor.window.width, ImageEditor.hspace
         self.horizontal_controls_layout.set_size_request(w, h)
         
@@ -2626,12 +2632,10 @@ class ExportHandler(object):
             return True
         else:
             progress = getattr(self, gui_id + '_progress')
-
             total = self.editor.book.page_count-2
-            state = self.ProcessHandler.get_operation_state(self.editor.book, 
-                                                            identifier, cls, 
-                                                            total)
-                        
+            state = self.ProcessHandler.get_op_state(self.editor.book, 
+                                                     identifier, cls, 
+                                                     total)                        
             if state['finished']:
                 progress.set_fraction(1.0)
                 progress.set_text('100%')
@@ -2641,7 +2645,8 @@ class ExportHandler(object):
                 setattr(self, gui_id + '_fraction', fraction)
                 progress.set_fraction(fraction)                
                 string = str(int(fraction*100)) + '% -- Time Remaining: ' \
-                    + str(state['estimated_mins']) + 'mins ' + str(state['estimated_secs']) + 'secs' 
+                    + str(state['estimated_mins']) + 'mins ' + \
+                    str(state['estimated_secs']) + 'secs' 
                 progress.set_text(string)
                 return True
 
@@ -2649,19 +2654,20 @@ class ExportHandler(object):
         identifier = self.editor.book.identifier
         if not identifier in self.ProcessHandler.OperationObjects:
             return True
+        op_obj = self.ProcessHandler.OperationObjects[identifier]
         num_tasks = len(update)
         total_fraction = 0.0
         if 'cropper' in update:
-            if 'Crop' in self.ProcessHandler.OperationObjects[identifier]:
+            if 'Crop' in op_obj:
                 total_fraction += self.cropper_fraction/num_tasks
         if 'ocr' in update:
-            if 'OCR' in self.ProcessHandler.OperationObjects[identifier]:
+            if 'OCR' in op_obj:
                 total_fraction += self.ocr_fraction/num_tasks
         if 'pdf' in update:
-            if 'PDF' in self.ProcessHandler.OperationObjects[identifier]:
+            if 'PDF' in op_obj:
                 total_fraction += self.pdf_fraction/num_tasks
         if 'djvu' in update:
-            if 'Djvu' in self.ProcessHandler.OperationObjects[identifier]:
+            if 'Djvu' in op_obj:
                 total_fraction += self.djvu_fraction/num_tasks
         self.global_progress.set_fraction(total_fraction)
         self.global_progress.set_text(str(int(total_fraction*100)) + '%')
