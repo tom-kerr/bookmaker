@@ -321,6 +321,9 @@ class BookData(object):
 
 
 class Scandata(object):
+    """ XML storage medium for structural metadata, identical 
+        to the Internet Archive's "scandata". 
+    """
 
     def __init__(self, filename):
         self.filename = filename
