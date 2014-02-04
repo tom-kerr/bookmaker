@@ -72,7 +72,7 @@ class Environment(object):
         try:
             stream = open(settings_file, 'r')
             settings = yaml.load(stream)
-        except Exception as e:
+        except (OSError, IOError) as e:
             book.logger.warning('Failed to load settings.yaml; ' + 
                                 str(e)+'; initializing with defaults.')
             settings = Environment.settings
@@ -108,12 +108,12 @@ class Environment(object):
         path = book.root_dir
         settings_file = path + '/settings.yaml'
         try:
-            stream = open(settings_file, 'w')
-            yaml.dump(settings,
-                      stream,
-                      explicit_start=True,
-                      default_flow_style=False)
-        except Exception as e:
+            with open(settings_file, 'w') as stream:
+                yaml.dump(settings,
+                          stream,
+                          explicit_start=True,
+                          default_flow_style=False)
+        except (OSError, IOError) as e:
             book.logger.warning('Failed to save settings! ', str(e))
 
     @staticmethod
@@ -218,26 +218,17 @@ class Environment(object):
     @staticmethod
     def make_dir(dir):
         if not os.path.isdir(dir):
-            try:
-                os.mkdir(dir, Environment.dir_mode)
-            except Exception as e:
-                raise e
+            os.mkdir(dir, Environment.dir_mode)
 
     @staticmethod
     def clean_dir(dir):
         if os.path.isdir(dir):
             for f in os.listdir(dir):
                 if os.path.isdir(dir + '/' + f):
-                    try:
-                        shutil.rmtree(dir + '/' + f)
-                    except Exception as e:
-                        raise e
+                    shutil.rmtree(dir + '/' + f)
                 else:
-                    try:
-                        os.remove(dir + '/' + f)
-                    except Exception as e:
-                        raise e
-
+                    os.remove(dir + '/' + f)
+                  
 
 class BookData(object):
     """ Holds the state of a particular item.
@@ -268,14 +259,11 @@ class BookData(object):
         for name, dir in self.dirs.items():
             if not os.path.exists(dir):
                 Environment.make_dir(dir)
-
+                
     def add_dirs(self, dirs):
         for name, dir in dirs.items():
             if not os.path.isdir(dir):
-                try:
-                    Environment.make_dir(dir)
-                except Exception as e:
-                    raise e
+                Environment.make_dir(dir)
             self.dirs[name] = dir
 
     def clean_dirs(self):
@@ -283,11 +271,8 @@ class BookData(object):
             if name in ('book', 'raw_images', 'logs'):
                 pass
             else:
-                try:
-                    Environment.clean_dir(dir)
-                except Exception as e:
-                    raise e
-
+                Environment.clean_dir(dir)
+                
     def init_crops(self):
         import_scandata = True if not self.settings['respawn'] else False
         self.pageCrop = Crop('pageCrop', self.page_count,
@@ -331,14 +316,10 @@ class Scandata(object):
         self.filename = filename
         self.file = None
         self.tree = None
-        try:
-            self.file = open(filename, 'r+')
-            parser = etree.XMLParser(remove_blank_text=True)
-            self.tree = etree.parse(self.file, parser)
-        except:
-            pass
-        else:
-            self.file.close()
+        self.file = open(filename, 'r+')
+        parser = etree.XMLParser(remove_blank_text=True)
+        self.tree = etree.parse(self.file, parser)
+        self.file.close()
 
     def new(self, identifier, page_count, raw_image_dimensions, scandata_file):
         root = etree.Element('book')
@@ -373,10 +354,8 @@ class Scandata(object):
             crop_box = Crop.new_crop_element(page, 'cropBox')
             page_number = etree.SubElement(page, 'pageNumber')
         doc = etree.ElementTree(root)
-        try:
-            with open(scandata_file, "w+b") as scandata:
-                doc.write(scandata, pretty_print=True)
-                self.tree = doc
-        except IOError:
-            Util.bail('failed to make scandata for ' + identifier)
+        with open(scandata_file, "w+b") as scandata:
+            doc.write(scandata, pretty_print=True)
+            self.tree = doc
+        
 
