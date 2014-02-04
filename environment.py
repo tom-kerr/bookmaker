@@ -240,6 +240,8 @@ class Environment(object):
 
 
 class BookData(object):
+    """ Holds the state of a particular item.
+    """
 
     def __init__(self, root_dir, raw_dir, raw_data):
         self.root_dir = root_dir
