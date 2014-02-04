@@ -18,6 +18,11 @@ from datastructures import Crop
 
 
 class Environment(object):
+    """ Handles the creation of BookData objects, including directory 
+        creation/cleaning, initiating logging, loading/writing of 
+        processing settings, and holding state pertaining to the
+        current system.
+    """
 
     settings = OrderedDict([('respawn', True),
                             ('autopaginate', False),
