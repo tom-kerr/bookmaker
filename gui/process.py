@@ -1,5 +1,6 @@
-import sys, os, re, math, time, threading
+import sys, os, re, math, time
 import multiprocessing
+from queue import Queue, Empty
 import psutil
 from lxml import etree
 
@@ -27,6 +28,8 @@ class ProcessingGui(object):
         self.books = {}
         self.ProcessHandler = ProcessHandling()
         self._poll = True
+        self._polling_items = False
+        self._polling_exceptions = False
         self.init_main()
         self.init_tasklist()
         self.init_buttons()
@@ -284,13 +287,38 @@ class ProcessingGui(object):
         args = [queue, 'sync']
         #kwargs = {'qpid': identifier, 
         #          'qlogger': logger}
+        if not self._polling_exceptions:
+            self._init_poll_exceptions()
         self.ProcessHandler.add_process(fnc, pid, args)
+        
+    def _init_poll_exceptions(self):
+        GObject.timeout_add(1000, self._check_exception_queue)
+
+    def _check_exception_queue(self):
+        while True:
+            if not self._poll:
+                self._polling_exceptions = False
+                return False
+            try:
+                pid, traceback = self.ProcessHandler._exception_queue.get_nowait()
+            except Empty:
+                pass
+            else:
+                self.ProcessHandler._handled_exceptions.append(pid)
+                msg = 'Exception in ' + pid + ':\n' + traceback
+                identifier = pid.split('.')[0]
+                if Environment.interface == 'gui':
+                    self.ProcessHandler.finish(identifier)
+                    ca.dialog(message=msg)
+                    return True
+            time.sleep(1.0)
                 
     def follow_progress(self, identifier):
         GObject.timeout_add(1000, self.update_progress, identifier)
 
     def update_progress(self, identifier):
         if not self._poll:
+            self._polling_items = False
             return False
         path = self.model.get_path(self.books[identifier].entry)
         if identifier not in self.ProcessHandler.OperationObjects:

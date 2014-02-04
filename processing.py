@@ -45,15 +45,19 @@ class ProcessHandling(object):
         self._item_queue = self.new_queue()
         self._exception_queue = Queue()
         self._handled_exceptions = []
+        self._poll = True
         self._polling_threads = False
+        self._polling_exceptions = False
         self.OperationObjects = {}
         
     def _init_polls(self):        
+        self._poll = True
         if not self._polling_threads:
             self._init_thread_poll()
         if Environment.interface == 'shell':
-            #if not self._polling_exceptions:
-            self._init_exception_poll()
+            if not self._polling_exceptions:
+                self._init_exception_poll()
+            #if not self._polling_progress:
             #self._init_progress_poll()
 
     def _init_thread_poll(self):
@@ -62,27 +66,47 @@ class ProcessHandling(object):
                                    name='_poll_threads')
         self._thread_poll.start()
 
+    def _poll_threads(self):
+        while True:
+            if not self._poll:
+                self._polling_threads = False
+                break
+            time.sleep(1.0)
+            self._clear_inactive()
+            self._submit_waiting()
+            if not self._are_active_processes():
+                self._polling_threads = False
+                break
+
     def _init_exception_poll(self):
         self._polling_exceptions = True
         self._exception_poll = Thread(target=self._check_exception_queue,
                                       name='_poll_exceptions')
         self._exception_poll.start()
 
+    def _check_exception_queue(self):
+        while True:
+            if not self._poll:
+                self._polling_exceptions = False
+                return
+            time.sleep(1.0)
+            try:
+                pid, traceback = self._exception_queue.get_nowait()
+            except Empty:
+                print ('empty')
+                pass
+            else:
+                self._handled_exceptions.append(pid)
+                msg = 'Exception in ' + pid + ':\n' + traceback
+                identifier = pid.split('.')[0]
+                if Environment.interface == 'shell':
+                    self.finish(identifier)
+                    print (msg)
+                    #raise Exception(msg)
+
     def _init_progress_poll(self):
         #add some progress indicator for command line users
         pass
-
-    def _poll_threads(self):
-        while True:
-            if not self._polling_threads:
-                return
-            time.sleep(1.0)
-            #self._check_exception_queue()
-            self._clear_inactive()
-            self._submit_waiting()
-            if not self._are_active_processes():
-                self._polling_threads = False
-                return
 
     def _are_active_processes(self):
         if (self.processes == 0 and
@@ -101,8 +125,8 @@ class ProcessHandling(object):
     def _wait_till_idle(self, pids):
         finished = set()
         while True:
-            if not self._polling_threads:
-                return
+            if not self._poll:
+                break
             #self._check_exception_queue()
             active_pids = set()
             for pid, thread in self._active_threads.items():
@@ -156,13 +180,14 @@ class ProcessHandling(object):
                 destroy.append(pid)
             else:
                 if pid.startswith(identifier):
+                    for op, cls in self.OperationObjects[identifier].items():
+                        cls.terminate_child_processes()
                     destroy.append(pid)
         for pid in destroy:
             self._destroy_thread(pid)
         if not identifier:
             self._item_queue = self.new_queue()
-        self._polling_threads = False
-        self._polling_exceptions = False
+        self._poll = False
 
     def _destroy_thread(self, pid):
         if pid in self._active_threads:
@@ -179,28 +204,6 @@ class ProcessHandling(object):
                 remove = num
             if remove is not None:
                 del self._handled_exceptions[remove]
-
-    def _check_exception_queue(self):
-        while True:
-            if not self._polling_exceptions:
-                return
-            time.sleep(1.0)
-            try:
-                pid, traceback = self._exception_queue.get_nowait()
-            except Empty:
-                pass
-            else:
-                self._handled_exceptions.append(pid)
-                msg = 'Exception in ' + pid + ':\n' + traceback
-                identifier = pid.split('_')[0]
-                if Environment.interface == 'gui':
-                    self.finish(identifier)
-                    ca.dialog(message=msg)
-                    return True
-                elif Environment.interface == 'shell':
-                    self.finish(identifier)
-                    print (msg)
-                    raise Exception(msg)
 
     def had_exception(self, identifier, cls=None, mth=None):
         if cls: 
@@ -264,7 +267,8 @@ class ProcessHandling(object):
                     logger.info('pid ' + pid + ' finished in ' + 
                                 str(exec_time) + ' minutes')
                 except Exception as e:
-                    logger.error('pid ' + str(pid) + ' encountered an error; ' + 
+                    logger.error('pid ' + str(pid) + 
+                                 ' encountered an error; ' + 
                                  str(e) + '\nAborting.')
                     return False
             elif mode == 'async':
@@ -373,11 +377,20 @@ class ProcessHandling(object):
         callback.append('set_finished')
         return callback
 
+    def was_successful(self, pid):
+        if pid in self._handled_exceptions:
+            return False
+        else:
+            return True
+
     @multi_threaded
     def run_pipeline_distributed(self, queue, identifier, cls, callback=None):
         callback = self._add_default_op_cb(callback)
         self.drain_queue(queue, 'async')
         if callback:
+            for pid in queue.keys():
+                if not self.was_successful(pid):
+                    return
             self.execute_callback(identifier, cls, callback)
                         
     def run_pipeline(self, cls, mth, book, 

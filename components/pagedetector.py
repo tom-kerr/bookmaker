@@ -40,13 +40,13 @@ class PageDetector(Component):
                        'scaled_out_file': scaled_out_file,
                        'scale_factor': scale_factor,
                        'rot_dir': rot_dir})
-
+        
         if self.book.settings['respawn']:
             if not os.path.exists(in_file):
                 raise IOError(in_file + ' does not exist!')
             output = self.execute(kwargs, return_output=True)
         else:
-            output = None
+            output = None        
         if callback:
             self.execute_callback(callback, leaf, output, **kwargs)
         else:

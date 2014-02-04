@@ -40,12 +40,12 @@ class Component(object):
                     for v in value:
                         if v not in (None, '', False):
                             cmd.append(str(v))
-        
         output = self.Util.exec_cmd(cmd, stdout, stdin,
                                     retval, return_output,
                                     print_output, current_wd, 
                                     logger)
         self.exec_times.append(output['exec_time'])
+        
         return output
 
     def get_last_exec_time(self):

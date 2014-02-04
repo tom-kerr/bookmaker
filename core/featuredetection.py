@@ -47,6 +47,7 @@ class FeatureDetection(Operation):
                 component, callback = item
                 cls = component.__class__.__name__
                 try:
+                    if leaf == 1: raise Exception('doom')
                     component.run(leaf, callback=callback)
                     exec_time = component.get_last_exec_time()
                     leaf_exec_time += exec_time
