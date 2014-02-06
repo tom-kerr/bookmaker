@@ -27,7 +27,7 @@ class HOCR2Pdf(Component):
             in_file = (self.book.dirs['cropped'] + '/' +
                        self.book.identifier + '_' + leafnum + '.JPG')
         if not os.path.exists(in_file):
-            raise IOError('Failed to find ' + str(in_file))
+            raise OSError(in_file + ' does not exist.')
         if not out_file:
             out_file = (self.book.dirs['derived'] + '/' +
                         self.book.identifier + '_' + leafnum + '.pdf')
