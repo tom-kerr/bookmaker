@@ -3,10 +3,7 @@ import os
 from .component import Component
 
 class Djvused(Component):
-
-    """
-    Multi Purpose DjVu Document Editor
-
+    """ Multi Purpose DjVu Document Editor
     """
 
     args = ['options', 'script', 'djvu_file']
@@ -26,7 +23,7 @@ class Djvused(Component):
             djvu_file = (self.book.dirs['derived'] + '/' +
                          self.book.identifier + '_' + leafnum + '.djvu')
         if not os.path.exists(djvu_file):
-            raise IOError('Cannot find ' + djvu_file)
+            raise OSError(djvu_file + 'does not exist.')
         
         kwargs.update({'djvu_file': djvu_file,
                        'options': options,
