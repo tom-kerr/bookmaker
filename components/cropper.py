@@ -29,7 +29,7 @@ class Cropper(Component):
         if not in_file:
             in_file = self.book.raw_images[leaf]
         if not os.path.exists(in_file):
-            raise IOError(in_file + ' does not exist.')
+            raise OSError(in_file + ' does not exist.')
         if not out_file:
             out_file = self.book.dirs['cropped'] + '/' + \
                 self.book.identifier + '_' + leafnum + '.JPG'
