@@ -30,7 +30,7 @@ class Djvm(Component):
                 self.book.identifier + '.djvu '
         for f in in_files:
             if not os.path.exists(f):
-                raise IOError('Cannot find ' + f)
+                raise OSError(f + ' does not exist.')
 
         kwargs.update({'options': options,
                        'out_file': out_file,
@@ -51,5 +51,5 @@ class Djvm(Component):
             try:
                 if os.path.exists(f):
                     os.remove(f)
-            except Exception as e:
+            except OSError as e:
                 self.book.logger.warning('Failed to remove ' + f + ';' + str(e))
