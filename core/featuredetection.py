@@ -28,7 +28,8 @@ class FeatureDetection(Operation):
             self.init_components(self.book)
             if self.book.settings['respawn']:
                 self.book.clean_dirs()
-        except Exception:
+        except (Exception, BaseException) as e:
+            self.book.logger.error(str(e))
             pid = self.make_pid_string('__init__')
             self.ProcessHandler.join((pid, Util.exception_info()))
                                       
@@ -50,7 +51,8 @@ class FeatureDetection(Operation):
                     component.run(leaf, callback=callback)
                     exec_time = component.get_last_exec_time()
                     leaf_exec_time += exec_time
-                except Exception as e:
+                except (Exception, BaseException) as e:
+                    self.book.logger.error(str(e))
                     pid = self.make_pid_string('pipeline.'+ str(start))
                     self.ProcessHandler.join((pid, Util.exception_info()))  
                 else:
