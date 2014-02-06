@@ -93,11 +93,12 @@ class Crop(StructuralMetadata):
         #self.write_to_scandata()
 
     def write_to_scandata(self):
+        raise IOError('adasda')
         try:
             with open(self.scandata.filename, 'r+b') as f:
                 self.scandata.tree.write(f, pretty_print=True)
-        except Exception as e:
-            Util.bail('failed to open scandata for writing')
+        except (OSError, IOError) as e:
+            raise Exception ('Failed to write to scandata! \n' + str(e))
         
     def xml_io(self, mode):
         page_data = self.scandata.tree.find('pageData')
@@ -108,7 +109,8 @@ class Crop(StructuralMetadata):
                 if mode is 'import':
                     xmlcrop = page.find(self.name)
                     if xmlcrop is None:
-                        raise LookupError('Missing essential item \'' + self.name  + '\' in scandata')
+                        raise LookupError('Missing essential item \'' + 
+                                          self.name  + '\' in scandata')
                     
                     active = xmlcrop.get('active')
                     if active=='True':

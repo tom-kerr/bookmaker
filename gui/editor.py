@@ -72,31 +72,43 @@ class Editor(object):
 
     def key_press(self, widget, data):
         key = data.keyval
+        func, args = None, None
         if key is 44:
-            self.ImageEditor.walk_stack(None, 'prev')
+            func = self.ImageEditor.walk_stack
+            args = (None, 'prev')
         elif key is 46:
-            self.ImageEditor.walk_stack(None, 'next')
+            func = self.ImageEditor.walk_stack
+            args = (None, 'next')
         elif key is 115:
-            self.ImageEditor.save_changes()
+            func = self.ImageEditor.save_changes
         elif key is 120:
-            self.ImageEditor.undo_changes()
+            func = self.ImageEditor.undo_changes
         elif key is 122:
-            self.ImageEditor.toggle_zoom()
+            func = self.ImageEditor.toggle_zoom
         elif key is 99:
-            self.ImageEditor.copy_crop()
+            func = self.ImageEditor.copy_crop
         elif key is 118:
-            self.ImageEditor.paste_crop()
+            func = self.ImageEditor.paste_crop
         elif key is 102:
-            self.ImageEditor.fit_crop()
+            func = self.ImageEditor.fit_crop
         elif (Gdk.ModifierType.MOD1_MASK & data.state) and key in (65361, 65363):
             if key == 65361:
-                rot_dir = -90
+                args = (-90)
             elif key == 65363:
-                rot_dir = 90
-            self.ImageEditor.rotate_selected(rot_dir)
+                args = (90)
+            func = self.ImageEditor.rotate_selected
         elif key is 97:
-            self.ImageEditor.assert_pagination()
-
+            func = self.ImageEditor.assert_pagination
+        if func:
+            try:
+                if args:
+                    func(*args)
+                else:
+                    func()
+            except Exception as e:
+                self.book.logger.error(str(e))
+                ca.dialog(message=str(e))
+    
     def init_meta_window(self):
         self.MetaEditor = MetaEditor(self)
 
@@ -882,12 +894,12 @@ class ImageEditor(object):
 
     def walk_stack(self, widget, direction):
         self.save_changes()
-        if direction is 'next':
+        if direction == 'next':
             if self.current_spread < self.book.page_count/2 - 1:
                 self.current_spread += 1
             else:
                 return
-        elif direction is 'prev':
+        elif direction == 'prev':
             if self.current_spread > 0:
                 self.current_spread -=1
             else:
@@ -895,15 +907,20 @@ class ImageEditor(object):
         self.update_state()
 
     def update_state(self):
-        self.selected = None
-        self.update_horizontal_control_widgets()
-        self.update_meta_widgets()
-        self.remove_overlays()
-        left_leaf = self.current_spread * 2
-        self.spread_slider.set_value(left_leaf)
-        self.destroy_zoom()
-        self.save_changes()
-        self.draw_spread(self.current_spread)
+        try:
+            self.selected = None
+            self.update_horizontal_control_widgets()
+            self.update_meta_widgets()
+            self.remove_overlays()
+            left_leaf = self.current_spread * 2
+            self.spread_slider.set_value(left_leaf)
+            self.destroy_zoom()
+            self.save_changes()
+            self.draw_spread(self.current_spread)
+        except Exception as e:
+            string = 'Failed to update state!\n', str(e)
+            self.book.logger.error(string)
+            ca.dialog(message=string)
         
     def clicked(self, widget, data):
         self.drag_root = {'x':data.x_root, 'y': data.y_root}
