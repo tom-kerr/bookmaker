@@ -67,7 +67,7 @@ class SWClustering(Component):
                        self.book.identifier + '_corners_' +
                        leafnum + '.txt')        
         if not os.path.exists(in_file):
-            raise IOError(in_file + ' does not exist!')
+            raise OSError(in_file + ' does not exist.')
 
         if not out_file:
             out_file = (self.book.dirs['clusters'] + '/' +
@@ -335,8 +335,8 @@ class SWClustering(Component):
                     lnf.write(str(corner[1]) + ' ' + str(corner[0]) + "\n")
                 for corner in right_corners:
                     rnf.write(str(corner[1]) + ' ' + str(corner[0]) + "\n")
-            except IOError:
-                self.book.logger.debug('failed to generate noise files... aborting')
+            except (OSError, IOError) as e:
+                self.book.logger.debug('failed to generate noise files... aborting\n'+str(e))
                 return False
         return True
 
