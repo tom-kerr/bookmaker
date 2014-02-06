@@ -43,7 +43,7 @@ class PageDetector(Component):
         
         if self.book.settings['respawn']:
             if not os.path.exists(in_file):
-                raise IOError(in_file + ' does not exist!')
+                raise OSError(in_file + ' does not exist.')
             output = self.execute(kwargs, return_output=True)
         else:
             output = None        
