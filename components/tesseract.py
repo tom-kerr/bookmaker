@@ -2,6 +2,7 @@ import os
 import json
 
 from lxml import html
+from lxml import etree.ParseError as ParseError
 from collections import OrderedDict
 
 from environment import Environment
@@ -67,7 +68,7 @@ class Tesseract(Component):
             in_file = (self.book.dirs['cropped'] + '/' +
                        self.book.identifier + '_' + str(leafnum) + '.JPG')
         if not os.path.exists(in_file):
-            raise IOError(in_file + ' does not exist.')
+            raise OSError(in_file + ' does not exist.')
 
         if not out_base:
             out_base = (self.book.dirs['tesseract_ocr'] + '/' +
@@ -98,8 +99,8 @@ class Tesseract(Component):
             if os.path.exists(base + '.html'):
                 try:
                     os.rename(base + '.html', base + '.hocr')
-                except:
-                    raise IOError('Failed to rename tesseract hocr output for leaf ' 
+                except OSError:
+                    raise OSError('Failed to rename tesseract hocr output for leaf ' 
                                   + str(leaf))
             if os.path.exists(base + '.hocr'):
                 files[leaf] = base + '.hocr'
@@ -107,14 +108,15 @@ class Tesseract(Component):
 
     def parse_hocr(self, filename):
         try:
-            hocr = open(filename, 'r')
-        except IOError:
-            self.book.logger.warning('Failed to open ' + filename)
+            with open(filename, 'r') as hocr:
+                parsed = html.parse(hocr)
+        except IOError as e:
+            self.book.logger.warning('Failed to open ' + filename + 
+                                     '\n' + str(e))
             return None
-        try:
-            parsed = html.parse(hocr)
-        except:
-            self.book.logger.warning('lxml failed to parse file ' + filename)
+        except ParseError as e:
+            self.book.logger.warning('lxml failed to parse file ' + filename +
+                                     '\n' + str(e))
             return None
 
         root = parsed.getroot()
