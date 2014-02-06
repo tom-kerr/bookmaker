@@ -404,6 +404,9 @@ class ProcessHandling(object):
                       'callback': None}
         self.drain_queue(queue, 'async')
         if callback:
+            for pid in queue.keys():
+                if not self.was_successful(pid):
+                    return
             self.execute_callback(identifier, cls, callback)
 
     def execute_callback(self, identifier, _class, callback):
