@@ -4,7 +4,7 @@ A tool for capturing, processing, editing, and converting physical books into el
 
 
 Note:
-Currently undergoing lots of rewriting/refactoring/upgrades; much is broken, including the gui.
+Currently undergoing lots of rewriting/refactoring/upgrades.
 
 
 Installation
@@ -41,7 +41,7 @@ One can also pass more than one book at time, with a space between each entry, o
 
     ./bookmaker.py --root-dir /path/to/my/bookprojects
 
-When processing multiple books, one book will be processed at a time, with each operation split across multiple cores. 
+When processing multiple books, one book will be processed at a time, with each operation split across multiple cores when available. 
 
 If one does not care to edit the computer generated crop boxes, one can pass the following combination of arguments to derive the digital formats immediately after processing:
 
@@ -87,5 +87,5 @@ An illustration of three items that are undergoing processing:
 
 
 <h2>Editing</h2>
-
+TODO
 
