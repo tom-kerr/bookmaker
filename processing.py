@@ -68,16 +68,13 @@ class ProcessHandling(object):
 
     def _poll_threads(self):
         while True:
-            if not self._poll:
+            if not self._poll or not self._are_active_processes():
                 self._polling_threads = False
                 break
-            time.sleep(1.0)
             self._clear_inactive()
             self._submit_waiting()
-            if not self._are_active_processes():
-                self._polling_threads = False
-                break
-
+            time.sleep(1.0)
+            
     def _init_exception_poll(self):
         self._polling_exceptions = True
         self._exception_poll = Thread(target=self._check_exception_queue,
@@ -86,10 +83,9 @@ class ProcessHandling(object):
 
     def _check_exception_queue(self):
         while True:
-            if not self._poll:
+            if not self._poll or not self._are_active_processes():
                 self._polling_exceptions = False
                 return
-            time.sleep(1.0)
             try:
                 pid, traceback = self._exception_queue.get_nowait()
             except Empty:
@@ -103,6 +99,7 @@ class ProcessHandling(object):
                     self.finish(identifier)
                     print (msg)
                     #raise Exception(msg)
+            time.sleep(1.0)
 
     def _init_progress_poll(self):
         #add some progress indicator for command line users
