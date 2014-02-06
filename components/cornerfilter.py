@@ -58,8 +58,6 @@ class CornerFilter(Component):
                        'r': r, 'b': b})
         try:
             output = self.execute(kwargs, return_output=True)
-        except:
-            raise
         finally:
             crop_filter.resize(10)
         if callback:
