@@ -153,7 +153,7 @@ class SWClustering(Component):
                     try:
                         self.book.clusters[leaf].cluster[cluster_count].draw(self.book.clusters[leaf].thumb)
                     except Exception as e:
-                        print (str(e))
+                        self.book.logger.debug(str(e))
 
                 cluster_count += 1
             else:
@@ -237,7 +237,7 @@ class SWClustering(Component):
                 try:
                     self.book.contentCropScaled.box[leaf].draw(self.book.clusters[leaf].thumb, outline='green')
                 except Exception as e:
-                    print (str(e))
+                    self.book.logger.debug(str(e))
 
     def analyse_noise(self, log='noiseAnalysis'):
         self.book.logger.debug('analysing noise...')
@@ -310,14 +310,20 @@ class SWClustering(Component):
                         left['t'].append(cluster.t)
                         self.t_deltas[leaf] = self.left_reference_leaf.t - self.book.pageCropScaled.box[leaf].t
                         if self.book.settings['draw_noise']:
-                            cluster.draw(self.book.dirs['noise'] + '/left_noise.jpg', outline='gray')
+                            try:
+                                cluster.draw(self.book.dirs['noise'] + '/left_noise.jpg', outline='gray')
+                            except Exception as e:
+                                self.book.logger.debug(str(e))
                     else:
                         self.right_noise[leaf][num] = cluster
                         right['l'].append(cluster.l)
                         right['t'].append(cluster.t)
                         self.t_deltas[leaf] = self.right_reference_leaf.t - self.book.pageCropScaled.box[leaf].t
                         if self.book.settings['draw_noise']:
-                            cluster.draw(self.book.dirs['noise'] + '/right_noise.jpg', outline='gray')
+                            try:
+                                cluster.draw(self.book.dirs['noise'] + '/right_noise.jpg', outline='gray')
+                            except Exception as e:
+                                self.book.logger.debug(str(e))
 
         left_corners = zip(left['t'], left['l'])
         left_corners = sorted(left_corners)
