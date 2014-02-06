@@ -257,7 +257,7 @@ class Crop(StructuralMetadata):
             try:
                 end_leaf = int(assertions[next_num].find('leafNum').text)
                 end_pagenum = int(assertions[next_num].find('pageNum').text)
-            except:
+            except IndexError:
                 end_leaf = self.page_count
                 end_pagenum = start_pagenum + (end_leaf - start_leaf)
             ranges[num] = (start_leaf, end_leaf)
