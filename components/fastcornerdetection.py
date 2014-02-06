@@ -35,7 +35,7 @@ class FastCornerDetection(Component):
                         self.book.identifier + '_corners_' +
                         leafnum + '.txt')
         if not os.path.exists(in_file):
-            raise IOError(in_file + ' does not exist!')
+            raise OSError(in_file + ' does not exist.')
         
         kwargs.update({'in_file': in_file, 
                        'out_file': out_file, 
