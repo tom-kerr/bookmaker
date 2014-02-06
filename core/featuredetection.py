@@ -28,7 +28,7 @@ class FeatureDetection(Operation):
             self.init_components(self.book)
             if self.book.settings['respawn']:
                 self.book.clean_dirs()
-        except:
+        except Exception:
             pid = self.make_pid_string('__init__')
             self.ProcessHandler.join((pid, Util.exception_info()))
                                       
@@ -47,7 +47,6 @@ class FeatureDetection(Operation):
                 component, callback = item
                 cls = component.__class__.__name__
                 try:
-                    if leaf == 1: raise Exception('doom')
                     component.run(leaf, callback=callback)
                     exec_time = component.get_last_exec_time()
                     leaf_exec_time += exec_time
