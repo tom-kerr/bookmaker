@@ -93,7 +93,6 @@ class Crop(StructuralMetadata):
         #self.write_to_scandata()
 
     def write_to_scandata(self):
-        raise IOError('adasda')
         try:
             with open(self.scandata.filename, 'r+b') as f:
                 self.scandata.tree.write(f, pretty_print=True)

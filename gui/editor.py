@@ -1872,6 +1872,7 @@ class MetaEditor(object):
 
     def __init__(self, editor):
         self.editor = editor
+        self.book = editor.book
         kwargs = {'visible': True}
         self.main_layout = Gtk.Layout(**kwargs)
         self.main_layout.set_size_request(self.editor.window.width,
@@ -2006,6 +2007,7 @@ class ExportHandler(object):
 
     def __init__(self, editor):
         self.editor = editor
+        self.book = editor.book
         kwargs = {'visible': True}
         self.main_layout = Gtk.Layout(**kwargs)
         self.main_layout.set_size_request(self.editor.window.width,
@@ -2589,9 +2591,9 @@ class ExportHandler(object):
 
         cls = 'Crop'
         mth = 'cropper_pipeline'
-        pid = '.'.join((self.editor.book.identifier, fnc.__name__, cls, mth))
+        pid = '.'.join((self.book.identifier, fnc.__name__, cls, mth))
         queue[pid] = {'func': fnc,
-                      'args': [cls, mth, self.editor.book, 
+                      'args': [cls, mth, self.book, 
                                None, {'crop': 'cropBox'}],
                       'kwargs': {},
                       'callback': None}
@@ -2601,9 +2603,9 @@ class ExportHandler(object):
         if self.language is not None:
             cls = 'OCR'
             mth = 'tesseract_hocr_pipeline'
-            pid = '.'.join((self.editor.book.identifier, fnc.__name__, cls, mth))
+            pid = '.'.join((self.book.identifier, fnc.__name__, cls, mth))
             queue[pid] = {'func': fnc,
-                          'args': [cls, mth, self.editor.book, 
+                          'args': [cls, mth, self.book, 
                                    None, {'lang': self.language}],
                           'kwargs': {},
                           'callback': None}
@@ -2615,9 +2617,9 @@ class ExportHandler(object):
             if 'djvu' in formats:
                 cls = 'Djvu'
                 mth = 'make_djvu_with_c44'
-                pid = '.'.join((self.editor.book.identifier, fnc.__name__, cls, mth))
+                pid = '.'.join((self.book.identifier, fnc.__name__, cls, mth))
                 queue[pid] = {'func': fnc,
-                              'args': [cls, mth, self.editor.book, 
+                              'args': [cls, mth, self.book, 
                                        None, self.return_djvu_args()],
                               'kwargs': {},
                               'callback': 'assemble_djvu_with_djvm'}
@@ -2627,9 +2629,9 @@ class ExportHandler(object):
             if 'pdf' in formats:
                 cls = 'PDF'
                 mth = 'make_pdf_with_hocr2pdf'
-                pid = '.'.join((self.editor.book.identifier, fnc.__name__, cls, mth))
+                pid = '.'.join((self.book.identifier, fnc.__name__, cls, mth))
                 queue[pid] = {'func': fnc,
-                              'args': [cls, mth, self.editor.book, 
+                              'args': [cls, mth, self.book, 
                                        None, self.return_pdf_args()],
                               'kwargs': {},
                               'callback': 'assemble_pdf_with_pypdf'}
@@ -2637,7 +2639,7 @@ class ExportHandler(object):
                 update.append('pdf')
 
         self.ProcessHandler.add_process(func=self.ProcessHandler.drain_queue,
-                                        pid=self.editor.book.identifier + '_drain_queue',
+                                        pid=self.book.identifier + '_drain_queue',
                                         args=[queue, 'sync'],
                                         kwargs={},
                                         callback=None)
@@ -2645,15 +2647,15 @@ class ExportHandler(object):
         
     def update_progress(self, args):
         cls, gui_id = args
-        identifier = self.editor.book.identifier
+        identifier = self.book.identifier
         if not identifier in self.ProcessHandler.OperationObjects:
             return True
         if cls not in self.ProcessHandler.OperationObjects[identifier]:
             return True
         else:
             progress = getattr(self, gui_id + '_progress')
-            total = self.editor.book.page_count-2
-            state = self.ProcessHandler.get_op_state(self.editor.book, 
+            total = self.book.page_count-2
+            state = self.ProcessHandler.get_op_state(self.book, 
                                                      identifier, cls, 
                                                      total)                        
             if state['finished']:
@@ -2671,7 +2673,7 @@ class ExportHandler(object):
                 return True
 
     def update_run_all_progress(self, update):
-        identifier = self.editor.book.identifier
+        identifier = self.book.identifier
         if not identifier in self.ProcessHandler.OperationObjects:
             return True
         op_obj = self.ProcessHandler.OperationObjects[identifier]
@@ -2684,8 +2686,8 @@ class ExportHandler(object):
             if op in update:
                 if cls in op_obj:
                     state = self.ProcessHandler.get_op_state\
-                        (self.editor.book, identifier,
-                         cls, self.editor.book.page_count)
+                        (self.book, identifier,
+                         cls, self.book.page_count)
                     total_fraction += getattr(self, op+'_fraction')
         self.global_progress.set_fraction(total_fraction)
         self.global_progress.set_text(str(int(total_fraction*100)) + '%')
@@ -2699,10 +2701,10 @@ class ExportHandler(object):
         fnc = self.ProcessHandler.run_pipeline_distributed
         cls = 'Crop'
         mth = 'cropper_pipeline'
-        pid = '.'.join((self.editor.book.identifier, fnc.__name__, cls, mth ))
-        args = [cls, mth, self.editor.book, None, {'crop': 'cropBox'}]
+        pid = '.'.join((self.book.identifier, fnc.__name__, cls, mth ))
+        args = [cls, mth, self.book, None, {'crop': 'cropBox'}]
         kwargs = {}
-        self.editor.book.start_time = Util.microseconds()
+        self.book.start_time = Util.microseconds()
         self.ProcessHandler.add_process(fnc, pid, args, kwargs)  
         ca.run_in_background(self.update_progress, 2000, args=('Crop', 'cropper'))
 
@@ -2710,8 +2712,8 @@ class ExportHandler(object):
         fnc = self.ProcessHandler.run_pipeline_distributed
         cls = 'OCR'
         mth = 'tesseract_hocr_pipeline'
-        pid = '.'.join((self.editor.book.identifier, fnc.__name__, cls, mth))
-        args = [cls, mth, self.editor.book, None, {'lang': self.language}]
+        pid = '.'.join((self.book.identifier, fnc.__name__, cls, mth))
+        args = [cls, mth, self.book, None, {'lang': self.language}]
         self.ProcessHandler.add_process(fnc, pid, args, {})
         ca.run_in_background(self.update_progress, 2000, args=('OCR', 'ocr'))
 
@@ -2725,8 +2727,8 @@ class ExportHandler(object):
         fnc = self.ProcessHandler.run_pipeline_distributed
         cls = 'PDF'
         mth = 'make_pdf_with_hocr2pdf'
-        pid = '.'.join((self.editor.book.identifier, fnc.__name__, cls, mth))
-        args = [cls, mth, self.editor.book, None, self.return_pdf_args()]
+        pid = '.'.join((self.book.identifier, fnc.__name__, cls, mth))
+        args = [cls, mth, self.book, None, self.return_pdf_args()]
         self.ProcessHandler.add_process(fnc, pid, args, 
                                         {'callback': 'assemble_pdf_with_pypdf'})
                                         
@@ -2736,8 +2738,8 @@ class ExportHandler(object):
         fnc = self.ProcessHandler.run_pipeline_distributed
         cls = 'Djvu'
         mth = 'make_djvu_with_c44'
-        pid = '.'.join((self.editor.book.identifier, fnc.__name__, cls, mth))
-        args = [cls, mth, self.editor.book, None, self.return_djvu_args()]
+        pid = '.'.join((self.book.identifier, fnc.__name__, cls, mth))
+        args = [cls, mth, self.book, None, self.return_djvu_args()]
         self.ProcessHandler.add_process(fnc, pid, args, 
                                         {'callback': 'assemble_djvu_with_djvm'})
         ca.run_in_background(self.update_progress, 2000, args=('Djvu', 'djvu'))
