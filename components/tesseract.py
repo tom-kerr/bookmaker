@@ -2,7 +2,7 @@ import os
 import json
 
 from lxml import html
-from lxml import etree.ParseError as ParseError
+from lxml.etree import ParseError
 from collections import OrderedDict
 
 from environment import Environment
