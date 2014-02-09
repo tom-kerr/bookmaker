@@ -16,7 +16,7 @@ from core.derive import Djvu
 from core.crop import Crop
 from core.ocr import OCR
 from gui.common import CommonActions as ca
-
+from poll import Polls
 
 class ProcessHandling(object):
     """
@@ -44,67 +44,10 @@ class ProcessHandling(object):
         self._inactive_threads = self.new_queue()
         self._item_queue = self.new_queue()
         self._exception_queue = Queue()
+        self.Polls = Polls(self)
         self._handled_exceptions = []
-        self._poll = True
-        self._polling_threads = False
-        self._polling_exceptions = False
         self.OperationObjects = {}
         
-    def _init_polls(self):        
-        self._poll = True
-        if not self._polling_threads:
-            self._init_thread_poll()
-        if Environment.interface == 'shell':
-            if not self._polling_exceptions:
-                self._init_exception_poll()
-            #if not self._polling_progress:
-            #self._init_progress_poll()
-
-    def _init_thread_poll(self):
-        self._polling_threads = True
-        self._thread_poll = Thread(target=self._poll_threads,
-                                   name='_poll_threads')
-        self._thread_poll.start()
-
-    def _poll_threads(self):
-        while True:
-            if not self._poll or not self._are_active_processes():
-                self._polling_threads = False
-                break
-            self._clear_inactive()
-            self._submit_waiting()
-            time.sleep(1.0)
-            
-    def _init_exception_poll(self):
-        self._polling_exceptions = True
-        self._exception_poll = Thread(target=self._check_exception_queue,
-                                      name='_poll_exceptions')
-        self._exception_poll.start()
-
-    def _check_exception_queue(self):
-        while True:
-            if not self._poll or not self._are_active_processes():
-                self._polling_exceptions = False
-                return
-            try:
-                pid, traceback = self._exception_queue.get_nowait()
-            except Empty:
-                print ('empty')
-                pass
-            else:
-                self._handled_exceptions.append(pid)
-                msg = 'Exception in ' + pid + ':\n' + traceback
-                identifier = pid.split('.')[0]
-                if Environment.interface == 'shell':
-                    self.finish(identifier)
-                    print (msg)
-                    #raise Exception(msg)
-            time.sleep(1.0)
-
-    def _init_progress_poll(self):
-        #add some progress indicator for command line users
-        pass
-
     def _are_active_processes(self):
         if (self.processes == 0 and
             not [thread.func for pid, thread in self._active_threads.items()
@@ -122,9 +65,8 @@ class ProcessHandling(object):
     def _wait_till_idle(self, pids):
         finished = set()
         while True:
-            if not self._poll:
+            if not self.Polls._should_poll:
                 break
-            #self._check_exception_queue()
             active_pids = set()
             for pid, thread in self._active_threads.items():
                 active_pids.add(pid)
@@ -184,7 +126,7 @@ class ProcessHandling(object):
             self._destroy_thread(pid)
         if not identifier:
             self._item_queue = self.new_queue()
-        self._poll = False
+        self.Polls.stop_polls()
 
     def _destroy_thread(self, pid):
         if pid in self._active_threads:
@@ -242,7 +184,7 @@ class ProcessHandling(object):
         return OrderedDict()
 
     def drain_queue(self, queue, mode, qpid=None, qlogger=None):
-        self._init_polls()
+        self.Polls.start_polls()
         if qlogger and qpid:
             qstart = Util.microseconds()
         pids = []
@@ -299,7 +241,6 @@ class ProcessHandling(object):
                 return False
                         
     def add_process(self, func, pid, args=None, kwargs=None, callback=None):
-        self._init_polls()
         if self._already_processing(pid):
             return False
         self._clear_exceptions(pid)
@@ -307,6 +248,7 @@ class ProcessHandling(object):
             self._wait(func, pid, args)
             return False
         else:
+            self.Polls.start_polls()
             args, kwargs = self._parse_args(args, kwargs)
             new_thread = Thread(target=func, name=pid, 
                                 args=args, kwargs=kwargs)

@@ -14,12 +14,15 @@ GObject.threads_init()
 from util import Util
 from environment import Environment
 from processing import ProcessHandling
+from poll import Polls
 from .common import CommonActions as ca
 from .editor import Editor
 from .options import Options
 
-
+ 
 class ProcessingGui(object):
+    """ 
+    """
 
     def __init__(self, window):
         self.window = window
@@ -27,9 +30,6 @@ class ProcessingGui(object):
         self.editing = []
         self.books = {}
         self.ProcessHandler = ProcessHandling()
-        self._poll = True
-        self._polling_items = False
-        self._polling_exceptions = False
         self.init_main()
         self.init_tasklist()
         self.init_buttons()
@@ -51,12 +51,12 @@ class ProcessingGui(object):
                                   {Gtk.STOCK_OK: Gtk.ResponseType.OK})
                     return True
                 else:
-                    self._poll = False
+                    self.ProcessHandler.Polls.stop_polls()
                     return False
             else:
                 return True
         else:
-            self._poll = False
+            self.ProcessHandler.Polls.stop_polls()
 
     def init_main(self):
         kwargs = {'orientation': Gtk.Orientation.VERTICAL}
@@ -287,38 +287,15 @@ class ProcessingGui(object):
         args = [queue, 'sync']
         #kwargs = {'qpid': identifier, 
         #          'qlogger': logger}
-        if not self._polling_exceptions:
-            self._init_poll_exceptions()
+        #if not self._polling_exceptions:
+        #    self._init_poll_exceptions()
         self.ProcessHandler.add_process(fnc, pid, args)
-        
-    def _init_poll_exceptions(self):
-        GObject.timeout_add(1000, self._check_exception_queue)
-
-    def _check_exception_queue(self):
-        while True:
-            if not self._poll:
-                self._polling_exceptions = False
-                return False
-            try:
-                pid, traceback = self.ProcessHandler._exception_queue.get_nowait()
-            except Empty:
-                pass
-            else:
-                self.ProcessHandler._handled_exceptions.append(pid)
-                msg = 'Exception in ' + pid + ':\n' + traceback
-                identifier = pid.split('.')[0]
-                if Environment.interface == 'gui':
-                    self.ProcessHandler.finish(identifier)
-                    ca.dialog(message=msg)
-                    return True
-            time.sleep(1.0)
                 
     def follow_progress(self, identifier):
         GObject.timeout_add(1000, self.update_progress, identifier)
 
     def update_progress(self, identifier):
-        if not self._poll:
-            self._polling_items = False
+        if not self.ProcessHandler.Polls._should_poll:
             return False
         path = self.model.get_path(self.books[identifier].entry)
         if identifier not in self.ProcessHandler.OperationObjects:
