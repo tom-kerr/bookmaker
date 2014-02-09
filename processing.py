@@ -205,10 +205,11 @@ class ProcessHandling(object):
                     exec_time = round((end-start)/60, 2)
                     logger.info('pid ' + pid + ' finished in ' + 
                                 str(exec_time) + ' minutes')
-                except Exception as e:
+                except Exception:
+                    tb = Util.exception_info()
                     logger.error('pid ' + str(pid) + 
                                  ' encountered an error; ' + 
-                                 str(e) + '\nAborting.')
+                                 str(tb) + '\nAborting.')
                     return False
             elif mode == 'async':
                 self.add_process(func, pid, args, kwargs, callback)                
@@ -317,6 +318,9 @@ class ProcessHandling(object):
         return callback
 
     def was_successful(self, pid):
+        #first check unhandled exceptions
+        if [e for e in sys.exc_info() if e is not None]:
+            return False
         if pid in self._handled_exceptions:
             return False
         else:

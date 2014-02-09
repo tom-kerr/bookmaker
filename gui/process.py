@@ -186,17 +186,20 @@ class ProcessingGui(object):
         return True
 
     def get_book(self, widget, data):
-        self.add_button.set_child_visible(False)
         selected = ca.get_user_selection()
         if selected is not None:
-            self.environment = Environment([selected])
+            try:
+                self.environment = Environment([selected])
+            except (Exception, BaseException):
+                tb = Util.exception_info()
+                ca.dialog(message=str(tb))
+                return
             for book in self.environment.books:
                 if book.identifier not in self.books:
                     self.add_book(book)
                 else:
                     ca.dialog(None, Gtk.MessageType.INFO,
                                   str(book.identifier) + ' is already in queue...')
-        self.add_button.set_child_visible(True)
 
     def add_book(self, book):
         self.books[book.identifier] = book
