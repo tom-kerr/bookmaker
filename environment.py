@@ -242,7 +242,14 @@ class BookData(object):
         self.raw_image_dimensions = raw_data['dimensions']
         self.identifier = os.path.basename(self.root_dir)
         self.scandata_file = self.root_dir + '/' + self.identifier + '_scandata.xml'
-        self.scandata = Scandata(self.scandata_file)
+        self.scandata = Scandata()
+        if os.path.exists(self.scandata_file) and os.stat(self.scandata_file)[6] > 0:
+            self.scandata.new_from_file(self.scandata_file)
+        else:
+            self.scandata.new(self.identifier,
+                              self.page_count,
+                              self.raw_image_dimensions,
+                              self.scandata_file)
         self.scaled_center_point = {}
         for leaf in range(0, self.page_count):
             self.scaled_center_point[leaf] = \
@@ -312,16 +319,20 @@ class Scandata(object):
         to the Internet Archive's "scandata". 
     """
 
-    def __init__(self, filename):
-        self.filename = filename
+    def __init__(self):
+        self.filename = None
         self.file = None
         self.tree = None
-        self.file = open(filename, 'r+')
+                        
+    def new_from_file(self, filename):
+        self.filename = filename
+        self.file = open(self.filename, 'r+')
         parser = etree.XMLParser(remove_blank_text=True)
         self.tree = etree.parse(self.file, parser)
-        self.file.close()
+        #self.file.close()
 
-    def new(self, identifier, page_count, raw_image_dimensions, scandata_file):
+    def new(self, identifier, page_count, 
+            raw_image_dimensions, filename):
         root = etree.Element('book')
         book_data = etree.SubElement(root,'bookData')
         book_id = etree.SubElement(book_data,'bookId')
@@ -354,8 +365,10 @@ class Scandata(object):
             crop_box = Crop.new_crop_element(page, 'cropBox')
             page_number = etree.SubElement(page, 'pageNumber')
         doc = etree.ElementTree(root)
-        with open(scandata_file, "w+b") as scandata:
-            doc.write(scandata, pretty_print=True)
-            self.tree = doc
+        self.file = open(filename, 'w+b')
+        self.filename = filename
+        doc.write(self.file, pretty_print=True)
+        self.tree = doc
+        #self.file.close()
         
 
