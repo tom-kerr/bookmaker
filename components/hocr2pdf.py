@@ -36,8 +36,8 @@ class HOCR2Pdf(Component):
         if sloppy:
             sloppy = '-s'
         if ppi:
-            resolution = '-r ' + str(ppi)
-
+            resolution = ['-r', str(ppi)]
+            
         kwargs.update({'in_file': in_file,
                        'out_file': out_file,
                        'hocr_file': None,
