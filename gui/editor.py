@@ -2667,8 +2667,8 @@ class ExportHandler(object):
                 setattr(self, gui_id + '_fraction', fraction)
                 progress.set_fraction(fraction)                
                 string = str(int(fraction*100)) + '% -- Time Remaining: ' \
-                    + str(state['estimated_mins']) + 'mins ' + \
-                    str(state['estimated_secs']) + 'secs' 
+                    + str(state['estimated_mins']) + ' mins ' + \
+                    str(state['estimated_secs']) + ' secs' 
                 progress.set_text(string)
                 return True
 
