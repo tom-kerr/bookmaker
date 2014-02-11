@@ -194,7 +194,6 @@ class ProcessHandling(object):
             args, kwargs = self._parse_args(args, kwargs)
             identifier = pid.split('.')[0]
             logger = logging.getLogger(identifier)
-            #print ('DRAIN\n', mode, pid, callback)
             if mode == 'sync':                
                 if callback:
                     kwargs['callback'] = callback
