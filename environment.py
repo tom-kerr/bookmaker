@@ -321,18 +321,18 @@ class Scandata(object):
 
     def __init__(self):
         self.filename = None
-        self.file = None
         self.tree = None
+        self.locked = False
                         
     def new_from_file(self, filename):
         self.filename = filename
-        self.file = open(self.filename, 'r+')
-        parser = etree.XMLParser(remove_blank_text=True)
-        self.tree = etree.parse(self.file, parser)
-        #self.file.close()
+        with open(self.filename, 'r+') as f:
+            parser = etree.XMLParser(remove_blank_text=True)
+            self.tree = etree.parse(f, parser)
 
     def new(self, identifier, page_count, 
             raw_image_dimensions, filename):
+        self.filename = filename
         root = etree.Element('book')
         book_data = etree.SubElement(root,'bookData')
         book_id = etree.SubElement(book_data,'bookId')
@@ -364,11 +364,22 @@ class Scandata(object):
             orig_height.text = str(raw_image_dimensions[leaf]['height'])
             crop_box = Crop.new_crop_element(page, 'cropBox')
             page_number = etree.SubElement(page, 'pageNumber')
-        doc = etree.ElementTree(root)
-        self.file = open(filename, 'w+b')
-        self.filename = filename
-        doc.write(self.file, pretty_print=True)
-        self.tree = doc
-        #self.file.close()
-        
+        self.tree = etree.ElementTree(root)
+        self.write_to_file()
+
+    def write_to_file(self):
+        while True:
+            if self.locked:
+                time.sleep(0.5)
+            self.locked = True
+            try:
+                with open(self.filename, 'r+b') as f:
+                    self.tree.write(f, pretty_print=True)
+            except (OSError, IOError) as e:
+                raise Exception ('Failed to write to scandata! \n' + str(e))
+            else:
+                break
+            finally:
+                self.locked = False
+                
 

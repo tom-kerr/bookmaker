@@ -90,14 +90,6 @@ class Crop(StructuralMetadata):
                     if value is not None:
                         cropBox.find(dimension).text = str(int(value))
                 self.active[leaf] = True
-        #self.write_to_scandata()
-
-    def write_to_scandata(self):
-        try:
-            with open(self.scandata.filename, 'r+b') as f:
-                self.scandata.tree.write(f, pretty_print=True)
-        except (OSError, IOError) as e:
-            raise Exception ('Failed to write to scandata! \n' + str(e))
         
     def xml_io(self, mode):
         page_data = self.scandata.tree.find('pageData')
@@ -187,7 +179,7 @@ class Crop(StructuralMetadata):
                     if skewconf is not None and self.skew_conf[leaf] is not None:
                         skewconf.text = str(self.skew_conf[leaf])
         if mode is 'export':
-            self.write_to_scandata()
+            self.scandata.write_to_file()
 
     def delete_assertion(self, leaf):
         bookdata = self.scandata.tree.find('bookData')
@@ -205,7 +197,7 @@ class Crop(StructuralMetadata):
         if remove is not None:
             #self.pagination[leaf] = None
             assertions[remove].getparent().remove(assertions[remove])
-            self.write_to_scandata()
+            self.scandata.write_to_file()
             self.update_pagination()
 
     def assert_page_number(self, leaf, number):
@@ -219,7 +211,7 @@ class Crop(StructuralMetadata):
             if entry.text == str(leaf):
                 pagenum = element.find('pageNum')
                 pagenum.text = str(number)
-                self.write_to_scandata()
+                self.scandata.write_to_file()
                 self.update_pagination()
                 return
         insert_point = None
@@ -237,7 +229,7 @@ class Crop(StructuralMetadata):
         leafnum.text = str(leaf)
         pagenum = etree.SubElement(assertion, 'pageNum')
         pagenum.text = str(number)
-        self.write_to_scandata()
+        self.scandata.write_to_file()
         self.update_pagination()
 
     def update_pagination(self):
