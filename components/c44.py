@@ -16,7 +16,9 @@ class C44(Component):
         super(C44, self).__init__()
         self.book = book
         dirs = {'derived': self.book.root_dir + '/' + 
-                self.book.identifier + '_derived'}
+                self.book.identifier + '_derived',
+                'cropped': self.book.root_dir + '/' + 
+                self.book.identifier + '_cropped',}
         self.book.add_dirs(dirs)
         
     def run(self, leaf, in_file=None, out_file=None, slices=None, size=None, 
@@ -35,21 +37,21 @@ class C44(Component):
             out_file =(self.book.dirs['derived'] + '/' +
                        self.book.identifier + '_' + leafnum + '.djvu')
         if slices:
-            slices = '-slice ' + str(slices)
+            slices = ['-slice', str(slices)]
         if size:
-            size = '-size ' + str(size)
+            size = ['-size', str(size)]
         if bpp:
-            bpp = '-bpp ' + str(bpp)
+            bpp = ['-bpp', str(bpp)]
         if percent:
-            percent = '-percent ' + str(percent)
+            percent = ['-percent', str(percent)]
         if dpi:
-            dpi = '-dpi ' + str(dpi)
+            dpi = ['-dpi', str(dpi)]
         if gamma:
             gamma = ['-gamma', str(gamma)]
         if decibel:
-            decibel = '-decibel ' + str(decibel)
+            decibel = ['-decibel', str(decibel)]
         if dbfrac:
-            dbfrac = '-dbfrac ' + str(dbfrac)
+            dbfrac = ['-dbfrac', str(dbfrac)]
         if crcbnorm:
             crcb = '-crcbnormal'
         elif crcbhalf:
@@ -60,9 +62,9 @@ class C44(Component):
             crcb = '-crcbnone'
         if crcbnorm or crcbhalf:
             if crcbdelay:
-                crcbdelay = '-crcbdelay ' + str(crcbdelay)
+                crcbdelay = ['-crcbdelay', str(crcbdelay)]
         if mask:
-            mask = '-mask ' + str(mask)
+            mask = ['-mask', str(mask)]
 
         kwargs.update({'in_file': in_file,
                        'out_file': out_file,
