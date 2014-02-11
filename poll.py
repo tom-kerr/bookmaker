@@ -8,7 +8,7 @@ GObject.threads_init()
 
 from util import Util
 from environment import Environment
-
+from gui.common import CommonActions as ca
 
 class Polls(object):
     """
@@ -29,8 +29,7 @@ class BasePolls(object):
         self._is_polling_exceptions = False
         self.ProcessHandler = ProcessHandler
 
-    def start_polls(self, timeout=1):
-        time.sleep(timeout)
+    def start_polls(self):
         if self._should_poll:
             self._start_thread_poll()
             self._start_exception_poll()
@@ -66,6 +65,7 @@ class ShellPolls(BasePolls):
 
     def _thread_poll(self):
         while True:
+            time.sleep(1.0)
             if (not self._should_poll or 
                 not self.ProcessHandler._are_active_processes()):
                 self._is_polling_threads = False
@@ -73,7 +73,7 @@ class ShellPolls(BasePolls):
                 break
             self.ProcessHandler._clear_inactive()
             self.ProcessHandler._submit_waiting()
-            time.sleep(1.0)
+            
 
     def _start_exception_poll(self):
         if not self._is_polling_exceptions:
@@ -83,6 +83,7 @@ class ShellPolls(BasePolls):
 
     def _exception_poll(self):
         while True:
+            time.sleep(1.0)
             if (not self._should_poll or 
                 not self.ProcessHandler._are_active_processes()):
                 self._is_polling_exceptions = False
@@ -99,7 +100,7 @@ class ShellPolls(BasePolls):
                 self.ProcessHandler.finish(identifier)
                 print (msg)
                 #raise Exception(msg)
-            time.sleep(1.0)
+            #time.sleep(1.0)
 
 
 
@@ -115,6 +116,7 @@ class GUIPolls(BasePolls):
             self._is_polling_threads = True
 
     def _thread_poll(self):
+        time.sleep(1)
         if (not self._should_poll or 
             not self.ProcessHandler._are_active_processes()):
             self._is_polling_threads = False
@@ -130,6 +132,7 @@ class GUIPolls(BasePolls):
             self._is_polling_exceptions = True
 
     def _exception_poll(self):
+        time.sleep(1)
         if (not self._should_poll or 
             not self.ProcessHandler._are_active_processes()):
             self._is_polling_exceptions = False

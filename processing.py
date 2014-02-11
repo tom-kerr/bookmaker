@@ -126,7 +126,7 @@ class ProcessHandling(object):
             self._destroy_thread(pid)
         if not identifier:
             self._item_queue = self.new_queue()
-        self.Polls.stop_polls()
+        #self.Polls.stop_polls()
 
     def _destroy_thread(self, pid):
         if pid in self._active_threads:
