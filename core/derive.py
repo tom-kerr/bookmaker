@@ -33,7 +33,11 @@ class PDF(Operation):
             if end == self.book.page_count:
                 end = self.book.page_count-1
         kwargs.update({'start': start, 'end': end})
-        self.hocr2pdf_pipeline(**kwargs)
+        try:
+            self.hocr2pdf_pipeline(**kwargs)
+        except (Exception, BaseException):
+            pid = self.make_pid_string('make_pdf_with_hocr.'+str(start))
+            self.ProcessHandler.join((pid, Util.exception_info()))
 
     def hocr2pdf_pipeline(self, start=None, end=None, **kwargs):
         tesseract = Tesseract(self.book)
@@ -62,22 +66,18 @@ class PDF(Operation):
                            'out_file': out_file})
             try:
                 self.HOCR2Pdf.run(leaf, **kwargs)
-            except:
-                pid = self.make_pid_string('make_pdf_hocr_pipeline')
-                self.ProcessHandler.join((pid, Util.exception_info()))
+            except (Exception, BaseException):
+                raise
             else:
                 exec_time = self.HOCR2Pdf.get_last_exec_time()
-                self.complete_process('HOCR2Pdf', leaf, exec_time)
-                
+                self.complete_process('HOCR2Pdf', leaf, exec_time)                
             if not os.path.exists(out_file):
-                pid = self.make_pid_string('make_pdf_hocr_pipeline')
-                self.ProcessHandler.join((pid, 'cannot make pdf: failed to create ' +
-                                          out_file,))
-        try:
-            if os.path.exists(dummy_hocr):
+                raise OSError('cannot make pdf: failed to create ' + out_file)
+        if os.path.exists(dummy_hocr):
+            try:
                 os.remove(dummy_hocr)
-        except Exception as e:
-            self.book.logger.warning('Failed to remove dummy hocr; ' + str(e))
+            except OSError as e:
+                self.book.logger.warning('Failed to remove dummy hocr; ' + str(e))
             
     def assemble_pdf_with_pypdf(self, **kwargs):
         self.book.logger.debug('assembling pdf with pypdf')
