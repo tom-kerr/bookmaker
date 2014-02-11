@@ -2684,11 +2684,17 @@ class ExportHandler(object):
                         'pdf': 'PDF',
                         'djvu': 'Djvu'}.items():
             if op in update:
+                if not hasattr(self, op+'_fraction'):
+                    #if the other update threads have not
+                    #finished their first pass then this
+                    #won't exist.
+                    continue
                 if cls in op_obj:
                     state = self.ProcessHandler.get_op_state\
                         (self.book, identifier,
                          cls, self.book.page_count)
                     total_fraction += getattr(self, op+'_fraction')
+        total_fraction /= num_tasks
         self.global_progress.set_fraction(total_fraction)
         self.global_progress.set_text(str(int(total_fraction*100)) + '%')
         if total_fraction == 1.0:
