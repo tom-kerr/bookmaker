@@ -20,8 +20,6 @@ class PDF(Operation):
         try:
             super(PDF, self).__init__(PDF.components)
             self.init_components(self.book)
-            print ('raising')
-            raise Exception('ASDsd')
         except:
             pid = self.make_pid_string('__init__')
             self.ProcessHandler.join((pid, Util.exception_info()))
