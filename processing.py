@@ -320,8 +320,12 @@ class ProcessHandling(object):
         #first check unhandled exceptions
         if [e for e in sys.exc_info() if e is not None]:
             return False
-        if pid in self._handled_exceptions:
-            return False
+        #we don't care about individual distributed ops 
+        #and so drop the start field
+        pid = '.'.join(pid.split('.')[:3])
+        for he_pid in self._handled_exceptions:
+            if pid in he_pid:
+                return False
         else:
             return True
 
