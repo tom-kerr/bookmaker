@@ -110,7 +110,7 @@ class Djvu(Operation):
         try:
             super(Djvu, self).__init__(Djvu.components)
             self.init_components(self.book)
-        except:
+        except (Exception, BaseException):
             pid = self.make_pid_string('__init__')
             self.ProcessHandler.join((pid, Util.exception_info()))
 
@@ -123,8 +123,12 @@ class Djvu(Operation):
             if end == self.book.page_count:
                 end = self.book.page_count-1
         kwargs.update({'start': start, 'end': end})
-        self.c44_pipeline(**kwargs)
-        self.djvused_add_ocr_pipeline(**kwargs)
+        try:
+            self.c44_pipeline(**kwargs)
+            self.djvused_add_ocr_pipeline(**kwargs)
+        except (Exception, BaseException):
+            pid = self.make_pid_string('make_djvu_with_c44.' + str(start))
+            self.ProcessHandler.join((pid, Util.exception_info()))
 
     def c44_pipeline(self, start=None, end=None, **kwargs):
         if None in (start, end):
@@ -132,9 +136,8 @@ class Djvu(Operation):
         for leaf in range(start, end):
             try:
                 self.C44.run(leaf, **kwargs)
-            except:
-                pid = self.make_pid_string('c44_pipeline')
-                self.ProcessHandler.join((pid, Util.exception_info()))
+            except (Exception, BaseException):
+                raise
             else:
                 exec_time = self.C44.get_last_exec_time()
                 self.complete_process('C44', leaf, exec_time)
@@ -160,24 +163,21 @@ class Djvu(Operation):
                     with open(self.tmpocrlisp, 'w') as f:
                         f.write(ocrlisp)
                 except IOError:
-                    pid = self.make_pid_string('djvused_add_ocr_pipeline')
-                    self.ProcessHandler.join((pid, Util.exception_info()))
+                    raise
 
                 if not os.path.exists(self.set_text):
                     try:
                         with open(self.set_text, 'w') as f:
                             f.write("select 1; set-txt " + self.tmpocrlisp + "; save")
                     except IOError:
-                        pid = self.make_pid_string('djvused_add_ocr_pipeline')
-                        self.ProcessHandler.join((pid, Util.exception_info()))
+                        raise
 
                 kwargs.update({'options': '-f',
                                'script': self.set_text})                
                 try:
                     self.Djvused.run(leaf, **kwargs)
-                except:
-                    pid = self.make_pid_string('djvused_add_ocr_pipeline')
-                    self.ProcessHandler.join((pid, Util.exception_info()))
+                except (Exception, BaseException):
+                    raise
                 else:
                     exec_time = self.Djvused.get_last_exec_time()
                     self.complete_process('Djvused', leaf, exec_time)
@@ -188,19 +188,21 @@ class Djvu(Operation):
         try:
             self.Djvm.run(**kwargs)
             self.Djvm.remove_in_files()
-        except:
+        except (Exception, BaseException):
             pid = self.make_pid_string('assemble_with_djvm')
             self.ProcessHandler.join((pid, Util.exception_info()))
         else:
             exec_time = self.Djvm.get_last_exec_time()
-            self.complete_process('Djvm', range(1, self.book.page_count-1), exec_time)
+            self.complete_process('Djvm', range(1, self.book.page_count-1), 
+                                  exec_time)
         finally:
             for f in (self.tmpocrlisp, self.set_text):
                 try:
                     if os.path.exists(f):
                         os.remove(f)
-                except Exception as e:
-                    self.book.logger.warning('Failed to remove ' + f +'; ' + str(e))
+                except OSError as e:
+                    self.book.logger.warning('Failed to remove ' + 
+                                             f + '; ' + str(e))
 
 
 
