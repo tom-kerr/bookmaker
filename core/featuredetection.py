@@ -28,16 +28,16 @@ class FeatureDetection(Operation):
             self.init_components(self.book)
             if self.book.settings['respawn']:
                 self.book.clean_dirs()
+            if self.book.settings['respawn']:
+                self.book.scandata.new(self.book.identifier, self.book.page_count,
+                                       self.book.raw_image_dimensions,
+                                       self.book.scandata_file)
         except (Exception, BaseException) as e:
             self.book.logger.error(str(e))
             pid = self.make_pid_string('__init__')
             self.ProcessHandler.join((pid, Util.exception_info()))
                                       
     def pipeline(self, start=None, end=None):
-        if self.book.settings['respawn']:
-            self.book.scandata.new(self.book.identifier, self.book.page_count,
-                                   self.book.raw_image_dimensions,
-                                   self.book.scandata_file)
         if None in (start, end):
             start, end = 0, self.book.page_count
         for leaf in range(start, end):
