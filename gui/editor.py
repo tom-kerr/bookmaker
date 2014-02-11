@@ -2326,7 +2326,7 @@ class ExportHandler(object):
     def return_pdf_args(self):
         return {'no_image': self.pdf_no_image.get_active(),
                 'sloppy': self.pdf_sloppy.get_active(),
-                'resolution': self.pdf_resolution.get_text()}
+                'ppi': self.pdf_resolution.get_text()}
 
     def init_djvu(self):
         kwargs = {'shadow_type': Gtk.ShadowType.OUT,
