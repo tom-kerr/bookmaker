@@ -57,7 +57,13 @@ class BasePolls(object):
 
 #TODO add some progress indicator for command line users
 class ShellPolls(BasePolls):
-    """
+    """ Monitors the CPU bound threads, submitting waiting processes 
+        when others finish, and will abort a process when an exception 
+        arises. In the event of an exception, all processes running in 
+        conjunction to the failed process will also be shutdown, i.e.,
+        tasks distributed across multple cores will see all their 
+        associated threads terminate. The exception will also be printed 
+        to the screen and logged.
     """
     def __init__(self, ProcessHandler):
         super(ShellPolls, self).__init__(ProcessHandler)
@@ -79,7 +85,6 @@ class ShellPolls(BasePolls):
             self.ProcessHandler._clear_inactive()
             self.ProcessHandler._submit_waiting()
             
-
     def _start_exception_poll(self):
         if not self._is_polling_exceptions:
             self._exception_poll = Thread(target=self._exception_poll)
@@ -110,7 +115,13 @@ class ShellPolls(BasePolls):
 
 
 class GUIPolls(BasePolls):
-    """
+    """ Monitors the CPU bound threads, submitting waiting processes 
+        when others finish, and will abort a process when an exception 
+        arises. In the event of an exception, all processes running in 
+        conjunction to the failed process will also be shutdown, i.e., 
+        tasks distributed across multple cores will see all their 
+        associated threads terminate. The exception will also be 
+        displayed in a dialog box and logged.
     """
     def __init__(self, ProcessHandler):
         super(GUIPolls, self).__init__(ProcessHandler)
