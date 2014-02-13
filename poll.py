@@ -10,8 +10,13 @@ from util import Util
 from environment import Environment
 from gui.common import CommonActions as ca
 
-class Polls(object):
-    """
+class PollsFactory(object):
+    """ Returns a polling object geared towards either
+        shell use or the gui. The reason for having
+        separate poll objects is because gui dialogs cannot
+        be produced from a separate thread; we must use 
+        gobject's add_timeout to allow this, and so the
+        poll semantics are slightly different.
     """
     def __new__(cls, ProcessHandler):
         if Environment.interface == 'shell':
