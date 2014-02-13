@@ -16,7 +16,7 @@ from core.derive import Djvu
 from core.crop import Crop
 from core.ocr import OCR
 from gui.common import CommonActions as ca
-from poll import Polls
+from poll import PollsFactory
 
 class ProcessHandling(object):
     """
@@ -44,7 +44,7 @@ class ProcessHandling(object):
         self._inactive_threads = self.new_queue()
         self._item_queue = self.new_queue()
         self._exception_queue = Queue()
-        self.Polls = Polls(self)
+        self.Polls = PollsFactory(self)
         self._handled_exceptions = []
         self.OperationObjects = {}
         
