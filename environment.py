@@ -133,6 +133,11 @@ class Environment(object):
         sys.path.append(Environment.current_path)
 
     def find_valid_subdirs(self, root_dir):
+        """ We accept as the root directory a directory containing 
+            items (sub-directories) to be processed, and so we check
+            for the presence of such items and if found initialize and 
+            add them to our list of books.
+        """
         subdirs = os.listdir(root_dir)
         for subdir in subdirs:
             path = root_dir + '/' + subdir
@@ -184,6 +189,9 @@ class Environment(object):
 
     @staticmethod
     def is_sane(root_dir):
+        """ Checks that our root directory is in fact a directory,
+            and that it contains a directory of raw images.
+        """
         if not os.path.isdir(root_dir):
             return False
         raw_dir = Environment.find_raw_dir(root_dir)
