@@ -8,6 +8,10 @@ import time
 import traceback
 
 class Util(object):
+    """ Used mostly to manage system calls, including
+        spawning, terminating, and collecting process 
+        execution time and output. 
+    """
 
     def __init__(self):
         self.active_procs = {}
