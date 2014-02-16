@@ -331,6 +331,11 @@ class ProcessHandling(object):
 
     @multi_threaded
     def run_pipeline_distributed(self, queue, identifier, cls, callback=None):
+        """ Distributes across available cores a function that takes a starting
+            leaf and ending leaf value and does some operation for each leaf in 
+            that range. The start and end values are determined based on the 
+            number of pages in the book and the number of available cores.
+        """
         callback = self._add_default_op_cb(callback)
         self.drain_queue(queue, 'async')
         if callback:
