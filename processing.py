@@ -19,7 +19,32 @@ from gui.common import CommonActions as ca
 from poll import PollsFactory
 
 class ProcessHandling(object):
-    """
+    """ Used to kick off and monitor CPU-bound threads.
+
+        There are two ways to use this class, by calling 'add_process' or 
+        'drain_queue'.
+
+        'add_process' takes a function, a unique identifier for the process,
+        args and kwargs. A thread will be created with your function as the 
+        target and the arguments supplied and then return. Note that 
+        'add_process' does not block.
+
+        'drain_queue' on the other hand takes a list of process items (queue)
+        and a mode, of which there are two, 'sync', and 'async'. A queue is a
+        dictionary of dictionaries in the following form:
+
+            queue[pid] = {'func': function_to_be_called,
+                          'args': [list_of_args], 
+                          'kwargs': {dict_of_kwargs},
+                          'callback': 'name_of_callback' or actual_function}
+
+        In 'sync' mode, 'drain_queue' will walk through each item in the queue
+        and call its function with the supplied arguments, therefore blocking
+        between each item, while in 'async' mode each item will be sent to 
+        'add_process' and processed on one or more separate threads 
+        simultaneously. Note that 'drain_queue' blocks in either mode; in 'sync'
+        mode this is implied, while in 'async' mode 'drain_queue' checks for all
+        spawned threads to indicate they are finished before exiting.
     """
     _thread_count_ignore = ('drain_queue',
                            'handle_thread_exceptions',
