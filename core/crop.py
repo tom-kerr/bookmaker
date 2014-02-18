@@ -17,7 +17,7 @@ class Crop(Operation):
         try:
             super(Crop, self).__init__(Crop.components)
             self.init_components(self.book)
-        except:
+        except (Exception, BaseException):
             pid = self.make_pid_string('__init__')
             self.ProcessHandler.join((pid, Util.exception_info()))            
 
@@ -29,7 +29,7 @@ class Crop(Operation):
             #callback = self.components['cropper']['callback']
             try:
                 self.Cropper.run(leaf, **kwargs)
-            except:
+            except (Exception, BaseException):
                 pid = self.make_pid_string('cropper_pipeline')
                 self.ProcessHandler.join((pid, Util.exception_info()))
             else:
