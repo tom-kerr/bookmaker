@@ -17,7 +17,7 @@ class OCR(Operation):
         try:
             super(OCR, self).__init__(OCR.components)
             self.init_components(self.book)
-        except:
+        except (Exception, BaseException):
             pid = self.make_pid_string('__init__')
             self.ProcessHandler.join((pid, Util.exception_info()))
 
@@ -31,7 +31,7 @@ class OCR(Operation):
             #    continue            
             try:
                 self.Tesseract.run(leaf, **kwargs)
-            except:
+            except (Exception, BaseException):
                 pid = self.make_pid_string('tesseract_hocr_pipeline')
                 self.ProcessHandler.join((pid, Util.exception_info()))
             else:
