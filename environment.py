@@ -380,8 +380,12 @@ class Scandata(object):
             if self.locked:
                 time.sleep(0.5)
             self.locked = True
+            if os.path.exists(self.filename):
+                mode = 'r+b'
+            else:
+                mode = 'w+b'
             try:
-                with open(self.filename, 'r+b') as f:
+                with open(self.filename, mode) as f:
                     self.tree.write(f, pretty_print=True)
             except (OSError, IOError) as e:
                 raise Exception ('Failed to write to scandata! \n' + str(e))
