@@ -14,7 +14,6 @@ GObject.threads_init()
 from util import Util
 from environment import Environment
 from processing import ProcessHandling
-from poll import Polls
 from .common import CommonActions as ca
 from .editor import Editor
 from .options import Options
