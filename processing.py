@@ -383,6 +383,7 @@ class ProcessHandling(object):
                       'args': args, 
                       'kwargs': kwargs,
                       'callback': None}
+        book.start_time = Util.microseconds()
         self.drain_queue(queue, 'async')
         if callback:
             for pid in queue.keys():
