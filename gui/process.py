@@ -17,7 +17,7 @@ from .options import Options
 
  
 class ProcessingGui(object):
-    """ 
+    """ Graphical interface for post-processing
     """
 
     def __init__(self, window):
