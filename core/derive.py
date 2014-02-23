@@ -3,7 +3,6 @@ import glob
 import re
 
 from PyPDF2 import PdfFileReader, PdfFileWriter
-from lxml import etree
 
 from util import Util
 from .operation import Operation

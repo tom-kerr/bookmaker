@@ -1,13 +1,11 @@
 import sys, os, re
-from lxml import etree
 
 import gi
 gi.require_version("Gtk", "3.0")
 gi.require_version("Gdk", "3.0")
-from gi.repository import Gtk, Gdk
+from gi.repository import Gtk, Gdk, GObject
 
 from environment import Environment, BookData
-from datastructures import Crop
 
 from .common import CommonActions as ca
 from .process import ProcessingGui

@@ -2,14 +2,11 @@ import sys, os, re, math, time
 import multiprocessing
 from queue import Queue, Empty
 import psutil
-from lxml import etree
 
 import gi
 gi.require_version("Gtk", "3.0")
 gi.require_version("Gdk", "3.0")
-from gi.repository import Gtk, Gdk
-from gi.repository import GObject
-GObject.threads_init()
+from gi.repository import Gtk, Gdk, GObject
 
 from util import Util
 from environment import Environment
