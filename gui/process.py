@@ -303,7 +303,7 @@ class ProcessingGui(object):
         if not identifier in self.ProcessHandler._item_queue:
             #self.books[identifier].start_time = Util.microseconds()
             self.model[path][1] = 'processing'
-
+            
             if self.ProcessHandler.had_exception(identifier, cls='FeatureDetection'):
                 self.model[path][1] = 'ERROR'
                 self.model[path][3] = '--'

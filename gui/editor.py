@@ -36,7 +36,7 @@ class Editor(object):
         self.init_notebook()
         self.window.add(self.notebook)
         self.window.show()
-
+        
     def quit(self, widget, data):
         if (self.ImageEditor.save_needed['l'][0] or 
             self.ImageEditor.save_needed['r'][0] or
@@ -2754,7 +2754,6 @@ class ExportHandler(object):
         args = [cls, mth, self.book, None, self.return_pdf_args()]
         self.ProcessHandler.add_process(fnc, pid, args, 
                                         {'callback': 'assemble_pdf_with_pypdf'})
-                                        
         ca.run_in_background(self.update_progress, 2000, args=('PDF', 'pdf'))
 
     def make_djvu(self, widget):
