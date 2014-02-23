@@ -132,8 +132,8 @@ class ProcessHandling(object):
                                    ' minutes')
                 inactive[pid] = thread
         for pid, thread in inactive.items():
-            identifier, cls = pid.split('.')[:2]
             if thread.func not in ProcessHandling._thread_count_ignore:
+                identifier, cls = pid.split('.')[:2]
                 self.OperationObjects[identifier][cls].thread_count -= 1
                 self.processes -= 1
             self._inactive_threads[pid] = thread

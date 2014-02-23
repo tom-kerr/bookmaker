@@ -2641,14 +2641,13 @@ class ExportHandler(object):
                 update.append('pdf')
 
             if 'text' in formats:
-                f = self.ProcessHandler.run_pipeline
                 cls = 'PlainText'
                 mth = 'make_full_plain_text'
-                pid = '.'.join((self.book.identifier, f.__name__, cls, mth))
-                queue[pid] = {'func': f,
+                pid = '.'.join((self.book.identifier, fnc.__name__, cls, mth))
+                queue[pid] = {'func': fnc,
                               'args': [cls, mth, self.book, None, None],
                               'kwargs': {},
-                              'callback': None}
+                              'callback': 'assemble_ocr_text'}
                 ca.run_in_background(self.update_progress, 2000, args=('PlainText', 'text'))
                 update.append('text')
 
@@ -2673,6 +2672,7 @@ class ExportHandler(object):
                                                      identifier, cls, 
                                                      total)                        
             if state['finished']:
+                setattr(self, gui_id + '_fraction', 1.0)
                 progress.set_fraction(1.0)
                 progress.set_text('100%')
                 return False
@@ -2767,12 +2767,12 @@ class ExportHandler(object):
         ca.run_in_background(self.update_progress, 2000, args=('Djvu', 'djvu'))
     
     def make_plain_text(self, widget):
-        fnc = self.ProcessHandler.run_pipeline
+        fnc = self.ProcessHandler.run_pipeline_distributed
         cls = 'PlainText'
         mth = 'make_full_plain_text'
         pid = '.'.join((self.book.identifier, fnc.__name__, cls, mth))
         args = [cls, mth, self.book, None, None]
-        self.ProcessHandler.add_process(fnc, pid, args, {'callback': None})
+        self.ProcessHandler.add_process(fnc, pid, args, {'callback': 'assemble_ocr_text'})
         ca.run_in_background(self.update_progress, 2000, args=('PlainText', 'text'))
 
     def get_derive_format_args(self):

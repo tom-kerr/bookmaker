@@ -228,20 +228,36 @@ class PlainText(Operation):
         
     def make_full_plain_text(self, start=None, end=None, **kwargs):
         self.book.logger.info('Creating Full Plain Text...')
-        ocr_data = kwargs.get(None)
-        if ocr_data is None:
-            ocr_data = []
-            if None in (start, end):
-                start, end = 1, self.book.page_count-1
+        self.files = {}
+        if None in (start, end):
+            start, end = 1, self.book.page_count-1
+        else:
+            if  start == 0:
+                start = 1
+            if end == self.book.page_count:
+                end = self.book.page_count-1
+        self.get_ocr_files(start, end, **kwargs)
+        
+    def get_ocr_files(self, start=None, end=None, **kwargs):
+        if None in (start, end):
+            start, end = 1, self.book.page_count-1
+        files = self.Tesseract.get_hocr_files(start, end)
+        if not files:
             for leaf in range(start, end):
-                leafnum = '%04d' % leaf
-                filename = self.book.dirs['tesseract_ocr'] + '/' + \
-                    self.book.identifier + '_' + leafnum + '.hocr'
-                if not os.path.exists(filename):
-                    self.Tesseract.run(leaf, in_file=filename)
-                text = self.Tesseract.parse_hocr(filename)
-                if text is not None:
-                    ocr_data.append(text)
+                self.Tesseract.run(leaf, **kwargs)
+                exec_time = self.Tesseract.get_last_exec_time()
+                self.complete_process('Tesseract', leaf, exec_time)
+            files = self.Tesseract.get_hocr_files(start, end)
+        else:
+            self.complete_process('Tesseract', range(1, self.book.page_count), 0)
+        self.files.update(files)
+
+    def assemble_ocr_text(self):
+        ocr_data = []
+        for leaf, f in self.files.items():
+            text = self.Tesseract.parse_hocr(f)
+            if text is not None:
+                ocr_data.append(text)
         try:
             out_file = open(self.book.dirs['derived'] + '/' +
                             self.book.identifier + '_full_plain_text.txt', 'w')
@@ -318,38 +334,5 @@ class EPUB(Operation):
                                                  self.book.logger))
             self.ProcessHandler.ThreadQueue.join()
 
-
-    def full_plain_text(self, ocr_data=None):
-        self.book.logger.message('Creating Full Plain Text...')
-        if ocr_data is None:
-            if self.Tesseract.parse_hocr_files():
-                ocr_data = self.Tesseract.ocr_data
-            else:
-                self.ProcessHandler.join((self.book.identifier + '_text',
-                                          'Unable to derive full plain text: no ocr data found',
-                                          self.book.logger))
-        try:
-            out_file = open(self.book.dirs['derived'] + '/' +
-                            self.book.identifier + '_full_plain_text.txt', 'w')
-        except IOError:
-            self.ProcessHandler.join((self.book.identifier + '_text',
-                                      'Could not open full plain text for writing',
-                                      self.book.logger))
-
-        string = ''
-        for page in ocr_data:
-            for paragraph in page.paragraphs:
-                for line in paragraph.lines:
-                    string += line.text_content() + "\n"
-            string += "\n\n"
-        try:
-            out_file.write(string)
-        except:
-            self.ProcessHandler.join((self.book.identifier + '_text',
-                                      'failed to write full plain text',
-                                      self.book.logger))
- 
-            #self.ImageOps.complete(self.book.identifier +'_text')
-        self.book.logger.message('Finished Text.')
 
         """

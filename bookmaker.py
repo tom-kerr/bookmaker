@@ -72,23 +72,15 @@ def main(args):
             if 'text' in formats:
                 cls = 'PlainText'
                 mth = 'make_full_plain_text'
-                f = P.run_pipeline
-                pid = '.'.join((book.identifier, f.__name__, cls, mth))
-                queue[pid] = {'func': f,
+                pid = '.'.join((book.identifier, fnc.__name__, cls, mth))
+                queue[pid] = {'func': fnc,
                               'args': [cls, mth, book, None, None],
                               'kwargs': {},
-                              'callback': None}
+                              'callback': 'assemble_ocr_text'}
 
         P.drain_queue(queue, 'sync', 
                       qpid=book.identifier, 
                       qlogger=book.logger)
-        #P.add_process(func=P.drain_queue,
-        #              pid=book.identifier + '_drain_queue',
-        #              args=[queue, 'sync'], 
-        #              kwargs={}, 
-        #              logger=book.logger,
-        #              callback=None)
-
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser('./bookmaker')
