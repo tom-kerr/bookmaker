@@ -88,12 +88,18 @@ class PDF(Operation):
             self.book.logger.debug('pypdf adding ' + pdf_file)
             pdf_page = PdfFileReader(open(pdf_file, 'rb'))
             pdf_out.addPage(pdf_page.getPage(0))
-            os.remove(pdf_file)
-        pdf = open(self.book.dirs['derived'] + '/' + 
-                   self.book.identifier + '.pdf', 'wb')
-        pdf_out.write(pdf)
-        pdf.close()
-
+            try:
+                os.remove(pdf_file)
+            except (OSError, IOError):
+                self.book.logger.warning('failed to remove pdf file ' + 
+                                         pdf_file)
+        try:
+            with open(self.book.dirs['derived'] + '/' + 
+                      self.book.identifier + '.pdf', 'wb') as pdf:
+                pdf_out.write(pdf)
+        except (OSError, IOError):
+            raise
+            
 
 class Djvu(Operation):
     components = {'c44': {'class': 'C44',
