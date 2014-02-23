@@ -76,4 +76,6 @@ class CommonActions(object):
 
     @staticmethod
     def run_in_background(func, milliseconds=100, args=None):
-        Gdk.threads_add_timeout(1, milliseconds, func, args)
+        GObject.timeout_add(milliseconds, func, args)
+
+        

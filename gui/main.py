@@ -28,6 +28,7 @@ class BookmakerGUI:
         self.run()        
 
     def run(self):
+        GObject.threads_init()
         Gtk.main()
 
     def init_window(self):
