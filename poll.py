@@ -3,20 +3,18 @@ from threading import Thread
 from queue import Empty
 
 import gi
-from gi.repository import GObject
-GObject.threads_init()
+gi.require_version("Gdk", "3.0")
+from gi.repository import Gdk, GObject
 
 from util import Util
 from environment import Environment
 from gui.common import CommonActions as ca
 
 class PollsFactory(object):
-    """ Returns a polling object geared towards either
-        shell use or the gui. The reason for having
-        separate poll objects is because gui dialogs cannot
-        be produced from a separate thread; we must use 
-        gobject's add_timeout to allow this, and so the
-        poll semantics are slightly different.
+    """ Returns a polling object geared towards either shell use or the gui. The 
+        reason for having separate poll objects is because gui dialogs cannot be 
+        produced from a separate thread; we must use gobject's add_timeout to 
+        allow this, and so the poll semantics are slightly different.
     """
     def __new__(cls, ProcessHandler):
         if Environment.interface == 'shell':
@@ -57,13 +55,12 @@ class BasePolls(object):
 
 #TODO add some progress indicator for command line users
 class ShellPolls(BasePolls):
-    """ Monitors the CPU bound threads, submitting waiting processes 
-        when others finish, and will abort a process when an exception 
-        arises. In the event of an exception, all processes running in 
-        conjunction to the failed process will also be shutdown, i.e.,
-        tasks distributed across multple cores will see all their 
-        associated threads terminate. The exception will also be printed 
-        to the screen and logged.
+    """ Monitors the CPU bound threads, submitting waiting processes when others 
+        finish, and will abort a process when an exception arises. In the event 
+        of an exception, all processes running in conjunction to the failed 
+        process will also be shutdown, i.e., tasks distributed across multple 
+        cores will see all their associated threads terminate. The exception will 
+        also be printed to the screen and logged.
     """
     def __init__(self, ProcessHandler):
         super(ShellPolls, self).__init__(ProcessHandler)
@@ -115,13 +112,12 @@ class ShellPolls(BasePolls):
 
 
 class GUIPolls(BasePolls):
-    """ Monitors the CPU bound threads, submitting waiting processes 
-        when others finish, and will abort a process when an exception 
-        arises. In the event of an exception, all processes running in 
-        conjunction to the failed process will also be shutdown, i.e., 
-        tasks distributed across multple cores will see all their 
-        associated threads terminate. The exception will also be 
-        displayed in a dialog box and logged.
+    """ Monitors the CPU bound threads, submitting waiting processes when others 
+        finish, and will abort a process when an exception arises. In the event 
+        of an exception, all processes running in conjunction to the failed 
+        process will also be shutdown, i.e., tasks distributed across multple 
+        cores will see all their associated threads terminate. The exception will 
+        also be displayed in a dialog box and logged.
     """
     def __init__(self, ProcessHandler):
         super(GUIPolls, self).__init__(ProcessHandler)
