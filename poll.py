@@ -130,9 +130,8 @@ class GUIPolls(BasePolls):
         if not self._is_polling_threads:
             GObject.timeout_add(1000, self._thread_poll)
             self._is_polling_threads = True
-
+        
     def _thread_poll(self):
-        time.sleep(1)
         if (not self._should_poll or 
             not self.ProcessHandler._are_active_processes()):
             self._is_polling_threads = False
@@ -148,7 +147,6 @@ class GUIPolls(BasePolls):
             self._is_polling_exceptions = True
 
     def _exception_poll(self):
-        time.sleep(1)
         if (not self._should_poll or 
             not self.ProcessHandler._are_active_processes()):
             self._is_polling_exceptions = False
