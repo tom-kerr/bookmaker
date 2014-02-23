@@ -13,10 +13,12 @@ from environment import Environment, Scandata
 from core.featuredetection import FeatureDetection
 from core.derive import PDF
 from core.derive import Djvu
+from core.derive import PlainText
 from core.crop import Crop
 from core.ocr import OCR
 from gui.common import CommonActions as ca
 from poll import PollsFactory
+
 
 class ProcessHandling(object):
     """ Used to kick off and monitor CPU-bound threads.

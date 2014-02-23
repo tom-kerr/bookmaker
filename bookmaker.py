@@ -68,6 +68,16 @@ def main(args):
                               'args': [cls, mth, book, None, None],
                               'kwargs': {},
                               'callback': 'assemble_pdf_with_pypdf'}
+                
+            if 'text' in formats:
+                cls = 'PlainText'
+                mth = 'make_full_plain_text'
+                f = P.run_pipeline
+                pid = '.'.join((book.identifier, f.__name__, cls, mth))
+                queue[pid] = {'func': f,
+                              'args': [cls, mth, book, None, None],
+                              'kwargs': {},
+                              'callback': None}
 
         P.drain_queue(queue, 'sync', 
                       qpid=book.identifier, 

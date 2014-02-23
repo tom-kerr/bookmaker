@@ -205,6 +205,57 @@ class Djvu(Operation):
                                              f + '; ' + str(e))
 
 
+class PlainText(Operation):
+
+    components = {'tesseract': {'class': 'Tesseract'}}
+
+    def __init__(self, ProcessHandler, book):
+        self.ProcessHandler = ProcessHandler
+        self.book = book
+        try:
+            super(PlainText, self).__init__(PlainText.components)
+            self.init_components(self.book)
+            self.book.add_dirs({'derived': self.book.root_dir + '/' + 
+                                self.book.identifier + '_derived'})
+        except (Exception, BaseException):
+            pid = self.make_pid_string('__init__')
+            self.ProcessHandler.join((pid, Util.exception_info()))
+        
+    def make_full_plain_text(self, start=None, end=None, **kwargs):
+        self.book.logger.info('Creating Full Plain Text...')
+        ocr_data = kwargs.get(None)
+        if ocr_data is None:
+            ocr_data = []
+            if None in (start, end):
+                start, end = 1, self.book.page_count-1
+            for leaf in range(start, end):
+                leafnum = '%04d' % leaf
+                filename = self.book.dirs['tesseract_ocr'] + '/' + \
+                    self.book.identifier + '_' + leafnum + '.hocr'
+                if not os.path.exists(filename):
+                    self.Tesseract.run(leaf, in_file=filename)
+                text = self.Tesseract.parse_hocr(filename)
+                if text is not None:
+                    ocr_data.append(text)
+        try:
+            out_file = open(self.book.dirs['derived'] + '/' +
+                            self.book.identifier + '_full_plain_text.txt', 'w')
+        except IOError:
+            pid = self.make_pid_string('make_full_plain_text')
+            self.ProcessHandler.join((pid, Util.exception_info()))
+        string = ''
+        for page in ocr_data:
+            for paragraph in page.paragraphs:
+                for line in paragraph.lines:
+                    string += line.text_content() + "\n"
+            string += "\n\n"
+        try:
+            out_file.write(string)
+        except (Exception, BaseException):
+            pid = self.make_pid_string('make_full_plain_text')
+            self.ProcessHandler.join((pid, Util.exception_info()))
+        else:
+            self.book.logger.info('Finished deriving full plain text.')
 
 
     """ 

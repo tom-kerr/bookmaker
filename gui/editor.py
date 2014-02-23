@@ -2215,7 +2215,8 @@ class ExportHandler(object):
         kwargs = {'label': 'Full Plain Text',
                   'visible': True}
         self.derive_plain_text = Gtk.CheckButton(**kwargs)
-                                  
+        self.derive_plain_text.connect('clicked', self.toggle_plain_text)
+    
         kwargs = {'label': 'Initialize Derive',
                   'sensitive': False,
                   'visible': True}
@@ -2556,6 +2557,10 @@ class ExportHandler(object):
         elif not self.derive_djvu.get_active():
             ca.set_all_sensitive(widgets, False)
 
+    def toggle_plain_text(self, widget=None):
+        if widget is not None:
+            self.toggle_derive()
+
     def return_djvu_args(self):
         return {'slice': self.djvu_slice.get_text(),
                 'size': self.djvu_size.get_text(),
@@ -2638,6 +2643,18 @@ class ExportHandler(object):
                 ca.run_in_background(self.update_progress, 2000, args=('PDF', 'pdf'))
                 update.append('pdf')
 
+            if 'text' in formats:
+                f = self.ProcessHandler.run_pipeline
+                cls = 'PlainText'
+                mth = 'make_full_plain_text'
+                pid = '.'.join((self.book.identifier, f.__name__, cls, mth))
+                queue[pid] = {'func': f,
+                              'args': [cls, mth, self.book, None, None],
+                              'kwargs': {},
+                              'callback': None}
+                ca.run_in_background(self.update_progress, 2000, args=('PlainText', 'text'))
+                update.append('text')
+
         self.ProcessHandler.add_process(func=self.ProcessHandler.drain_queue,
                                         pid=self.book.identifier + '_drain_queue',
                                         args=[queue, 'sync'],
@@ -2682,7 +2699,8 @@ class ExportHandler(object):
         for op, cls in {'cropper': 'Crop',
                         'ocr': 'OCR',
                         'pdf': 'PDF',
-                        'djvu': 'Djvu'}.items():
+                        'djvu': 'Djvu',
+                        'text': 'PlainText'}.items():
             if op in update:
                 if not hasattr(self, op+'_fraction'):
                     #if the other update threads have not
@@ -2728,6 +2746,8 @@ class ExportHandler(object):
             self.make_pdf(widget)
         if self.derive_djvu.get_active():
             self.make_djvu(widget)
+        if self.derive_plain_text.get_active():
+            self.make_plain_text(widget)
 
     def make_pdf(self, widget):
         fnc = self.ProcessHandler.run_pipeline_distributed
@@ -2749,6 +2769,15 @@ class ExportHandler(object):
         self.ProcessHandler.add_process(fnc, pid, args, 
                                         {'callback': 'assemble_djvu_with_djvm'})
         ca.run_in_background(self.update_progress, 2000, args=('Djvu', 'djvu'))
+    
+    def make_plain_text(self, widget):
+        fnc = self.ProcessHandler.run_pipeline
+        cls = 'PlainText'
+        mth = 'make_full_plain_text'
+        pid = '.'.join((self.book.identifier, fnc.__name__, cls, mth))
+        args = [cls, mth, self.book, None, None]
+        self.ProcessHandler.add_process(fnc, pid, args, {'callback': None})
+        ca.run_in_background(self.update_progress, 2000, args=('PlainText', 'text'))
 
     def get_derive_format_args(self):
         formats = {}
