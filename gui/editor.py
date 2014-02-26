@@ -22,7 +22,8 @@ from .common import CommonActions as ca
 
 
 class Editor(object):
-
+    """ Parent Window 
+    """
     def __init__(self, window, book):
         self.window = window
         self.window.connect('key-press-event', self.key_press)
@@ -134,7 +135,9 @@ class Editor(object):
                                   
                                           
 class ImageEditor(object):
-
+    """ Interface for cropping, skewing, deleting, re-shooting/inserting,
+        and adding structural metadata.
+    """
     vspace = 250
     hspace = 175
 
@@ -1866,7 +1869,8 @@ class ImageEditor(object):
 
 
 class MetaEditor(object):
-
+    """ Interface for adding metadata to an item 
+    """
     def __init__(self, editor):
         self.editor = editor
         self.book = editor.book
@@ -2001,7 +2005,8 @@ class MetaEditor(object):
 
 
 class ExportHandler(object):
-
+    """ Interface for creating derivative formats
+    """
     def __init__(self, editor):
         self.editor = editor
         self.book = editor.book
