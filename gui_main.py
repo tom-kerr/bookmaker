@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+""" Launches a GUI session
+"""
 from gui.main import BookmakerGUI
 
 def init_session():
