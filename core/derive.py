@@ -10,6 +10,8 @@ from components.tesseract import Tesseract
 
 
 class PDF(Operation):
+    """ Handles PDF creation 
+    """
     components = {'hocr2pdf': {'class': 'HOCR2Pdf',
                                'callback': None}}
 
@@ -102,6 +104,8 @@ class PDF(Operation):
             
 
 class Djvu(Operation):
+    """ Handles DjVu creation 
+    """
     components = {'c44': {'class': 'C44',
                           'callback': None},
                   'djvused': {'class': 'Djvused',
@@ -211,7 +215,8 @@ class Djvu(Operation):
 
 
 class PlainText(Operation):
-
+    """ Handles Plain-text creation 
+    """
     components = {'tesseract': {'class': 'Tesseract'}}
 
     def __init__(self, ProcessHandler, book):

@@ -9,6 +9,10 @@ class Operation(object):
         self.init_bookkeeping()
 
     def init_bookkeeping(self):
+        """ In order to cleanly exit on completion/exception and display progress
+            to the user, we keep track of how many cores are committed to the 
+            operation, the completed tasks involved and their execution times
+        """
         self.thread_count = 0
         self.completed = {'__finished__': False}
         self.exec_times = {}

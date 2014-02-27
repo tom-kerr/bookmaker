@@ -6,7 +6,8 @@ from datastructures import Box
 
 
 class OCR(Operation):
-
+    """ Handles OCR related operations
+    """
     components = {'tesseract': {'class': 'Tesseract',
                                 'callback': None}}
 
