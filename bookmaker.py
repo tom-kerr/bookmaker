@@ -40,7 +40,7 @@ def main(args):
                               'args': [cls, mth, book, None, 
                                        {'crop': 'standardCrop'}], 
                               'kwargs': {},
-                              'callback': None}
+                              'hook': None}
                                      
                 cls = 'OCR'
                 mth = 'tesseract_hocr_pipeline'
@@ -49,7 +49,7 @@ def main(args):
                               'args': [cls, mth, book, None, 
                                        {'lang': args.language}],
                               'kwargs': {},
-                              'callback': None}
+                              'hook': None}
                 
             if 'djvu' in formats:
                 cls = 'Djvu'
@@ -58,7 +58,7 @@ def main(args):
                 queue[pid] = {'func': fnc,
                               'args': [cls, mth, book, None, None],
                               'kwargs': {},
-                              'callback': 'assemble_djvu_with_djvm'}
+                              'hook': 'assemble_djvu_with_djvm'}
             
             if 'pdf' in formats:
                 cls = 'PDF'
@@ -67,7 +67,7 @@ def main(args):
                 queue[pid] = {'func': fnc,
                               'args': [cls, mth, book, None, None],
                               'kwargs': {},
-                              'callback': 'assemble_pdf_with_pypdf'}
+                              'hook': 'assemble_pdf_with_pypdf'}
                 
             if 'text' in formats:
                 cls = 'PlainText'
@@ -76,7 +76,7 @@ def main(args):
                 queue[pid] = {'func': fnc,
                               'args': [cls, mth, book, None, None],
                               'kwargs': {},
-                              'callback': 'assemble_ocr_text'}
+                              'hook': 'assemble_ocr_text'}
 
         P.drain_queue(queue, 'sync', 
                       qpid=book.identifier, 

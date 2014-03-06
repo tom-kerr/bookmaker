@@ -2603,7 +2603,7 @@ class ExportHandler(object):
                       'args': [cls, mth, self.book, 
                                None, {'crop': 'cropBox'}],
                       'kwargs': {},
-                      'callback': None}
+                      'hook': None}
         ca.run_in_background(self.update_progress, 2000, args=('Crop', 'cropper'))
         update.append('cropper')
 
@@ -2615,7 +2615,7 @@ class ExportHandler(object):
                           'args': [cls, mth, self.book, 
                                    None, {'lang': self.language}],
                           'kwargs': {},
-                          'callback': None}
+                          'hook': None}
             ca.run_in_background(self.update_progress, 2000, args=('OCR', 'ocr'))
             update.append('ocr')
 
@@ -2629,7 +2629,7 @@ class ExportHandler(object):
                               'args': [cls, mth, self.book, 
                                        None, self.return_djvu_args()],
                               'kwargs': {},
-                              'callback': 'assemble_djvu_with_djvm'}
+                              'hook': 'assemble_djvu_with_djvm'}
                 ca.run_in_background(self.update_progress, 2000, args=('Djvu', 'djvu'))
                 update.append('djvu')
             
@@ -2641,7 +2641,7 @@ class ExportHandler(object):
                               'args': [cls, mth, self.book, 
                                        None, self.return_pdf_args()],
                               'kwargs': {},
-                              'callback': 'assemble_pdf_with_pypdf'}
+                              'hook': 'assemble_pdf_with_pypdf'}
                 ca.run_in_background(self.update_progress, 2000, args=('PDF', 'pdf'))
                 update.append('pdf')
 
@@ -2652,7 +2652,7 @@ class ExportHandler(object):
                 queue[pid] = {'func': fnc,
                               'args': [cls, mth, self.book, None, None],
                               'kwargs': {},
-                              'callback': 'assemble_ocr_text'}
+                              'hook': 'assemble_ocr_text'}
                 ca.run_in_background(self.update_progress, 2000, args=('PlainText', 'text'))
                 update.append('text')
 
@@ -2660,7 +2660,7 @@ class ExportHandler(object):
                                         pid=self.book.identifier + '_drain_queue',
                                         args=[queue, 'sync'],
                                         kwargs={},
-                                        callback=None)
+                                        hook=None)
         ca.run_in_background(self.update_run_all_progress, 2000, update)
         
     def update_progress(self, args):
@@ -2758,7 +2758,7 @@ class ExportHandler(object):
         pid = '.'.join((self.book.identifier, fnc.__name__, cls, mth))
         args = [cls, mth, self.book, None, self.return_pdf_args()]
         self.ProcessHandler.add_process(fnc, pid, args, 
-                                        {'callback': 'assemble_pdf_with_pypdf'})
+                                        {'hook': 'assemble_pdf_with_pypdf'})
         ca.run_in_background(self.update_progress, 2000, args=('PDF', 'pdf'))
 
     def make_djvu(self, widget):
@@ -2768,7 +2768,7 @@ class ExportHandler(object):
         pid = '.'.join((self.book.identifier, fnc.__name__, cls, mth))
         args = [cls, mth, self.book, None, self.return_djvu_args()]
         self.ProcessHandler.add_process(fnc, pid, args, 
-                                        {'callback': 'assemble_djvu_with_djvm'})
+                                        {'hook': 'assemble_djvu_with_djvm'})
         ca.run_in_background(self.update_progress, 2000, args=('Djvu', 'djvu'))
     
     def make_plain_text(self, widget):
@@ -2777,7 +2777,7 @@ class ExportHandler(object):
         mth = 'make_full_plain_text'
         pid = '.'.join((self.book.identifier, fnc.__name__, cls, mth))
         args = [cls, mth, self.book, None, None]
-        self.ProcessHandler.add_process(fnc, pid, args, {'callback': 'assemble_ocr_text'})
+        self.ProcessHandler.add_process(fnc, pid, args, {'hook': 'assemble_ocr_text'})
         ca.run_in_background(self.update_progress, 2000, args=('PlainText', 'text'))
 
     def get_derive_format_args(self):

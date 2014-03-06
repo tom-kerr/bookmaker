@@ -9,7 +9,7 @@ class OCR(Operation):
     """ Handles OCR related operations
     """
     components = {'tesseract': {'class': 'Tesseract',
-                                'callback': None}}
+                                'hook': None}}
 
     def __init__(self, ProcessHandler, book):
         self.ProcessHandler = ProcessHandler

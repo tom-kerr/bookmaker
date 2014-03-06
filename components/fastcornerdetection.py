@@ -24,7 +24,7 @@ class FastCornerDetection(Component):
         self.CornerFilter = CornerFilter(book)
         
     def run(self, leaf, in_file=None, out_file=None, 
-            t='-t 44', s='', n='-n 9', l='-l', callback=None, **kwargs):
+            t='-t 44', s='', n='-n 9', l='-l', hook=None, **kwargs):
         leafnum = '%04d' % leaf
         if not in_file:
             in_file = (self.book.dirs['scaled'] + '/' +
@@ -52,8 +52,8 @@ class FastCornerDetection(Component):
                 self.execute(kwargs)
         else:
             output = None
-        if callback:
-            self.execute_callback(callback, leaf, output, **kwargs)
+        if hook:
+            self.execute_hook(hook, leaf, output, **kwargs)
         else:
             return output
         

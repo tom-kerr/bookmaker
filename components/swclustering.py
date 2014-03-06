@@ -57,7 +57,7 @@ class SWClustering(Component):
         
     def run(self, leaf, in_file=None, out_file=None, window_width=None, 
             window_height=None, skew_angle=None, center_x=None, center_y=None,
-            callback=None, **kwargs):        
+            hook=None, **kwargs):        
         if not self.book.corner_data[leaf]:
             self.book.contentCropScaled.classification[leaf] = 'Blank'
             return
@@ -97,8 +97,8 @@ class SWClustering(Component):
             output = self.execute(kwargs, return_output=True)
         else:
             output = None
-        if callback:
-            self.execute_callback(callback, leaf, output, **kwargs)
+        if hook:
+            self.execute_hook(hook, leaf, output, **kwargs)
         else:
             return output
 

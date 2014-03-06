@@ -23,7 +23,7 @@ class PageDetector(Component):
         self.book.add_dirs(dirs)
 
     def run(self, leaf, in_file=None, scaled_out_file=None, 
-            scale_factor=None, rot_dir=None, callback=None, **kwargs):
+            scale_factor=None, rot_dir=None, hook=None, **kwargs):
         leafnum = '%04d' % leaf        
         if not in_file:
             in_file = self.book.raw_images[leaf]
@@ -47,8 +47,8 @@ class PageDetector(Component):
             output = self.execute(kwargs, return_output=True)
         else:
             output = None        
-        if callback:
-            self.execute_callback(callback, leaf, output, **kwargs)
+        if hook:
+            self.execute_hook(hook, leaf, output, **kwargs)
         else:
             return output
 

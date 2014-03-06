@@ -34,12 +34,12 @@ class Operation(object):
         self.components = []
         for component, info in self.imports.items():
             _class = info['class']
-            if 'callback' in info:
-                callback = info['callback']
+            if 'hook' in info:
+                hook = info['hook']
             else:
-                callback = None
+                hook = None
             instance = getattr(globals()[_class], _class)(book)
-            self.components.append( (instance, callback) )
+            self.components.append( (instance, hook) )
             setattr(self, _class, instance)
 
     def make_pid_string(self, func_name):
@@ -49,7 +49,7 @@ class Operation(object):
 
     def terminate_child_processes(self):
         for item in self.components:
-            component, callback = item
+            component, hook = item
             component.Util.end_active_processes()     
 
     def complete_process(self, cls, leaf, exec_time):

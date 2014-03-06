@@ -25,7 +25,7 @@ class C44(Component):
             bpp=None, percent=None, dpi=None, gamma=None, decibel=None, 
             dbfrac=None, crcb=None, crcbnorm=None, crcbhalf=None, 
             crcbfull=None, crcbnone=None, crcbdelay=None, mask=None,
-            callback=None, **kwargs):
+            hook=None, **kwargs):
         leafnum = "%04d" % leaf
         if not in_file:
             in_file = (self.book.dirs['cropped'] + '/' +
@@ -81,8 +81,8 @@ class C44(Component):
                        'mask': mask})
 
         output = self.execute(kwargs, return_output=True)
-        if callback:
-            self.execute_callback(callback, leaf, output, **kwargs)
+        if hook:
+            self.execute_hook(hook, leaf, output, **kwargs)
         else:
             return output
 

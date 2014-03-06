@@ -20,7 +20,7 @@ class Djvm(Component):
         self.book.add_dirs(dirs)
 
     def run(self, in_files=None, out_file=None, 
-            options=None, callback=None, **kwargs):
+            options=None, hook=None, **kwargs):
         if not in_files:
             in_files = sorted([f for f in 
                         glob.glob(self.book.dirs['derived'] + '/*.djvu') 
@@ -37,8 +37,8 @@ class Djvm(Component):
                        'in_files': in_files})
 
         output = self.execute(kwargs, return_output=True)
-        if callback:
-            self.execute_callback(callback, leaf, output, **kwargs)
+        if hook:
+            self.execute_hook(hook, leaf, output, **kwargs)
         else:
             return output
 

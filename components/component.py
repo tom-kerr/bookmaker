@@ -12,11 +12,11 @@ class Component(object):
         """Method to override"""
         pass
 
-    def execute_callback(self, callback, *args, **kwargs):
-        if isinstance(callback, str):
-            getattr(self, callback)(*args, **kwargs)
-        elif hasattr(callback, '__call__'):
-            callback(*args, **kwargs)
+    def execute_hook(self, hook, *args, **kwargs):
+        if isinstance(hook, str):
+            getattr(self, hook)(*args, **kwargs)
+        elif hasattr(hook, '__call__'):
+            hook(*args, **kwargs)
 
     def execute(self, kwargs, stdout=None, stdin=None,
                 retval=False, return_output=False, print_output=False,

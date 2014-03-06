@@ -13,7 +13,7 @@ class PDF(Operation):
     """ Handles PDF creation 
     """
     components = {'hocr2pdf': {'class': 'HOCR2Pdf',
-                               'callback': None}}
+                               'hook': None}}
 
     def __init__(self, ProcessHandler, book):
         self.ProcessHandler = ProcessHandler
@@ -107,11 +107,11 @@ class Djvu(Operation):
     """ Handles DjVu creation 
     """
     components = {'c44': {'class': 'C44',
-                          'callback': None},
+                          'hook': None},
                   'djvused': {'class': 'Djvused',
-                              'callback': None},
+                              'hook': None},
                   'djvm': {'class': 'Djvm',
-                           'callback': None}}
+                           'hook': None}}
 
     def __init__(self, ProcessHandler, book):
         self.ProcessHandler = ProcessHandler

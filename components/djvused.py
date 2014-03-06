@@ -17,7 +17,7 @@ class Djvused(Component):
         self.book.add_dirs(dirs)
         
     def run(self, leaf, djvu_file=None, options=None, 
-            script=None, callback=None, **kwargs):
+            script=None, hook=None, **kwargs):
         leafnum = "%04d" % leaf
         if not djvu_file:
             djvu_file = (self.book.dirs['derived'] + '/' +
@@ -30,8 +30,8 @@ class Djvused(Component):
                        'script': script})
         
         output = self.execute(kwargs, return_output=True)
-        if callback:
-            self.execute_callback(callback, leaf, output, **kwargs)
+        if hook:
+            self.execute_hook(hook, leaf, output, **kwargs)
         else:
             return output
 

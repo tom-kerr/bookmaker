@@ -14,11 +14,11 @@ class FeatureDetection(Operation):
     """
     components = OrderedDict(
         [('pagedetector', {'class': 'PageDetector',
-                           'callback': 'post_process'}),
+                           'hook': 'post_process'}),
          ('fastcornerdetection', {'class': 'FastCornerDetection',
-                                  'callback': 'post_process'},),
+                                  'hook': 'post_process'},),
          ('swclustering', {'class': 'SWClustering',
-                           'callback': 'post_process'})])
+                           'hook': 'post_process'})])
 
     def __init__(self, ProcessHandler, book):
         self.ProcessHandler = ProcessHandler
@@ -45,10 +45,10 @@ class FeatureDetection(Operation):
                                    str(self.book.page_count) + '...')                             
             leaf_exec_time = 0
             for item in self.components:
-                component, callback = item
+                component, hook = item
                 cls = component.__class__.__name__
                 try:
-                    component.run(leaf, callback=callback)
+                    component.run(leaf, hook=hook)
                     exec_time = component.get_last_exec_time()
                     leaf_exec_time += exec_time
                 except (Exception, BaseException) as e:

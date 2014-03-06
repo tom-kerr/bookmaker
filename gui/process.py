@@ -277,7 +277,7 @@ class ProcessingGui(object):
             queue[pid] = {'func': fnc,
                           'args': [cls, mth, self.books[identifier], None, None],
                           'kwargs': {},
-                          'callback': 'post_process'}
+                          'hook': 'post_process'}
             self.follow_progress(identifier)
 
         fnc = self.ProcessHandler.drain_queue

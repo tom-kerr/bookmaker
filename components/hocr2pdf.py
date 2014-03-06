@@ -21,7 +21,7 @@ class HOCR2Pdf(Component):
 
     def run(self, leaf, in_file=None, out_file=None, hocr_file=None,
             no_image=None, sloppy=None, ppi=None, resolution=None, 
-            callback=None, **kwargs):
+            hook=None, **kwargs):
         leafnum = '%04d' % leaf
         if not in_file:
             in_file = (self.book.dirs['cropped'] + '/' +
@@ -47,7 +47,7 @@ class HOCR2Pdf(Component):
         
         stdin = hocr_file            
         output = self.execute(kwargs, return_output=True, stdin=stdin)
-        if callback:
-            self.execute_callback(callback, leaf, output, **kwargs)
+        if hook:
+            self.execute_hook(hook, leaf, output, **kwargs)
         else:
             return output

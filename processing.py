@@ -38,7 +38,7 @@ class ProcessHandling(object):
             queue[pid] = {'func': function_to_be_called,
                           'args': [list_of_args], 
                           'kwargs': {dict_of_kwargs},
-                          'callback': 'name_of_callback' or actual_function}
+                          'hook': 'name_of_hook' or actual_function}
 
         In 'sync' mode, 'drain_queue' will walk through each item in the queue
         and call its function with the supplied arguments, therefore blocking
@@ -200,7 +200,7 @@ class ProcessHandling(object):
             raise LookupError('Failed to find \'func\' argument; nothing to do.')
         else:
             d.append(data['func'])
-        for i in ('args', 'kwargs', 'callback'):
+        for i in ('args', 'kwargs', 'hook'):
             if i in data:
                 d.append(data[i])
             else:
@@ -217,13 +217,13 @@ class ProcessHandling(object):
         pids = []
         for pid, data in queue.items():
             pids.append(pid)
-            func, args, kwargs, callback = self._parse_queue_data(data)
+            func, args, kwargs, hook = self._parse_queue_data(data)
             args, kwargs = self._parse_args(args, kwargs)
             identifier = pid.split('.')[0]
             logger = logging.getLogger(identifier)
             if mode == 'sync':                
-                if callback:
-                    kwargs['callback'] = callback
+                if hook:
+                    kwargs['hook'] = hook
                 try:
                     start = Util.microseconds()
                     func(*args, **kwargs)
@@ -238,7 +238,7 @@ class ProcessHandling(object):
                                  str(tb) + '\nAborting.')
                     return False
             elif mode == 'async':
-                self.add_process(func, pid, args, kwargs, callback)                
+                self.add_process(func, pid, args, kwargs, hook)                
         if mode == 'async':
             self._wait_till_idle(pids)      
         if qlogger and qpid:
@@ -267,7 +267,7 @@ class ProcessHandling(object):
             else:
                 return False
                         
-    def add_process(self, func, pid, args=None, kwargs=None, callback=None):
+    def add_process(self, func, pid, args=None, kwargs=None, hook=None):
         if self._already_processing(pid):
             return False
         self._clear_exceptions(pid)
@@ -315,7 +315,7 @@ class ProcessHandling(object):
     
     def multi_threaded(f):
         def distribute(self, cls, mth, book, 
-                       args=None, kwargs=None, callback=None):
+                       args=None, kwargs=None, hook=None):
             if not kwargs:
                 kwargs = {}
             identifier = book.identifier
@@ -331,17 +331,17 @@ class ProcessHandling(object):
                 queue[pid] = {'func': function,
                               'args': args, 
                               'kwargs': copy(kwargs),
-                              'callback': None}
-            return f(self, queue, identifier, cls, callback)
+                              'hook': None}
+            return f(self, queue, identifier, cls, hook)
         return distribute
 
-    def _add_default_op_cb(self, callback):
-        if not callback:
-            callback = []
-        elif not isinstance(callback, list):
-            callback = [callback, ]
-        callback.append('set_finished')
-        return callback
+    def _add_default_op_hook(self, hook):
+        if not hook:
+            hook = []
+        elif not isinstance(hook, list):
+            hook = [hook, ]
+        hook.append('set_finished')
+        return hook
 
     def was_successful(self, pid):
         #first check unhandled exceptions
@@ -357,24 +357,24 @@ class ProcessHandling(object):
             return True
 
     @multi_threaded
-    def run_pipeline_distributed(self, queue, identifier, cls, callback=None):
+    def run_pipeline_distributed(self, queue, identifier, cls, hook=None):
         """ Distributes across available cores a function that takes a starting
             leaf and ending leaf value and does some operation for each leaf in 
             that range. The start and end values are determined based on the 
             number of pages in the book and the number of available cores.
         """
-        callback = self._add_default_op_cb(callback)
+        hook = self._add_default_op_hook(hook)
         self.drain_queue(queue, 'async')
-        if callback:
+        if hook:
             for pid in queue.keys():
                 if not self.was_successful(pid):
                     return
-            self.execute_callback(identifier, cls, callback)
+            self.execute_hook(identifier, cls, hook)
                         
     def run_pipeline(self, cls, mth, book, 
-                     args=None, kwargs=None, callback=None):
+                     args=None, kwargs=None, hook=None):
         identifier = book.identifier
-        callback = self._add_default_op_cb(callback)
+        hook = self._add_default_op_hook(hook)
         function = self._create_operation_instance(identifier, cls, 
                                                    mth, book)
         queue = self.new_queue()
@@ -382,23 +382,23 @@ class ProcessHandling(object):
         queue[pid] = {'func': function,
                       'args': args, 
                       'kwargs': kwargs,
-                      'callback': None}
+                      'hook': None}
         book.start_time = Util.microseconds()
         self.drain_queue(queue, 'async')
-        if callback:
+        if hook:
             for pid in queue.keys():
                 if not self.was_successful(pid):
                     return
-            self.execute_callback(identifier, cls, callback)
+            self.execute_hook(identifier, cls, hook)
 
-    def execute_callback(self, identifier, _class, callback):
-        if not isinstance(callback, list):
-            callback = [callback, ]
-        for cb in callback:
-            if isinstance(cb, str):
-                getattr(self.OperationObjects[identifier][_class], cb)()
-            elif hasattr(cb, '__call__'):
-                cb()
+    def execute_hook(self, identifier, _class, hook):
+        if not isinstance(hook, list):
+            hook = [hook, ]
+        for h in hook:
+            if isinstance(h, str):
+                getattr(self.OperationObjects[identifier][_class], h)()
+            elif hasattr(h, '__call__'):
+                h()
 
     def get_time_elapsed(self, start_time):
         current_time = time.time()

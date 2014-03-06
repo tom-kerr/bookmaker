@@ -22,7 +22,7 @@ class Cropper(Component):
 
     def run(self, leaf, in_file=None, out_file=None, rot_dir=None, 
             skew_angle=None, l=None, t=None, r=None, b=None,  
-            crop='standardCrop', callback=None, **kwargs):
+            crop='standardCrop', hook=None, **kwargs):
         if not self.book.crops[crop].box[leaf].is_valid():
             return False
         leafnum = '%04d' % leaf
@@ -57,7 +57,7 @@ class Cropper(Component):
                        'crop': crop})
         
         output = self.execute(kwargs, return_output=True)
-        if callback:
-            self.execute_callback(callback, leaf, output, **kwargs)
+        if hook:
+            self.execute_hook(hook, leaf, output, **kwargs)
         else:
             return output

@@ -62,7 +62,7 @@ class Tesseract(Component):
         self.book.add_dirs(dirs)
 
     def run(self, leaf, in_file=None, out_base=None, 
-            lang='eng', psm='-psm 3', hocr='hocr', callback=None, **kwargs):
+            lang='eng', psm='-psm 3', hocr='hocr', hook=None, **kwargs):
         leafnum = '%04d' % leaf
         if not in_file:
             in_file = (self.book.dirs['cropped'] + '/' +
@@ -83,8 +83,8 @@ class Tesseract(Component):
                        'hocr': hocr})
         
         output = self.execute(kwargs, return_output=True)
-        if callback:
-            self.execute_callback(callback, leaf, output, **kwargs)
+        if hook:
+            self.execute_hook(hook, leaf, output, **kwargs)
         else:
             return output
 

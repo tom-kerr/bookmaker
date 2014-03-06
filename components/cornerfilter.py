@@ -18,7 +18,7 @@ class CornerFilter(Component):
 
     def run(self, leaf, in_file=None, out_file=None, 
             thumb_width=None, thumb_height=None, 
-            l=None, t=None, r=None, b=None, callback=None, **kwargs):
+            l=None, t=None, r=None, b=None, hook=None, **kwargs):
         crop_filter = self.book.pageCropScaled.box[leaf]
         if not crop_filter.is_valid():
             return
@@ -60,7 +60,7 @@ class CornerFilter(Component):
             output = self.execute(kwargs, return_output=True)
         finally:
             crop_filter.resize(10)
-        if callback:
-            self.execute_callback(callback, leaf, output, **kwargs)
+        if hook:
+            self.execute_hook(hook, leaf, output, **kwargs)
         else:
             return output
