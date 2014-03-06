@@ -4,7 +4,6 @@ class Operation(object):
     """ Base Class for processing operations.
     """
     def __init__(self, components):
-        self.halt = False
         self._import_components(components)        
         self.init_bookkeeping()
 
