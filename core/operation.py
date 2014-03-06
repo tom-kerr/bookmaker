@@ -47,11 +47,13 @@ class Operation(object):
                          func_name))
 
     def terminate_child_processes(self):
+        """ Signal to subprocesses to terminate """
         for item in self.components:
             component, hook = item
             component.Util.end_active_processes()     
 
     def complete_process(self, cls, leaf, exec_time):
+        """ Bookkeeping """
         if isinstance(leaf, list):
             etime = exec_time/len(leaf)
             for l in leaf:
