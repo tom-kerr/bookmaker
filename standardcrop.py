@@ -1,14 +1,15 @@
 import os
 import sys
 import math
-from lxml import etree
 
 from util import Util
 from environment import Environment
 from datastructures import Crop
 
 
-class StandardCrop:
+class StandardCrop(object):
+    """ Creates a standardized crop based on the content and page size.
+    """
 
     width_ratio_max = 0.85
     height_ratio_max = 0.85
@@ -17,28 +18,17 @@ class StandardCrop:
     
     def __init__(self, book):
         self.book = book
-        #self.make_standard_crop()
-
-
+ 
     def make_standard_crop(self):
-        #self.book.standardCrop = Crop('standardCrop', 0, self.book.page_count,
-        #                         self.book.raw_image_dimensions[0][1], 
-        #                         self.book.raw_image_dimensions[0][0])
         self.book.contentCropScaled.get_box_metadata()
-        
         ratios = self.get_content_to_page_ratios()
-        #print ratios
         self.set_crop_size(ratios);
         self.align_crops(ratios)
-
-        #self.pipeline()
         self.book.standardCrop.set_all_active()
         self.book.standardCrop.xml_io('export')
         
-
     def set_crop_size(self, ratios):
         for leaf, box in self.book.standardCrop.box.items():
-
             if ratios['height'] < StandardCrop.height_ratio_max:
                 height = self.book.contentCropScaled.meta['h']['stats']['mean'] * StandardCrop.height_target
             else:
@@ -48,7 +38,6 @@ class StandardCrop:
                 width = self.book.contentCropScaled.meta['w']['stats']['mean'] * StandardCrop.width_target
             else:
                 width = self.book.pageCropScaled.meta['w']['stats']['mean'] * .97
-
             box.set_dimension('w', int(width))
             box.set_dimension('h', int(height))
             self.book.standardCrop.skew_angle[leaf] = self.book.pageCropScaled.skew_angle[leaf]
