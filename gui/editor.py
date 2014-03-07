@@ -2213,6 +2213,7 @@ class ExportHandler(object):
         kwargs = {'label': 'EPUB',
                   'visible': True}
         self.derive_epub = Gtk.CheckButton(**kwargs)
+        self.derive_epub.connect('clicked', self.toggle_epub)
                                              
         kwargs = {'label': 'Full Plain Text',
                   'visible': True}
@@ -2563,6 +2564,10 @@ class ExportHandler(object):
         if widget is not None:
             self.toggle_derive()
 
+    def toggle_epub(self, widget=None):
+        if widget is not None:
+            self.toggle_derive()
+
     def return_djvu_args(self):
         return {'slice': self.djvu_slice.get_text(),
                 'size': self.djvu_size.get_text(),
@@ -2644,6 +2649,19 @@ class ExportHandler(object):
                               'hook': 'assemble_pdf_with_pypdf'}
                 ca.run_in_background(self.update_progress, 2000, args=('PDF', 'pdf'))
                 update.append('pdf')
+            
+            if 'epub' in formats:
+                f = self.ProcessHandler.run_pipeline
+                cls = 'EPUB'
+                mth = 'make_epub'
+                pid = '.'.join((self.book.identifier, f.__name__, cls, mth))
+                queue[pid] = {'func': f,
+                              'args': [cls, mth, self.book, 
+                                       None, None],
+                              'kwargs': {},
+                              'hook': None}
+                ca.run_in_background(self.update_progress, 2000, args=('EPUB', 'epub'))
+                update.append('epub')
 
             if 'text' in formats:
                 cls = 'PlainText'
@@ -2702,6 +2720,7 @@ class ExportHandler(object):
                         'ocr': 'OCR',
                         'pdf': 'PDF',
                         'djvu': 'Djvu',
+                        'epub': 'EPUB',
                         'text': 'PlainText'}.items():
             if op in update:
                 if not hasattr(self, op+'_fraction'):
@@ -2750,6 +2769,8 @@ class ExportHandler(object):
             self.make_djvu(widget)
         if self.derive_plain_text.get_active():
             self.make_plain_text(widget)
+        if self.derive_epub.get_active():
+            self.make_epub(widget)
 
     def make_pdf(self, widget):
         fnc = self.ProcessHandler.run_pipeline_distributed
@@ -2770,6 +2791,15 @@ class ExportHandler(object):
         self.ProcessHandler.add_process(fnc, pid, args, 
                                         {'hook': 'assemble_djvu_with_djvm'})
         ca.run_in_background(self.update_progress, 2000, args=('Djvu', 'djvu'))
+
+    def make_epub(self, widget):
+        fnc = self.ProcessHandler.run_pipeline
+        cls = 'EPUB'
+        mth = 'make_epub'
+        pid = '.'.join((self.book.identifier, fnc.__name__, cls, mth))
+        args = [cls, mth, self.book, None, None]
+        self.ProcessHandler.add_process(fnc, pid, args, {'hook': None})
+        ca.run_in_background(self.update_progress, 2000, args=('EPUB', 'epub'))
     
     def make_plain_text(self, widget):
         fnc = self.ProcessHandler.run_pipeline_distributed

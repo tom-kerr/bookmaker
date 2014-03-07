@@ -1,6 +1,7 @@
 import os
 import glob
 import re
+from lxml import etree
 
 from PyPDF2 import PdfFileReader, PdfFileWriter
 
@@ -284,27 +285,48 @@ class PlainText(Operation):
             self.book.logger.info('Finished deriving full plain text.')
 
 
-    """ 
 class EPUB(Operation):
+    """ Handles EPUB creation.
+    """
 
-    def __init__(self):
-        pass
+    components = {}
 
-    def epub(self):
-        self.book.logger.message('Creating EPUB...')
-        #self.write_mimetype()
-        #self.write_container()
-        self.ImageOps.complete(self.book.identifier + '_epub')
+    def __init__(self, ProcessHandler, book):
+        self.ProcessHandler = ProcessHandler
+        self.book = book
+        try:
+            super(EPUB, self).__init__(self.components)
+            self.init_components(self.book)
+            self.book.add_dirs({'derived': self.book.root_dir + '/' + 
+                                self.book.identifier + '_derived'})
+        except (Exception, BaseException):
+            pid = self.make_pid_string('__init__')
+            self.ProcessHandler.join((pid, Util.exception_info()))
 
+    def make_epub(self):
+        self.book.logger.info('Creating EPUB...')
+        self.write_mimetype()
+        self.write_container()
+        self.set_finished()
+            
+    def write_mimetype(self):
+        mimetype = 'application/epub+zip'
+        mimefile = self.book.dirs['derived'] + '/mimetype'
+        try:
+            with open(mimefile, 'w') as f:
+                f.write(mimetype)
+        except (IOError, OSError):
+            pid = self.make_pid_string('write_mimetype')
+            self.ProcessHandler.join((pid, Util.exception_info))
 
     def write_container(self):
-        try:
-            os.mkdir(self.book.dirs['derived'] + '/META-INF', 0o755)
-        except Exception as e:
-            self.ProcessHandler.ThreadQueue.put((self.book.identifier + '_epub_container',
-                                                 'Failed to create META-INF.',
-                                                 self.book.logger))
-            self.ProcessHandler.ThreadQueue.join()
+        cdir = self.book.dirs['derived'] + '/META-INF'
+        if not os.path.exists(cdir):
+            try:
+                os.mkdir(cdir, 0o755)
+            except OSError:
+                pid = self.make_pid_string('write_container')
+                self.ProcessHandler.join((pid, Util.exception_info()))
         container_file = self.book.dirs['derived'] + '/META-INF/container.xml'
         root = etree.Element('container')
         root.set('version', '1.0')
@@ -315,29 +337,9 @@ class EPUB(Operation):
         rootfile.set('full-path', 'OEBPS/content.opf')
         doc = etree.ElementTree(root)
         try:
-            container = open(container_file, 'w')
-            doc.write(container, pretty_print=True)
-            container.close()
-        except:
-            self.ProcessHandler.ThreadQueue.put((self.book.identifier + '_epub_container',
-                                                 'Failed to write container.xml.',
-                                                 self.book.logger))
-            self.ProcessHandler.ThreadQueue.join()
+            with open(container_file, 'wb') as container:
+                doc.write(container, pretty_print=True)
+        except (IOError, OSError):
+            pid = self._make_pid_string('write_container')
+            self.ProcessHandler.join((pid, Util.exception_info()))
 
-
-
-    def write_mimetype(self):
-        mimetype = 'application/epub+zip'
-        mimefile = self.book.dirs['derived'] + '/mimetype'
-        try:
-            f = open(mimefile, 'w')
-            f.write(mimetype)
-            f.close
-        except:
-            self.ProcessHandler.ThreadQueue.put((self.book.identifier + '_epub_mimetype',
-                                                 'Failed to create mimetype.',
-                                                 self.book.logger))
-            self.ProcessHandler.ThreadQueue.join()
-
-
-        """

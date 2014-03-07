@@ -68,6 +68,16 @@ def main(args):
                               'args': [cls, mth, book, None, None],
                               'kwargs': {},
                               'hook': 'assemble_pdf_with_pypdf'}
+
+            if 'epub' in formats:
+                f = P.run_pipeline
+                cls = 'EPUB'
+                mth = 'make_epub'
+                pid = '.'.join((book.identifier, f.__name__, cls, mth))
+                queue[pid] = {'func': f,
+                              'args': [cls, mth, book, None, None],
+                              'kwargs': {},
+                              'hook': None}
                 
             if 'text' in formats:
                 cls = 'PlainText'
