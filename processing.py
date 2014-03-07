@@ -232,7 +232,7 @@ class ProcessHandling(object):
                     exec_time = round((end-start)/60, 2)
                     logger.info('pid ' + pid + ' finished in ' + 
                                 str(exec_time) + ' minutes')
-                except Exception:
+                except (Exception, BaseException):
                     tb = Util.exception_info()
                     logger.error('pid ' + str(pid) + 
                                  ' encountered an error; ' + 
