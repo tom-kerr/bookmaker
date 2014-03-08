@@ -1,4 +1,8 @@
 #!/usr/bin/env python3
+
+""" Commandline entry point
+"""
+
 import sys, argparse
 import logging
 
