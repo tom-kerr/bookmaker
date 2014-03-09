@@ -106,7 +106,7 @@ class Tesseract(Component):
                 files[leaf] = base + '.hocr'
         return files
 
-    def parse_hocr(self, filename):
+    def parse_html(self, filename):
         try:
             parsed = html.parse(filename)
         except IOError as e:
@@ -116,6 +116,13 @@ class Tesseract(Component):
         except ParseError as e:
             self.book.logger.warning('lxml failed to parse file ' + filename +
                                      '\n' + str(e))
+            return None
+        else:
+            return parsed
+
+    def parse_hocr(self, filename):
+        parsed = self.parse_html(filename)
+        if parsed is None: 
             return None
         root = parsed.getroot()
         page = root.find_class('ocr_page')
