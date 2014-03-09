@@ -81,7 +81,7 @@ def main(args):
                 queue[pid] = {'func': f,
                               'args': [cls, mth, book, None, None],
                               'kwargs': {},
-                              'hook': None}
+                              'hook': 'assemble_epub'}
                 
             if 'text' in formats:
                 cls = 'PlainText'

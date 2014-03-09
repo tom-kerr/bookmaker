@@ -2,6 +2,8 @@ import os
 import glob
 import re
 from lxml import etree
+import shutil
+import zipfile
 
 from PyPDF2 import PdfFileReader, PdfFileWriter
 
@@ -288,8 +290,11 @@ class PlainText(Operation):
 class EPUB(Operation):
     """ Handles EPUB creation.
     """
-
-    components = {}
+    
+    components = {'cropper': {'class': 'Cropper',
+                              'hook': None},
+                  'tesseract': {'class': 'Tesseract',
+                                'hook': None}}
 
     def __init__(self, ProcessHandler, book):
         self.ProcessHandler = ProcessHandler
@@ -303,10 +308,12 @@ class EPUB(Operation):
             pid = self.make_pid_string('__init__')
             self.ProcessHandler.join((pid, Util.exception_info()))
 
-    def make_epub(self):
+    def make_epub(self, **kwargs):
         self.book.logger.info('Creating EPUB...')
         self.write_mimetype()
         self.write_container()
+        self.create_OEBPS()
+        self.create_opf()
         self.set_finished()
             
     def write_mimetype(self):
@@ -343,3 +350,73 @@ class EPUB(Operation):
             pid = self._make_pid_string('write_container')
             self.ProcessHandler.join((pid, Util.exception_info()))
 
+    def create_OEBPS(self):
+        OEBPS_dir = self.book.dirs['derived'] + '/' + 'OEBPS'
+        if not os.path.exists(OEBPS_dir):
+            try:
+                os.mkdir(OEBPS_dir, 0o755)
+            except (OSError):
+                pid = self.make_pid_string('write_OEBPS')
+                self.ProcessHandler.join((pid, Util.exception_info()))        
+        hocr_files = self.Tesseract.get_hocr_files()
+        parsed = []
+        for leaf, f in hocr_files.items():
+            parsed.append(self.Tesseract.parse_hocr(f))    
+        self.abbyy_to_epub(parsed)
+
+    def abbyy_to_epub(self, hocr):
+        main_doc = etree.Element('html')
+        body = etree.SubElement(main_doc, 'body')
+        for page in hocr:
+            for par in page.paragraphs:
+                p = etree.SubElement(body, 'p')
+                for line in par.lines:
+                    text = []
+                    for word in line.words:
+                        if word.text:
+                            text.append(word.text.lstrip('"').rstrip('"'))
+                    p.text = " ".join(text)
+        tree = etree.ElementTree(main_doc)
+        with open(self.book.dirs['derived']+ '/OEBPS/' + 'main.html', 'wb') as f:
+            tree.write(f, pretty_print=True)
+
+    def create_opf(self):
+        doc = etree.Element('package')
+        #doc.set('xmlns', {'dc': 'http://purl.org/dc/elements/1.1/'})
+        doc.set('xmlns', 'http://www.idpf.org/2007/opf') 
+        doc.set('version', '2.0')
+        doc.set('unique-identifier', 'bookid')
+        metadata = etree.SubElement(doc, 'metadata')
+        manifest = etree.SubElement(doc, 'manifest')
+        main = etree.SubElement(manifest, 'item')
+        main.set('href', 'main.html')
+        main.set('id', 'main')
+        main.set('media-type', 'application/xhtml+xml')
+        spine = etree.SubElement(doc, 'spine')
+        mspine = etree.SubElement(spine, 'itemref')
+        mspine.set('idref', 'main')
+        tree = etree.ElementTree(doc)
+        with open(self.book.dirs['derived'] + '/OEBPS/' + 'content.opf', 'wb') as f:
+            tree.write(f, encoding='utf-8', xml_declaration=True, 
+                       pretty_print=True)
+                
+    def assemble_epub(self):
+        epub_dir = self.book.dirs['derived'] + '/epub'
+        if os.path.exists(epub_dir):
+            shutil.rmtree(epub_dir)
+        os.mkdir(epub_dir, 0o755)
+        z = zipfile.ZipFile(self.book.dirs['derived'] + '/' + 
+                            self.book.identifier + '.epub', mode='w')
+        for i in ('mimetype', 'META-INF', 'OEBPS'):
+            shutil.move(self.book.dirs['derived'] + '/' + i, 
+                        self.book.dirs['derived'] + '/epub/')
+                                
+        z.write(self.book.dirs['derived'] + '/epub/mimetype', 
+                arcname='mimetype')
+        z.write(self.book.dirs['derived'] + '/epub/OEBPS/content.opf', 
+                arcname='OEBPS/content.opf')
+        z.write(self.book.dirs['derived'] + '/epub/OEBPS/main.html', 
+                arcname='OEBPS/main.html')
+        z.write(self.book.dirs['derived'] + '/epub/META-INF/container.xml', 
+                arcname='META-INF/container.xml')
+        z.close()

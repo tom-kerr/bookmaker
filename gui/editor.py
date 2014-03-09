@@ -2659,7 +2659,7 @@ class ExportHandler(object):
                               'args': [cls, mth, self.book, 
                                        None, None],
                               'kwargs': {},
-                              'hook': None}
+                              'hook': 'assemble_epub'}
                 ca.run_in_background(self.update_progress, 2000, args=('EPUB', 'epub'))
                 update.append('epub')
 
@@ -2798,7 +2798,7 @@ class ExportHandler(object):
         mth = 'make_epub'
         pid = '.'.join((self.book.identifier, fnc.__name__, cls, mth))
         args = [cls, mth, self.book, None, None]
-        self.ProcessHandler.add_process(fnc, pid, args, {'hook': None})
+        self.ProcessHandler.add_process(fnc, pid, args, {'hook': 'assemble_epub'})
         ca.run_in_background(self.update_progress, 2000, args=('EPUB', 'epub'))
     
     def make_plain_text(self, widget):
