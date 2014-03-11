@@ -359,15 +359,23 @@ class EPUB(Operation):
                 pid = self.make_pid_string('write_OEBPS')
                 self.ProcessHandler.join((pid, Util.exception_info()))        
         hocr_files = self.Tesseract.get_hocr_files()
-        parsed = []
+        parsed = {}
         for leaf, f in hocr_files.items():
-            parsed.append(self.Tesseract.parse_hocr(f))    
+            parsed[leaf] = self.Tesseract.parse_hocr(f)
         self.abbyy_to_epub(parsed)
 
     def abbyy_to_epub(self, hocr):
         main_doc = etree.Element('html')
         body = etree.SubElement(main_doc, 'body')
-        for page in hocr:
+        for leaf, page in hocr.items():
+            if leaf in self.book.cropBox.pagination:
+                pagination = self.book.cropBox.pagination[leaf]
+                if pagination:
+                    if pagination[-1] in ('!', '?'):
+                        pagination = pagination[:-1]
+                    pdiv = etree.SubElement(body, 'div')
+                    pdiv.set('class', 'newpage')
+                    pdiv.set('id', 'page-'+str(pagination))
             for par in page.paragraphs:
                 p = etree.SubElement(body, 'p')
                 for line in par.lines:
