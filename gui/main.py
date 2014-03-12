@@ -1,3 +1,6 @@
+""" GUI entry point
+"""
+
 import sys, os, re
 
 import gi
