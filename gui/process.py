@@ -231,7 +231,7 @@ class ProcessingGui(object):
         identifier = identifier[0]
         if not identifier in self.editing:
             try:
-                self.books[identifier].import_crops()
+                self.books[identifier].init_crops()
                 window = Gtk.Window(Gtk.WindowType.TOPLEVEL)
                 window.connect('destroy', self.close_editor, identifier)
                 ca.set_window_size(window,

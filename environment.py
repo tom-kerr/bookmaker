@@ -55,7 +55,8 @@ class Environment(object):
             book.start_time = time.time()
             Environment.init_logger(book)
             book.settings = Environment.load_settings(book, args)
-            book.init_crops()
+            imprt = True if not self.settings['respawn'] else False
+            book.init_crops(imprt)
             Environment.log_settings(book)
 
     @staticmethod
@@ -289,7 +290,7 @@ class BookData(object):
                 Environment.clean_dir(dir)
                 
     def init_crops(self):
-        import_scandata = True if not self.settings['respawn'] else False
+        
         self.pageCrop = Crop('pageCrop', self.page_count,
                              self.raw_image_dimensions,
                              self.scandata, import_scandata)
@@ -303,23 +304,14 @@ class BookData(object):
                       'standardCrop': self.standardCrop,
                       'contentCrop': self.contentCrop}
 
-    def import_crops(self):
-        self.cropBox = Crop('cropBox', self.page_count,
-                             self.raw_image_dimensions,
-                             self.scandata, True)
-        self.pageCrop = Crop('pageCrop', self.page_count,
-                             self.raw_image_dimensions,
-                             self.scandata, True)
-        self.standardCrop = Crop('standardCrop', self.page_count,
-                                 self.raw_image_dimensions,
-                                 self.scandata, True)
-        self.contentCrop = Crop('contentCrop', self.page_count,
-                                self.raw_image_dimensions,
-                                self.scandata, True)
-        self.crops = {'cropBox': self.cropBox,
-                      'pageCrop': self.pageCrop,
-                      'standardCrop': self.standardCrop,
-                      'contentCrop': self.contentCrop}
+    def init_crops(self, import_from_scandata=True):
+        self.crops = {}
+        for crop in ('cropBox', 'pageCrop', 'standardCrop', 'contentCrop'):
+            cropObj = Crop(crop, self.page_count,
+                           self.raw_image_dimensions,
+                           self.scandata, import_from_scandata)
+            setattr(self, crop, cropObj)
+            self.crops[crop] = getattr(self, crop)
 
 
 class Scandata(object):

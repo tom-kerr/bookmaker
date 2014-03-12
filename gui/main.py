@@ -87,7 +87,7 @@ class BookmakerGUI:
                 book_data = BookData(selected, raw_dir, raw_data)
                 Environment.init_logger(book_data)
                 try:
-                    book_data.import_crops()
+                    book_data.init_crops()
                 except Exception as e:
                     ca.dialog(None, Gtk.MessageType.ERROR, str(e))
                     return
