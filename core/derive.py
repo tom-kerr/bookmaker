@@ -347,7 +347,7 @@ class EPUB(Operation):
             with open(container_file, 'wb') as container:
                 doc.write(container, pretty_print=True)
         except (IOError, OSError):
-            pid = self._make_pid_string('write_container')
+            pid = self.make_pid_string('write_container')
             self.ProcessHandler.join((pid, Util.exception_info()))
 
     def create_OEBPS(self):
