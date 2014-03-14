@@ -385,8 +385,12 @@ class EPUB(Operation):
                             text.append(word.text.lstrip('"').rstrip('"'))
                     p.text = " ".join(text)
         tree = etree.ElementTree(main_doc)
-        with open(self.book.dirs['derived']+ '/OEBPS/' + 'main.html', 'wb') as f:
-            tree.write(f, pretty_print=True)
+        try:
+            with open(self.book.dirs['derived']+ '/OEBPS/' + 'main.html', 'wb') as f:
+                tree.write(f, pretty_print=True)
+        except (OSError, IOError):
+            pid = self.make_pid_string('abbyy_to_epub')
+            self.ProcessHandler.join((pid, Util.exception_info()))        
 
     def create_opf(self):
         doc = etree.Element('package')
@@ -404,9 +408,13 @@ class EPUB(Operation):
         mspine = etree.SubElement(spine, 'itemref')
         mspine.set('idref', 'main')
         tree = etree.ElementTree(doc)
-        with open(self.book.dirs['derived'] + '/OEBPS/' + 'content.opf', 'wb') as f:
-            tree.write(f, encoding='utf-8', xml_declaration=True, 
-                       pretty_print=True)
+        try:
+            with open(self.book.dirs['derived'] + '/OEBPS/' + 'content.opf', 'wb') as f:
+                tree.write(f, encoding='utf-8', xml_declaration=True, 
+                           pretty_print=True)
+        except (OSError, IOError):
+            pid = self.make_pid_string('create_opf')
+            self.ProcessHandler.join((pid, Util.exception_info()))
                 
     def assemble_epub(self):
         epub_dir = self.book.dirs['derived'] + '/epub'
