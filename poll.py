@@ -67,8 +67,8 @@ class ShellPolls(BasePolls):
 
     def _start_thread_poll(self):
         if not self._is_polling_threads:
-            self._thread_poll = Thread(target=self._thread_poll)
-            self._thread_poll.start()
+            self._tpoll = Thread(target=self._thread_poll)
+            self._tpoll.start()
             self._is_polling_threads = True
 
     def _thread_poll(self):
@@ -77,15 +77,14 @@ class ShellPolls(BasePolls):
             if (not self._should_poll or 
                 not self.ProcessHandler._are_active_processes()):
                 self._is_polling_threads = False
-                self._should_poll = False
                 break
             self.ProcessHandler._clear_inactive()
             self.ProcessHandler._submit_waiting()
             
     def _start_exception_poll(self):
         if not self._is_polling_exceptions:
-            self._exception_poll = Thread(target=self._exception_poll)
-            self._exception_poll.start()
+            self._epoll = Thread(target=self._exception_poll)
+            self._epoll.start()
             self._is_polling_exceptions = True
 
     def _exception_poll(self):
@@ -94,7 +93,6 @@ class ShellPolls(BasePolls):
             if (not self._should_poll or 
                 not self.ProcessHandler._are_active_processes()):
                 self._is_polling_exceptions = False
-                self._should_poll = False
                 break
             try:
                 pid, traceback = self.ProcessHandler._exception_queue.get_nowait()
@@ -106,9 +104,7 @@ class ShellPolls(BasePolls):
                 identifier = pid.split('.')[0]
                 self.ProcessHandler.finish(identifier)
                 print (msg)
-                #raise Exception(msg)
-            #time.sleep(1.0)
-
+                
 
 
 class GUIPolls(BasePolls):
