@@ -288,21 +288,6 @@ class BookData(object):
                 pass
             else:
                 Environment.clean_dir(dir)
-                
-    def init_crops(self):
-        
-        self.pageCrop = Crop('pageCrop', self.page_count,
-                             self.raw_image_dimensions,
-                             self.scandata, import_scandata)
-        self.standardCrop = Crop('standardCrop', self.page_count,
-                                 self.raw_image_dimensions,
-                                 self.scandata, import_scandata)
-        self.contentCrop = Crop('contentCrop', self.page_count,
-                                self.raw_image_dimensions,
-                                self.scandata)
-        self.crops = {'pageCrop': self.pageCrop,
-                      'standardCrop': self.standardCrop,
-                      'contentCrop': self.contentCrop}
 
     def init_crops(self, import_from_scandata=True):
         self.crops = {}
