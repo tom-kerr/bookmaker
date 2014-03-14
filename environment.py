@@ -55,6 +55,7 @@ class Environment(object):
             book.start_time = time.time()
             Environment.init_logger(book)
             book.settings = Environment.load_settings(book, args)
+            Environment.init_scandata(book)
             imprt = True if not self.settings['respawn'] else False
             book.init_crops(imprt)
             Environment.log_settings(book)
@@ -158,6 +159,28 @@ class Environment(object):
             self.books.append(book)
 
     @staticmethod
+    def init_scandata(book):
+        if os.path.exists(book.scandata_file) and \
+                os.stat(book.scandata_file)[6] > 0:
+            try:
+                book.scandata.new_from_file(book.scandata_file)
+            except etree.ParseError:
+                if book.settings['respawn']:
+                    #if the scandata is corrupt, but we're looking to start over
+                    #anyhow, we'll create a fresh xml doc.
+                    book.scandata.new(book.identifier,
+                                      book.page_count,
+                                      book.raw_image_dimensions,
+                                      book.scandata_file)
+                else:
+                    raise
+        else:
+            book.scandata.new(book.identifier,
+                              book.page_count,
+                              book.raw_image_dimensions,
+                              book.scandata_file)
+
+    @staticmethod
     def init_logger(book):
         book.logger = logging.getLogger(book.identifier)
         book.logger.setLevel(logging.DEBUG)
@@ -252,13 +275,6 @@ class BookData(object):
         self.identifier = os.path.basename(self.root_dir)
         self.scandata_file = self.root_dir + '/' + self.identifier + '_scandata.xml'
         self.scandata = Scandata()
-        if os.path.exists(self.scandata_file) and os.stat(self.scandata_file)[6] > 0:
-            self.scandata.new_from_file(self.scandata_file)
-        else:
-            self.scandata.new(self.identifier,
-                              self.page_count,
-                              self.raw_image_dimensions,
-                              self.scandata_file)
         self.scaled_center_point = {}
         for leaf in range(0, self.page_count):
             self.scaled_center_point[leaf] = \
