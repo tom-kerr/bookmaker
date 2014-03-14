@@ -28,7 +28,7 @@ def main(args):
         queue[pid] = {'func': fnc,
                       'args': [cls, mth, book, None, None], 
                       'kwargs': {},
-                      'callback': 'post_process'}
+                      'hook': 'post_process'}
              
         if args.derive_all or args.derive:
             if args.derive:
