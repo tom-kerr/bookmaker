@@ -56,7 +56,7 @@ class Environment(object):
             Environment.init_logger(book)
             book.settings = Environment.load_settings(book, args)
             Environment.init_scandata(book)
-            imprt = True if not self.settings['respawn'] else False
+            imprt = True if not book.settings['respawn'] else False
             book.init_crops(imprt)
             Environment.log_settings(book)
 
