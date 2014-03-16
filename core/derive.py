@@ -355,14 +355,28 @@ class EPUB(Operation):
         if not os.path.exists(OEBPS_dir):
             try:
                 os.mkdir(OEBPS_dir, 0o755)
-            except (OSError):
+            except OSError:
                 pid = self.make_pid_string('write_OEBPS')
                 self.ProcessHandler.join((pid, Util.exception_info()))        
-        hocr_files = self.Tesseract.get_hocr_files()
+        hocr_files = self.get_hocr_files()
         parsed = {}
         for leaf, f in hocr_files.items():
             parsed[leaf] = self.Tesseract.parse_hocr(f)
         self.abbyy_to_epub(parsed)
+
+    def get_hocr_files(self, start=None, end=None, **kwargs):
+        if None in (start, end):
+            start, end = 1, self.book.page_count-1
+        files = self.Tesseract.get_hocr_files(start, end)
+        if not files:
+            for leaf in range(start, end):
+                self.Tesseract.run(leaf, **kwargs)
+                exec_time = self.Tesseract.get_last_exec_time()
+                self.complete_process('Tesseract', leaf, exec_time)
+            files = self.Tesseract.get_hocr_files(start, end)
+        else:
+            self.complete_process('Tesseract', range(1, self.book.page_count), 0)
+        return files
 
     def abbyy_to_epub(self, hocr):
         main_doc = etree.Element('html')
