@@ -2651,7 +2651,7 @@ class ExportHandler(object):
                 update.append('pdf')
             
             if 'epub' in formats:
-                f = self.ProcessHandler.run_pipeline
+                f = self.ProcessHandler.run_pipeline_distributed
                 cls = 'EPUB'
                 mth = 'make_epub'
                 pid = '.'.join((self.book.identifier, f.__name__, cls, mth))
@@ -2793,7 +2793,7 @@ class ExportHandler(object):
         ca.run_in_background(self.update_progress, 2000, args=('Djvu', 'djvu'))
 
     def make_epub(self, widget):
-        fnc = self.ProcessHandler.run_pipeline
+        fnc = self.ProcessHandler.run_pipeline_distributed
         cls = 'EPUB'
         mth = 'make_epub'
         pid = '.'.join((self.book.identifier, fnc.__name__, cls, mth))

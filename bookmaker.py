@@ -74,15 +74,14 @@ def main(args):
                               'hook': 'assemble_pdf_with_pypdf'}
 
             if 'epub' in formats:
-                f = P.run_pipeline
                 cls = 'EPUB'
                 mth = 'make_epub'
-                pid = '.'.join((book.identifier, f.__name__, cls, mth))
-                queue[pid] = {'func': f,
+                pid = '.'.join((book.identifier, fnc.__name__, cls, mth))
+                queue[pid] = {'func': fnc,
                               'args': [cls, mth, book, None, None],
                               'kwargs': {},
                               'hook': 'assemble_epub'}
-                
+
             if 'text' in formats:
                 cls = 'PlainText'
                 mth = 'make_full_plain_text'
@@ -91,7 +90,7 @@ def main(args):
                               'args': [cls, mth, book, None, None],
                               'kwargs': {},
                               'hook': 'assemble_ocr_text'}
-
+                              
         P.drain_queue(queue, 'sync', 
                       qpid=book.identifier, 
                       qlogger=book.logger)

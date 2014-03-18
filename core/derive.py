@@ -308,14 +308,57 @@ class EPUB(Operation):
             pid = self.make_pid_string('__init__')
             self.ProcessHandler.join((pid, Util.exception_info()))
 
-    def make_epub(self, **kwargs):
+    def make_epub(self, start=None, end=None, **kwargs):
+        if None in (start, end):
+            start, end = 1, self.book.page_count-1
         self.book.logger.info('Creating EPUB...')
-        self.write_mimetype()
-        self.write_container()
-        self.create_OEBPS()
-        self.create_opf()
-        self.set_finished()
-            
+        self.parsed_hocr = {}
+        hocr_files = self.get_hocr_files(start, end)
+        for leaf, f in hocr_files.items():
+            self.parsed_hocr[leaf] = self.Tesseract.parse_hocr(f)
+
+    def get_hocr_files(self, start=None, end=None, **kwargs):
+        if None in (start, end):
+            start, end = 1, self.book.page_count-1
+        files = self.Tesseract.get_hocr_files(start, end)
+        if not files:
+            for leaf in range(start, end):
+                self.Tesseract.run(leaf, **kwargs)
+                exec_time = self.Tesseract.get_last_exec_time()
+                self.complete_process('Tesseract', leaf, exec_time)
+            files = self.Tesseract.get_hocr_files(start, end)
+        else:
+            self.complete_process('Tesseract', range(1, self.book.page_count), 0)
+        return files
+
+    def hocr_to_epub(self, hocr):        
+        main_doc = etree.Element('html')
+        body = etree.SubElement(main_doc, 'body')
+        for leaf, page in hocr.items():
+            if leaf in self.book.cropBox.pagination:
+                pagination = self.book.cropBox.pagination[leaf]
+                if pagination:
+                    if pagination[-1] in ('!', '?'):
+                        pagination = pagination[:-1]
+                    pdiv = etree.SubElement(body, 'div')
+                    pdiv.set('class', 'newpage')
+                    pdiv.set('id', 'page-'+str(pagination))
+            for par in page.paragraphs:
+                p = etree.SubElement(body, 'p')
+                for line in par.lines:
+                    text = []
+                    for word in line.words:
+                        if word.text:
+                            text.append(word.text.lstrip('"').rstrip('"'))
+                    p.text = " ".join(text)
+        tree = etree.ElementTree(main_doc)
+        try:
+            with open(self.book.dirs['derived']+ '/OEBPS/' + 'main.html', 'wb') as f:
+                tree.write(f, pretty_print=True)
+        except (OSError, IOError):
+            pid = self.make_pid_string('hocr_to_epub')
+            self.ProcessHandler.join((pid, Util.exception_info()))        
+
     def write_mimetype(self):
         mimetype = 'application/epub+zip'
         mimefile = self.book.dirs['derived'] + '/mimetype'
@@ -358,53 +401,7 @@ class EPUB(Operation):
             except OSError:
                 pid = self.make_pid_string('write_OEBPS')
                 self.ProcessHandler.join((pid, Util.exception_info()))        
-        hocr_files = self.get_hocr_files()
-        parsed = {}
-        for leaf, f in hocr_files.items():
-            parsed[leaf] = self.Tesseract.parse_hocr(f)
-        self.abbyy_to_epub(parsed)
-
-    def get_hocr_files(self, start=None, end=None, **kwargs):
-        if None in (start, end):
-            start, end = 1, self.book.page_count-1
-        files = self.Tesseract.get_hocr_files(start, end)
-        if not files:
-            for leaf in range(start, end):
-                self.Tesseract.run(leaf, **kwargs)
-                exec_time = self.Tesseract.get_last_exec_time()
-                self.complete_process('Tesseract', leaf, exec_time)
-            files = self.Tesseract.get_hocr_files(start, end)
-        else:
-            self.complete_process('Tesseract', range(1, self.book.page_count), 0)
-        return files
-
-    def abbyy_to_epub(self, hocr):
-        main_doc = etree.Element('html')
-        body = etree.SubElement(main_doc, 'body')
-        for leaf, page in hocr.items():
-            if leaf in self.book.cropBox.pagination:
-                pagination = self.book.cropBox.pagination[leaf]
-                if pagination:
-                    if pagination[-1] in ('!', '?'):
-                        pagination = pagination[:-1]
-                    pdiv = etree.SubElement(body, 'div')
-                    pdiv.set('class', 'newpage')
-                    pdiv.set('id', 'page-'+str(pagination))
-            for par in page.paragraphs:
-                p = etree.SubElement(body, 'p')
-                for line in par.lines:
-                    text = []
-                    for word in line.words:
-                        if word.text:
-                            text.append(word.text.lstrip('"').rstrip('"'))
-                    p.text = " ".join(text)
-        tree = etree.ElementTree(main_doc)
-        try:
-            with open(self.book.dirs['derived']+ '/OEBPS/' + 'main.html', 'wb') as f:
-                tree.write(f, pretty_print=True)
-        except (OSError, IOError):
-            pid = self.make_pid_string('abbyy_to_epub')
-            self.ProcessHandler.join((pid, Util.exception_info()))        
+        self.hocr_to_epub(self.parsed_hocr)
 
     def create_opf(self):
         doc = etree.Element('package')
@@ -431,6 +428,14 @@ class EPUB(Operation):
             self.ProcessHandler.join((pid, Util.exception_info()))
                 
     def assemble_epub(self):
+        self.write_mimetype()
+        self.write_container()
+        self.create_OEBPS()
+        self.create_opf()
+        self.zip_up()
+        self.set_finished()
+        
+    def zip_up(self):
         epub_dir = self.book.dirs['derived'] + '/epub'
         if os.path.exists(epub_dir):
             shutil.rmtree(epub_dir)
