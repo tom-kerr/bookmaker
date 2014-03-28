@@ -416,6 +416,7 @@ class EPUB(Operation):
         main.set('id', 'main')
         main.set('media-type', 'application/xhtml+xml')
         spine = etree.SubElement(doc, 'spine')
+        spine.set('toc', '') #todo
         mspine = etree.SubElement(spine, 'itemref')
         mspine.set('idref', 'main')
         tree = etree.ElementTree(doc)
