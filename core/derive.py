@@ -163,13 +163,11 @@ class Djvu(Operation):
         self.set_text = self.book.dirs['derived'] +"/set_text"
         for leaf in range(start, end):
             if leaf in hocr_files:
-                hocr = tesseract.parse_hocr(hocr_files[leaf])
-                #print (hocr, hocr_files[leaf])
+                hocr = tesseract.parse_hocr(hocr_files[leaf])        
                 if hocr is None:
                     continue
                 self.book.logger.debug('djvused: leaf ' + str(leaf))
                 ocrlisp = Tesseract.hocr2lisp(hocr)
-                #print (ocrlisp)
                 
                 try:
                     with open(self.tmpocrlisp, 'w') as f:
