@@ -295,6 +295,12 @@ class ProcessHandling(object):
                 self.execute_hook(identifier, func.__class__.__name__, hook)
             return True
 
+    def add_operation_instance(self, instance, book):
+        if not book.identifier in self.OperationObjects:
+            self.OperationObjects[book.identifier] = {}
+            cls = instance.__class__.__name__
+            self.OperationObjects[book.identifier][cls] = instance
+
     def _create_operation_instance(self, identifier, cls, method, book):
         if cls not in globals():
             raise LookupError('Could not find module \'' + cls + '\'')
