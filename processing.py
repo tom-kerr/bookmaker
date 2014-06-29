@@ -291,6 +291,8 @@ class ProcessHandling(object):
                 self.processes += 1
             new_thread.logger.info('New Thread Started --> ' +
                                    'Pid: ' + str(pid))                                   
+            if hook:
+                self.execute_hook(identifier, func.__class__.__name__, hook)
             return True
 
     def _create_operation_instance(self, identifier, cls, method, book):
@@ -392,12 +394,12 @@ class ProcessHandling(object):
                     return
             self.execute_hook(identifier, cls, hook)
 
-    def execute_hook(self, identifier, _class, hook):
+    def execute_hook(self, identifier, cls, hook):
         if not isinstance(hook, list):
             hook = [hook, ]
         for h in hook:
             if isinstance(h, str):
-                getattr(self.OperationObjects[identifier][_class], h)()
+                getattr(self.OperationObjects[identifier][cls], h)()
             elif hasattr(h, '__call__'):
                 h()
 
