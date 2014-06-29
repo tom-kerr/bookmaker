@@ -31,7 +31,8 @@ class FeatureDetection(Operation):
             if self.book.settings['respawn']:
                 self.book.scandata.new(self.book.identifier, self.book.page_count,
                                        self.book.raw_image_dimensions,
-                                       self.book.scandata_file)
+                                       self.book.scandata_file,
+                                       self.book.capture_style)
         except (Exception, BaseException) as e:
             self.book.logger.error(str(e))
             pid = self.make_pid_string('__init__')
