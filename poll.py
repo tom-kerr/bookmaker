@@ -74,10 +74,6 @@ class ShellPolls(BasePolls):
     def _thread_poll(self):
         while True:
             time.sleep(1.0)
-            if (not self._should_poll or 
-                not self.ProcessHandler._are_active_processes()):
-                self._is_polling_threads = False
-                break
             self.ProcessHandler._clear_inactive()
             self.ProcessHandler._submit_waiting()
             
@@ -90,10 +86,6 @@ class ShellPolls(BasePolls):
     def _exception_poll(self):
         while True:
             time.sleep(1.0)
-            if (not self._should_poll or 
-                not self.ProcessHandler._are_active_processes()):
-                self._is_polling_exceptions = False
-                break
             try:
                 pid, traceback = self.ProcessHandler._exception_queue.get_nowait()
             except Empty:
@@ -124,11 +116,6 @@ class GUIPolls(BasePolls):
             self._is_polling_threads = True
         
     def _thread_poll(self):
-        if (not self._should_poll or 
-            not self.ProcessHandler._are_active_processes()):
-            self._is_polling_threads = False
-            self._should_poll = False
-            return False
         self.ProcessHandler._clear_inactive()
         self.ProcessHandler._submit_waiting()
         return True
@@ -139,11 +126,6 @@ class GUIPolls(BasePolls):
             self._is_polling_exceptions = True
 
     def _exception_poll(self):
-        if (not self._should_poll or 
-            not self.ProcessHandler._are_active_processes()):
-            self._is_polling_exceptions = False
-            self._should_poll = False
-            return False
         try:
             pid, traceback = self.ProcessHandler._exception_queue.get_nowait()
         except Empty:
@@ -155,5 +137,4 @@ class GUIPolls(BasePolls):
             self.ProcessHandler.finish(identifier)
             ca.dialog(message=msg)
             return True
-            #raise Exception(msg)
             
