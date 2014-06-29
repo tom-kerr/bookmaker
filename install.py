@@ -19,36 +19,58 @@ if re.search('darwin', plat):
 if re.search('win', plat):
     dist = platform.win32_ver()[0]
 
+dist = dist.lower()
+
 print ('Environment: ' + dist, plat)
 
-py_dep = {'yaml':   {'Ubuntu': {'method':'pip',
+py_dep = {'yaml':   {'ubuntu': {'method':'pip',
+                                'pkg': 'pyaml'},
+                     'debian': {'method':'pip',
                                 'pkg': 'pyaml'}},
-          'lxml':   {'Ubuntu': {'method':'pip',
+          'lxml':   {'ubuntu': {'method':'pip',
+                                'pkg': 'lxml'},
+                     'debian': {'method':'pip',
                                 'pkg': 'lxml'}},
-          'psutil': {'Ubuntu': {'method':'pip',
+          'psutil': {'ubuntu': {'method':'pip',
+                                'pkg': 'psutil'},
+                     'debian': {'method':'pip',
                                 'pkg': 'psutil'}},
-          'PyPDF2':  {'Ubuntu': {'method':'distutils',
+          'PyPDF2':  {'ubuntu': {'method':'distutils',
+                                 'url': 'https://github.com/mstamy2/PyPDF2/archive/master.zip'},
+                      'debian': {'method':'distutils',
                                  'url': 'https://github.com/mstamy2/PyPDF2/archive/master.zip'}},
-          'PIL':    {'Ubuntu': {'method':'pip',
+          'PIL':    {'ubuntu': {'method':'pip',
+                                'pkg': 'pillow'},
+                     'debian': {'method':'pip',
                                 'pkg': 'pillow'}},
-          'python3-gi':  {'Ubuntu': {'method': 'pkg-manager',
-                                     'pkg': 'python3-gi'}},
-          'xmltodict':    {'Ubuntu': {'method':'pip',
+          'xmltodict':    {'ubuntu': {'method':'pip',
+                                      'pkg': 'xmltodict'},
+                           'debian': {'method':'pip',
                                       'pkg': 'xmltodict'}},
-          'dicttoxml':    {'Ubuntu': {'method':'pip',
-                                      'pkg': 'dicttoxml'}},
-          #'bibs':   {dist: {'method':'distutils',
-          #                  'url': 'https://github.com/reklaklislaw/bibs/archive/master.zip'}}
-          }
+          'dicttoxml':    {'ubuntu': {'method':'pip',
+                                      'pkg': 'dicttoxml'},
+                           'debian': {'method':'pip',
+                                      'pkg': 'xmltodict'}},
+            }
 
-sys_dep = { 'make':       {'Ubuntu': 'make'},
-            'libtiff':    {'Ubuntu': 'libtiff4-dev'},
-            'libpng12':   {'Ubuntu': 'libpng12-dev'},
-            'djvulibre':  {'Ubuntu': 'djvulibre-bin'},
-            'exactimage': {'Ubuntu': 'exactimage'},
-            'fftw':       {'Ubuntu': 'libfftw3-dev'},
-            'leptonica':  {'Ubuntu': 'libleptonica-dev'},
-            'tesseract':  {'Ubuntu': 'tesseract-ocr*'}
+sys_dep = { 'make':       {'ubuntu': 'make',
+                           'debian': 'make'},
+            'libtiff':    {'ubuntu': 'libtiff4-dev',
+                           'debian': 'libtiff4-dev'},
+            'libpng12':   {'ubuntu': 'libpng12-dev',
+                           'debian': 'libpng12-dev'},
+            'djvulibre':  {'ubuntu': 'djvulibre-bin',
+                           'debian': 'djvulibre-bin'},
+            'exactimage': {'ubuntu': 'exactimage',
+                           'debian': 'exactimage'},
+            'fftw':       {'ubuntu': 'libfftw3-dev',
+                           'debian': 'libfftw3-dev'},
+            'leptonica':  {'ubuntu': 'libleptonica-dev',
+                           'debian': 'libleptonica-dev'},
+            'tesseract':  {'ubuntu': 'tesseract-ocr*',
+                           'debian': 'tesseract-ocr*'},
+            'python3-gi':  {'ubuntu': 'python3-gi',
+                            'debian': 'python3-gi'}
             }
 
 
@@ -79,8 +101,8 @@ def check_py_dep():
 
 
 def install_with_pip(mod):
-    pip = 'pip-3.2'
-    cmd = [pip, 'install', mod]
+    pip = 'pip3'
+    cmd = [pip, 'install', '-I',  mod]
     retval = Util.exec_cmd(cmd, retval=True, print_output=True)
     if retval != 0:
         return False
@@ -89,7 +111,7 @@ def install_with_pip(mod):
 
 
 def install_with_package_manager(mod):
-    if dist in ('Ubuntu', 'Debian'):
+    if dist in ('ubuntu', 'debian'):
         cmd = ['apt-get', '-y', 'install', mod]
     retval = Util.exec_cmd(cmd, retval=True, print_output=True)
     if retval != 0:
@@ -99,7 +121,7 @@ def install_with_package_manager(mod):
 
 
 def install_with_distutils(path):
-    python = 'python3.' + str(py_version[1])
+    python = 'python3'
     cmd = [python, 'setup.py', 'install']
     retval = Util.exec_cmd(cmd, current_wd=path, 
                            retval=True, print_output=True)
@@ -172,8 +194,8 @@ def build_bookmaker_executables():
         Util.bail(str(e))
 
 Util = Util()
-if not install_with_package_manager('python3-pip'):
-    Util.bail('Failed to install pip')
+#if not install_with_package_manager('python3-pip'):
+#    Util.bail('Failed to install pip')
 check_py_dep()
 check_sys_dep()
 build_bookmaker_executables()

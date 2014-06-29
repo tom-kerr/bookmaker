@@ -85,7 +85,7 @@ PIX* NormalizedGray(PIX *pix,
 
 void run(char *in_file,
 	 int rot_dir,
-	 float scale_factor,
+	 int scale_factor,
 	 char *scaled_out_file) {
 
   PIX *pix_scaled_1x, *pix_scaled_2x, 
@@ -95,7 +95,7 @@ void run(char *in_file,
   pix_scaled_1x = ScaleAndRotate(in_file, rot_dir, scale_factor, scaled_out_file);
   pix_scaled_1x_gray = NormalizedGray(pix_scaled_1x, rot_dir);
 
-  pix_scaled_2x = ScaleAndRotate(in_file,rot_dir, scale_factor/2.0, NULL);
+  pix_scaled_2x = ScaleAndRotate(in_file,rot_dir, scale_factor*2, NULL);
   pix_scaled_2x_gray_normalized = NormalizedGray(pix_scaled_2x, rot_dir);
 
   
@@ -564,23 +564,31 @@ void run(char *in_file,
 
 void main (int argc, char **argv ) {
 
-  if (argc!=5) {
-    printf("Usage: in_file rotation_dir[-1,1] scale_factor[1,2,4,8] scaled_out_file\n");
+  if (argc!=3 && argc!=5) {
+    printf("Usage: required{in_file rotation_dir[-1,1]} optional{scale_factor[1,2,4,8] scaled_out_file}\n");
     exit(1);
   }
 
   char *in_file = argv[1];
   int rot_dir = atoi(argv[2]);
-  float scale_factor = atof(argv[3]);
-  char *scaled_out_file = argv[4];  
+  int scale_factor;
+  char *scaled_out_file;
+ 
+  if (argc == 5) {
+    scale_factor = atoi(argv[3]);
+    scaled_out_file = argv[4];  
+    
+    if ((scale_factor != 1 && scale_factor%2!=0) || scale_factor>8) {
+      printf("Invalid scale_factor [1, 2, 4, 8]\n");
+      exit(1);
+    }
+  } else {
+    scale_factor = 4;
+    scaled_out_file = NULL;
+  }
   
   if (rot_dir != -1 && rot_dir != 1) {
     printf("invalid rotation direction [-1, 1]");
-    exit(1);
-  }
-
-  if ((int)scale_factor%2!=0 && (int)scale_factor>8) {
-    printf("Invalid scale_factor [1, 2, 4, 8]\n");
     exit(1);
   }
 

@@ -5,7 +5,7 @@
 
 void run(char *in_file,
 	 int rot_dir,
-	 float scale_factor,
+	 int scale_factor,
 	 char *scaled_out_file);
 
 PIX* NormalizedGray(PIX* pix,

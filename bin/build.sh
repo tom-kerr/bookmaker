@@ -8,8 +8,5 @@ echo "making cornerFilter..."
 make -BC cornerFilter/
 echo "making cropper..."
 make -BC cropper/
-echo "making optics..."
-cd optics/
-./configure --enable-data-xyz
-make
-make install exec_prefix=.
+echo "making raw2thumb"
+make -BC raw2thumb/

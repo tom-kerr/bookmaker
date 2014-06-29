@@ -7,7 +7,7 @@
 
 PIX* ScaleAndRotate(char *in_file, 
 		    int rot_dir,
-		    float scale_factor,
+		    int scale_factor,
 		    char *scaled_out_file) {
 
   FILE *in_stream, *out_stream;
@@ -28,9 +28,7 @@ PIX* ScaleAndRotate(char *in_file,
     }
 
   if (strcmp(ext, "jpeg") == 0) {
-    scale_factor = 1.0/scale_factor;
     pix_scaled = pixReadStreamJpeg(in_stream, 0, scale_factor, NULL, 0);
-
   } else {
 
     if (strcmp(ext, "tiff") == 0) 
