@@ -27,7 +27,7 @@ class Crop(StructuralMetadata):
     
     def __init__(self, name, page_count,
                  raw_image_dimensions, scandata=None,
-                 import_scandata=False, scale_factor=1):
+                 import_scandata=False, strict=True, scale_factor=1):
         self.name = name
         self.page_count = page_count
         self.scale_factor = scale_factor
@@ -52,7 +52,7 @@ class Crop(StructuralMetadata):
                 self.hand_side[leaf] = 'RIGHT'
 
         if import_scandata:
-            self.xml_io('import')
+            self.xml_io('import', strict)
             self.update_pagination()
 
     def return_state(self, leaf):
@@ -69,11 +69,12 @@ class Crop(StructuralMetadata):
 
     def get_box_metadata(self):
         for dimension in Box.dimensions:
-            self.meta[dimension] = {'stats': None, 'stats_hist': None}
             p = []
             for leaf, box in self.box.items():
                 if box.dim[dimension] is not None:
                     p.append(box.dim[dimension])
+                    if not dimension in self.meta:
+                        self.meta[dimension] = {'stats': None, 'stats_hist': None}
             if len(p) > 0:
                 self.meta[dimension]['stats'] = Util.stats(p)
                 self.meta[dimension]['stats_hist'] = Util.stats_hist(p, self.meta[dimension]['stats'])
@@ -91,7 +92,7 @@ class Crop(StructuralMetadata):
                         cropBox.find(dimension).text = str(int(value))
                 self.active[leaf] = True
         
-    def xml_io(self, mode):
+    def xml_io(self, mode, strict=True):
         page_data = self.scandata.tree.find('pageData')
         pages = page_data.findall('page')
         for leaf, page in enumerate(pages):
@@ -100,8 +101,11 @@ class Crop(StructuralMetadata):
                 if mode is 'import':
                     xmlcrop = page.find(self.name)
                     if xmlcrop is None:
-                        raise LookupError('Missing essential item \'' + 
-                                          self.name  + '\' in scandata')
+                        if strict:
+                            raise LookupError('Missing essential item \'' + 
+                                              self.name  + '\' in scandata')
+                        else:
+                            continue
                     
                     active = xmlcrop.get('active')
                     if active=='True':
