@@ -19,7 +19,7 @@ class Component(object):
             hook(*args, **kwargs)
 
     def execute(self, kwargs, stdout=None, stdin=None,
-                retval=False, return_output=False, print_output=False,
+                return_output=False, print_output=False,
                 current_wd=None, logger=None):
         cmd = [self.executable]
                         
@@ -31,21 +31,23 @@ class Component(object):
             else:
                 if isinstance(arg, list):
                     #value = [arg[0], getattr(self, arg[1])]
-                    value = [arg[0], kwargs[arg[1]]]
+                    if kwargs[arg[1]] is not None:
+                        value = [arg[0], kwargs[arg[1]]]
+                    else:
+                        value = None
                 else:
                     value = kwargs[arg]
                 if value is not None:
                     if not isinstance(value, list):
                         value = [value,]
                     for v in value:
-                        if v not in (None, '', False):
+                        if v not in (None, ''):
                             cmd.append(str(v))
+                        
         output = self.Util.exec_cmd(cmd, stdout, stdin,
-                                    retval, return_output,
-                                    print_output, current_wd, 
-                                    logger)
-        self.exec_times.append(output['exec_time'])
-        
+                                    return_output, print_output, 
+                                    current_wd, logger)
+        self.exec_times.append(output['exec_time'])        
         return output
 
     def get_last_exec_time(self):
