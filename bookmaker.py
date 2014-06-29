@@ -7,18 +7,18 @@ import sys, argparse
 import logging
 
 from util import Util
-from environment import Environment
+from environment import Environment; Environment('shell')
 from processing import ProcessHandling
 
 def main(args):
     try:
-        E = Environment(args.root_dir, args)
+        books = Environment.get_books(args.root_dir, args, stage='process')
     except Exception as e:
         Util.bail(str(e))
 
     P = ProcessHandling()
 
-    for book in E.books:
+    for book in books:
         queue = P.new_queue()
         fnc = P.run_pipeline_distributed
 
