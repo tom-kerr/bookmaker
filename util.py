@@ -8,16 +8,15 @@ import time
 import traceback
 
 class Util(object):
-    """ Used mostly to manage system calls, including
-        spawning, terminating, and collecting process 
-        execution time and output. 
+    """ Used mostly to manage system calls, including  spawning, terminating,
+    and collecting process execution time and output. 
     """
 
     def __init__(self):
         self.active_procs = {}
 
     def exec_cmd(self, cmd, stdout=None, stdin=None,
-                 retval=False, return_output=False, print_output=False,
+                 return_output=False, print_output=False,
                  current_wd=None, logger=None):
         devnull = open(os.devnull, 'w')
         if stdout:
@@ -30,6 +29,7 @@ class Util(object):
             stdin = open(stdin, 'rb')
 
         start = Util.microseconds()
+
         if current_wd is not None:
             p = subprocess.Popen(cmd, cwd=current_wd, 
                                  stdout=stdout, stdin=stdin)
@@ -44,24 +44,26 @@ class Util(object):
                 if o:
                     print (o.decode('utf-8'))            
         del self.active_procs[pid]
-
-        if retval:
-            return p.returncode
         if return_output:
             return {'output': output[0].decode('utf-8'),
                     'exec_time': end - start,
-                    'pid': pid}
+                    'pid': pid,
+                    'retval': p.returncode}
         else:
             return {'exec_time': end - start,
-                    'pid': pid}
+                    'pid': pid,
+                    'retval': p.returncode}
 
     def end_active_processes(self):
         for pid, proc in self.active_procs.items():
-            proc.terminate()
-            time.sleep(0.5)
-            alive = proc.poll()
-            if alive is None:
-                os.kill(pid, signal.SIGINT)
+            try:
+                proc.terminate()
+                time.sleep(0.5)
+                alive = proc.poll()
+                if alive is None:
+                    os.kill(pid, signal.SIGINT)
+            except:
+                pass
                 
     @staticmethod
     def exception_info():
