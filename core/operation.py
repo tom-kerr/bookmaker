@@ -26,7 +26,7 @@ class Operation(object):
             _class = info['class']
             globals()[_class] = __import__('components.'+component,
                                            globals(), locals(),
-                                           [_class,], -1)
+                                           [_class,], 0)
         self.imports = components
 
     def init_components(self, book):
