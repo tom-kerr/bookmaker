@@ -32,7 +32,7 @@ class PageDetector(Component):
                                self.book.identifier + '_scaled_' +
                                leafnum + '.jpg')
         if not scale_factor:
-            scale_factor = 0.25
+            scale_factor = Environment.scale_factor
         if not rot_dir:
             rot_dir = -1 if leaf%2==0 else 1
 
