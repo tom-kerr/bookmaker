@@ -18,9 +18,8 @@ from datastructures import Crop
 
 
 class Environment(object):
-    """ Handles the creation of BookData objects, including directory 
-        creation/cleaning, initiating logging, loading/writing of 
-        processing settings, and holding state pertaining to the
+    """ Handles the creation of Book objects, including directory 
+        creation/cleaning and holding state pertaining to the
         current system.
     """
 
@@ -32,91 +31,42 @@ class Environment(object):
                             ('draw_invalid_clusters', False),
                             ('draw_content_dimensions', False),
                             ('draw_page_number_candidates', False),
-                            ('draw_noise', False)])
+                            ('draw_noise', False),
+                            ('devices', None)])
     interface = 'shell'
     proc_mode = None
     dir_mode = 0o755
     scale_factor = 4
 
-    def __init__(self, dir_list, args=None):
+    def __init__(self, interface):
+        Environment.interface = interface
         Environment.set_current_path()
         Environment.check_system()
-        self.books = []
+
+    @staticmethod
+    def get_books(dir_list, args, stage, capture_style=None):
+        books = []
+        if not isinstance(dir_list, list):
+            dir_list = [dir_list,]
         for root_dir in dir_list:
             root_dir = root_dir.rstrip('/')
-            if not self.find_valid_subdirs(root_dir):
+            valid_subdirs = Environment.find_valid_subdirs(root_dir)
+            if not valid_subdirs:
                 raw_dir = Environment.is_sane(root_dir)
                 if raw_dir:
                     raw_data = Environment.get_raw_data(root_dir, raw_dir)
-                    self.init_new_book(root_dir, raw_dir, raw_data)
-        if len(self.books) < 1:
+                    books.append(Book(root_dir, raw_dir, raw_data, 
+                                      stage, capture_style))
+            else:
+                for subdir in valid_subdirs:
+                    raw_dir = Environment.is_sane(subdir)
+                    if raw_dir:
+                        raw_data = Environment.get_raw_data(subdir, raw_dir)
+                        books.append(Book(subdir, raw_dir, raw_data, 
+                                          stage, capture_style))
+        if len(books) < 1:
             Util.bail('No valid directories found for processing...')
-        for book in self.books:
-            book.start_time = time.time()
-            Environment.init_logger(book)
-            book.settings = Environment.load_settings(book, args)
-            Environment.init_scandata(book)
-            imprt = True if not book.settings['respawn'] else False
-            book.init_crops(imprt)
-            Environment.log_settings(book)
-
-    @staticmethod
-    def log_settings(book):
-        book.logger.debug('*****SETTINGS*****')
-        for setting, value in book.settings.items():
-            book.logger.debug(setting + ':' + str(value))
-        book.logger.debug('*****SETTINGS*****')
-
-    @staticmethod
-    def load_settings(book, args=None):
-        path = book.root_dir
-        settings_file = path + '/settings.yaml'
-        try:
-            stream = open(settings_file, 'r')
-            settings = yaml.load(stream)
-        except (OSError, IOError) as e:
-            book.logger.warning('Failed to load settings.yaml; ' + 
-                                str(e)+'; initializing with defaults.')
-            settings = Environment.settings
-            Environment.write_settings(book, settings)
-        finally:
-            if args:
-                if args.respawn:
-                    settings['respawn'] = True
-                elif args.no_respawn:
-                    settings['respawn'] = False
-                if args.make_cornered_scaled is not None:
-                    settings['make_cornered_scaled'] = args.make_cornered_scaled
-                if args.draw_clusters is not None:
-                    settings['draw_clusters'] = args.draw_clusters
-                if args.draw_removed_clusters is not None:
-                    settings['draw_removed_clusters'] = args.draw_removed_clusters
-                if args.draw_invalid_clusters is not None:
-                    settings['draw_invalid_clusters'] = args.draw_invalid_clusters
-                if args.draw_content_dimensions is not None:
-                    settings['draw_content_dimensions'] = \
-                        args.draw_content_dimensions
-                if args.draw_page_number_candidates is not None:
-                    settings['draw_page_number_candidates'] = \
-                        args.draw_page_number_candidates
-                if args.draw_noise is not None:
-                    settings['draw_noise'] = args.draw_noise
-                if args.save_settings:
-                    Environment.write_settings(path, settings)
-            return settings
-
-    @staticmethod
-    def write_settings(book, settings):
-        path = book.root_dir
-        settings_file = path + '/settings.yaml'
-        try:
-            with open(settings_file, 'w') as stream:
-                yaml.dump(settings,
-                          stream,
-                          explicit_start=True,
-                          default_flow_style=False)
-        except (OSError, IOError) as e:
-            book.logger.warning('Failed to save settings! ', str(e))
+        return books
 
     @staticmethod
     def check_system():
@@ -134,80 +84,43 @@ class Environment(object):
         Environment.current_path = os.path.abspath(os.path.dirname(sys.argv[0]))
         sys.path.append(Environment.current_path)
 
-    def find_valid_subdirs(self, root_dir):
+    @staticmethod
+    def find_valid_subdirs(root_dir):
         """ We accept as the root directory a directory containing 
             items (sub-directories) to be processed, and so we check
             for the presence of such items and if found initialize and 
             add them to our list of books.
         """
+        valid_subdirs = []
         subdirs = os.listdir(root_dir)
         for subdir in subdirs:
             path = root_dir + '/' + subdir
             raw_dir = Environment.is_sane(path)
             if raw_dir:
-                raw_data = Environment.get_raw_data(root_dir, 
-                                                    subdir + '/' + raw_dir)
-                self.init_new_book(path, raw_dir, raw_data)
-        if len(self.books) > 1:
-            return True
-        else:
-            return False
+                valid_subdirs.append(path)
+        return valid_subdirs
 
-    def init_new_book(self, root_dir, raw_dir, raw_data):
-        book = BookData(root_dir, raw_dir, raw_data)
-        if book not in self.books:
-            self.books.append(book)
-
-    @staticmethod
-    def init_scandata(book):
-        if os.path.exists(book.scandata_file) and \
-                os.stat(book.scandata_file)[6] > 0:
-            try:
-                book.scandata.new_from_file(book.scandata_file)
-            except etree.ParseError:
-                if book.settings['respawn']:
-                    #if the scandata is corrupt, but we're looking to start over
-                    #anyhow, we'll create a fresh xml doc.
-                    book.scandata.new(book.identifier,
-                                      book.page_count,
-                                      book.raw_image_dimensions,
-                                      book.scandata_file)
-                else:
-                    raise
-        else:
-            book.scandata.new(book.identifier,
-                              book.page_count,
-                              book.raw_image_dimensions,
-                              book.scandata_file)
+                #raw_data = Environment.get_raw_data(root_dir, 
+                #                                    subdir + '/' + raw_dir)
+                #self.books.append(Book(root_dir, raw_dir, raw_data,
+                #                       self.stage, self.capture_style))
+        #if len(self.books) > 1:
+        #    return True
+        #else:
+        #    return False
 
     @staticmethod
-    def init_logger(book):
-        book.logger = logging.getLogger(book.identifier)
-        book.logger.setLevel(logging.DEBUG)
-
-        console = logging.StreamHandler()
-        console.setLevel(logging.WARNING)
-        formatter = logging.Formatter('%(name)s %(threadName)s %(levelname)s --> %(message)s\n')
-        console.setFormatter(formatter)
-        book.logger.addHandler(console)
-
-        fh = logging.FileHandler(book.dirs['logs'] + '/' + book.identifier + '.log', 'w')
-        fh.setLevel(logging.INFO)
-        formatter = logging.Formatter('%(asctime)s %(threadName)s %(levelname)s %(message)s')
-        fh.setFormatter(formatter)
-        book.logger.addHandler(fh)
-
-        debug = logging.FileHandler(book.dirs['logs'] + '/' + book.identifier + '.debug.log', 'w')
-        debug.setLevel(logging.DEBUG)
-        formatter = logging.Formatter('%(asctime)s %(threadName)s %(levelname)s %(message)s')
-        debug.setFormatter(formatter)
-        book.logger.addHandler(debug)
+    def create_new_book_stub(location, identifier):
+        root_dir = location + '/' + identifier
+        raw_dir = root_dir + '/' + identifier + '_raw_'
+        os.mkdir(root_dir, Environment.dir_mode)
+        os.mkdir(raw_dir, Environment.dir_mode)
 
     @staticmethod
     def find_raw_dir(dir):
         dir_items = os.listdir(dir)
         for item in dir_items:
-            if re.search("(_raw_|_RAW_)", item):
+            if re.search("(_raw_|_RAW_|_raw$|_RAW$)", item):
                 if os.path.isdir(dir + '/' + item):
                     return item
 
@@ -262,19 +175,23 @@ class Environment(object):
                     os.remove(dir + '/' + f)
                   
 
-class BookData(object):
+class Book(object):
     """ Holds the state of a particular item.
+
+
+    stages: new_capture, append_capture, process, edit
+
     """
 
-    def __init__(self, root_dir, raw_dir, raw_data):
+    def __init__(self, root_dir, raw_dir, raw_data, stage, capture_style=None):
         self.root_dir = root_dir
         self.raw_image_dir = raw_dir
         self.page_count = raw_data['page_count']
         self.raw_images = raw_data['images']
         self.raw_image_dimensions = raw_data['dimensions']
+        self.capture_style = capture_style
         self.identifier = os.path.basename(self.root_dir)
         self.scandata_file = self.root_dir + '/' + self.identifier + '_scandata.xml'
-        self.scandata = Scandata()
         self.scaled_center_point = {}
         for leaf in range(0, self.page_count):
             self.scaled_center_point[leaf] = \
@@ -291,6 +208,152 @@ class BookData(object):
         for name, dir in self.dirs.items():
             if not os.path.exists(dir):
                 Environment.make_dir(dir)
+        self.init_logger()
+        self.load_settings()
+        self.log_settings()
+        self.scandata = Scandata()
+        self.init_scandata()
+
+        if stage == 'new_capture':
+            pass
+        elif stage == 'append_capture':
+            self.determine_capture_style()
+        elif stage == 'process':
+            self.determine_capture_style()
+            self.init_crops(strict=True)
+        elif stage == 'edit':
+            self.determine_capture_style()
+            self.init_crops(import_from_scandata=True, strict=True)        
+        self.create_time = time.time()
+        self.start_time = time.time()
+
+    def determine_capture_style(self):
+        bookData = self.scandata.tree.find('bookData')
+        devices = bookData.find('devices')
+        if devices is None:
+            self.capture_style = None
+        else:
+            count = devices.get('count')
+            if count == '1':
+                self.capture_style = 'Single'
+            elif count == '2':
+                self.capture_style = 'Dual'
+            else:
+                self.capture_style = None
+
+    def init_logger(self):
+        self.logger = logging.getLogger(self.identifier)
+        self.logger.setLevel(logging.DEBUG)
+
+        console = logging.StreamHandler()
+        console.setLevel(logging.WARNING)
+        formatter = logging.Formatter('%(name)s %(threadName)s %(levelname)s --> %(message)s\n')
+        console.setFormatter(formatter)
+        self.logger.addHandler(console)
+
+        fh = logging.FileHandler(self.dirs['logs'] + '/' + self.identifier + '.log', 'w')
+        fh.setLevel(logging.INFO)
+        formatter = logging.Formatter('%(asctime)s %(threadName)s %(levelname)s %(message)s')
+        fh.setFormatter(formatter)
+        self.logger.addHandler(fh)
+
+        debug = logging.FileHandler(self.dirs['logs'] + '/' + self.identifier + '.debug.log', 'w')
+        debug.setLevel(logging.DEBUG)
+        formatter = logging.Formatter('%(asctime)s %(threadName)s %(levelname)s %(message)s')
+        debug.setFormatter(formatter)
+        self.logger.addHandler(debug)
+
+    def load_settings(self, args=None):
+        path = self.root_dir
+        settings_file = path + '/settings.yaml'
+        try:
+            stream = open(settings_file, 'r')
+            settings = yaml.load(stream)
+        except (OSError, IOError, yaml.parser.ParserError) as e:
+            self.logger.warning('Failed to load settings.yaml; ' + 
+                                str(e)+'; initializing with defaults.')
+            settings = Environment.settings
+            self.write_settings(settings)
+        finally:
+            if args:
+                if args.respawn:
+                    settings['respawn'] = True
+                elif args.no_respawn:
+                    settings['respawn'] = False
+                if args.make_cornered_scaled is not None:
+                    settings['make_cornered_scaled'] = args.make_cornered_scaled
+                if args.draw_clusters is not None:
+                    settings['draw_clusters'] = args.draw_clusters
+                if args.draw_removed_clusters is not None:
+                    settings['draw_removed_clusters'] = args.draw_removed_clusters
+                if args.draw_invalid_clusters is not None:
+                    settings['draw_invalid_clusters'] = args.draw_invalid_clusters
+                if args.draw_content_dimensions is not None:
+                    settings['draw_content_dimensions'] = \
+                        args.draw_content_dimensions
+                if args.draw_page_number_candidates is not None:
+                    settings['draw_page_number_candidates'] = \
+                        args.draw_page_number_candidates
+                if args.draw_noise is not None:
+                    settings['draw_noise'] = args.draw_noise
+                settings['devices'] = None
+                if args.save_settings:
+                    self.write_settings(settings)
+            self.settings = settings
+
+    def write_settings(self, settings):
+        path = self.root_dir
+        settings_file = path + '/settings.yaml'
+        try:
+            with open(settings_file, 'w') as stream:
+                yaml.dump(settings,
+                          stream,
+                          explicit_start=True,
+                          default_flow_style=False)
+        except (OSError, IOError) as e:
+            self.logger.warning('Failed to save settings! ', str(e))
+        
+    def log_settings(self):
+        self.logger.debug('*****SETTINGS*****')
+        for setting, value in self.settings.items():
+            self.logger.debug(setting + ':' + str(value))
+        self.logger.debug('*****SETTINGS*****')
+
+    def init_scandata(self):
+        if self.capture_style is None:
+            capture_style = 'Dual'
+        if os.path.exists(self.scandata_file) and \
+                os.stat(self.scandata_file)[6] > 0:
+            try:
+                self.scandata.new_from_file(self.scandata_file)
+            except etree.ParseError:
+                if self.settings['respawn']:
+                    #if the scandata is corrupt, but we're looking to start over
+                    #anyhow, we'll create a fresh xml doc.
+                    self.scandata.new(self.identifier,
+                                      self.page_count,
+                                      self.raw_image_dimensions,
+                                      self.scandata_file,
+                                      capture_style)
+                else:
+                    raise
+        else:
+            self.scandata.new(self.identifier,
+                              self.page_count,
+                              self.raw_image_dimensions,
+                              self.scandata_file,
+                              capture_style)
+
+    def init_crops(self, import_from_scandata=None, strict=True):
+        if import_from_scandata is None:
+            import_from_scandata = False if self.settings['respawn'] else True
+        self.crops = {}
+        for crop in ('cropBox', 'pageCrop', 'standardCrop', 'contentCrop'):
+            cropObj = Crop(crop, self.page_count,
+                           self.raw_image_dimensions,
+                           self.scandata, import_from_scandata, strict)
+            setattr(self, crop, cropObj)
+            self.crops[crop] = getattr(self, crop)
                 
     def add_dirs(self, dirs):
         for name, dir in dirs.items():
@@ -304,15 +367,6 @@ class BookData(object):
                 pass
             else:
                 Environment.clean_dir(dir)
-
-    def init_crops(self, import_from_scandata=True):
-        self.crops = {}
-        for crop in ('cropBox', 'pageCrop', 'standardCrop', 'contentCrop'):
-            cropObj = Crop(crop, self.page_count,
-                           self.raw_image_dimensions,
-                           self.scandata, import_from_scandata)
-            setattr(self, crop, cropObj)
-            self.crops[crop] = getattr(self, crop)
 
 
 class Scandata(object):
@@ -330,9 +384,9 @@ class Scandata(object):
         with open(self.filename, 'r+') as f:
             parser = etree.XMLParser(remove_blank_text=True)
             self.tree = etree.parse(f, parser)
-
-    def new(self, identifier, page_count, 
-            raw_image_dimensions, filename):
+        
+    def new(self, identifier, page_count, raw_image_dimensions, 
+            filename, capture_style):
         self.filename = filename
         root = etree.Element('book')
         book_data = etree.SubElement(root,'bookData')
@@ -340,6 +394,11 @@ class Scandata(object):
         book_id.text = str(identifier)
         leaf_count = etree.SubElement(book_data,'leafCount')
         leaf_count.text = str(page_count)
+        devices = etree.SubElement(book_data,'devices')
+        if capture_style == 'Single':
+            devices.set('count', '1')
+        elif capture_style == 'Dual':
+            devices.set('count', '2')
         page_data = etree.SubElement(root, 'pageData')
         for leaf in range(0, page_count):
             side  = 'LEFT' if leaf%2==0 else 'RIGHT'
@@ -352,7 +411,10 @@ class Scandata(object):
             ataf = etree.SubElement(page, 'addToAccessFormats')
             ataf.text = 'true' if leaf in range(1, page_count-1) else 'false'
             rotate_degree = etree.SubElement(page, 'rotateDegree')
-            rotate_degree.text = '-90' if leaf%2==0 else '90'
+            if capture_style == 'Dual':
+                rotate_degree.text = '-90' if leaf%2==0 else '90'
+            elif capture_style == 'Single':
+                rotate_degree.text = '0'
             skew_angle = etree.SubElement(page, 'skewAngle')
             skew_angle.text = '0.0'
             skew_conf = etree.SubElement(page, 'skewConf')
