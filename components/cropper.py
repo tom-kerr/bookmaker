@@ -24,6 +24,11 @@ class Cropper(Component):
             skew_angle=None, l=None, t=None, r=None, b=None,  
             crop='standardCrop', hook=None, **kwargs):
         if not self.book.crops[crop].box[leaf].is_valid():
+            #for name, c in self.book.crops.items():
+            #    print (name, c.box[leaf].dim)
+            self.book.logger.warning('leaf ' + str(leaf) + 
+                                     '\'s crop ' + crop + 
+                                     ' is invalid...skipping cropping')
             return False
         leafnum = '%04d' % leaf
         if not in_file:

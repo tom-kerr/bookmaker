@@ -10,7 +10,6 @@ from gi.repository import Gtk, Gdk, GObject
 
 from util import Util
 from environment import Environment
-from processing import ProcessHandling
 from .common import CommonActions as ca
 from .editor import Editor
 from .options import Options
@@ -20,12 +19,12 @@ class ProcessingGui(object):
     """ Graphical interface for post-processing
     """
 
-    def __init__(self, window):
+    def __init__(self, window, ProcessHandler):
         self.window = window
         self.window.connect('delete-event', self.quit)
         self.editing = []
         self.books = {}
-        self.ProcessHandler = ProcessHandling()
+        self.ProcessHandler = ProcessHandler
         self.init_main()
         self.init_tasklist()
         self.init_buttons()
@@ -182,15 +181,15 @@ class ProcessingGui(object):
         return True
 
     def get_book(self, widget, data):
-        selected = ca.get_user_selection()
-        if selected is not None:
+        root_dir = ca.get_user_selection()
+        if root_dir is not None:
             try:
-                self.environment = Environment([selected])
+                books = Environment.get_books(root_dir, args=None, stage='process')
             except (Exception, BaseException):
                 tb = Util.exception_info()
                 ca.dialog(message=str(tb))
                 return
-            for book in self.environment.books:
+            for book in books:
                 if book.identifier not in self.books:
                     self.add_book(book)
                 else:
@@ -231,7 +230,7 @@ class ProcessingGui(object):
         identifier = identifier[0]
         if not identifier in self.editing:
             try:
-                self.books[identifier].init_crops()
+                self.books[identifier].init_crops(import_from_scandata=True, strict=True)
                 window = Gtk.Window(Gtk.WindowType.TOPLEVEL)
                 window.connect('destroy', self.close_editor, identifier)
                 ca.set_window_size(window,
@@ -269,6 +268,7 @@ class ProcessingGui(object):
             return
         queue = self.ProcessHandler.new_queue()
         for identifier in ids:
+            self.books[identifier].init_crops(strict=True)
             fnc = self.ProcessHandler.run_pipeline_distributed
             cls = 'FeatureDetection'
             mth = 'pipeline'
