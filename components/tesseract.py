@@ -136,27 +136,23 @@ class Tesseract(Component):
         for par in page[0].paragraphs:
             par.lines = par.find_class('ocr_line')
             for line in par.lines:
-                dims = line.get('title').split(' ')
+                dims = line.get('title').split(';')[0].split(' ')
                 line.box = Box()
                 line.box.set_dimension('l', int(dims[1]))
                 line.box.set_dimension('t', int(dims[2]))
                 line.box.set_dimension('r', int(dims[3]))
                 line.box.set_dimension('b', int(dims[4]))
-                words = line.find_class('ocr_word')
+                words = line.find_class('ocrx_word')
                 line.words = []
                 for num, word in enumerate(words):
                     line.words.append(Box())
-                    dims = word.get('title').split(' ')
+                    dims = word.get('title').split(';')[0].split(' ')
                     line.words[num].set_dimension('l', int(dims[1]))
                     line.words[num].set_dimension('t', int(dims[2]))
                     line.words[num].set_dimension('r', int(dims[3]))
                     line.words[num].set_dimension('b', int(dims[4]))
-                    xword = word.find_class('ocrx_word')
-                    if xword and xword[0].text:
-                        txt = xword[0].text
-                        line.words[num].text = json.dumps(txt)
-                    else:
-                        line.words[num].text = ''
+                    text = word.text if word.text else ''
+                    line.words[num].text = json.dumps(text)
         return page[0]
 
     @staticmethod
