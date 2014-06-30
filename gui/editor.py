@@ -1297,7 +1297,7 @@ class ImageEditor(object):
         attrs.window_type = Gdk.WindowType.CHILD
         types = Gdk.WindowAttributesType.X | Gdk.WindowAttributesType.Y        
         window = Gdk.Window(self.editor.window.get_window(), attrs, types)
-        surface = Gdk.cairo_surface_create_from_pixbuf(pb, 0, window)
+        surface = Gdk.cairo_surface_create_from_pixbuf(pb, 1, window)
         ctx = cairo.Context(surface)                
         ctx.set_operator(cairo.OPERATOR_CLEAR)
         ctx.set_source_rgba(4.0, 0.0, 0.0, 0.3)
@@ -1460,7 +1460,6 @@ class ImageEditor(object):
         w = self.book.cropBox.image_width[self.selected]
         h = self.book.cropBox.image_height[self.selected]
 
-        print (w, h)
         for crop in ('cropBox','pageCrop','standardCrop','contentCrop'):
             if self.book.crops[crop].box[self.selected].is_valid():
                 self.book.crops[crop].box[self.selected].rotate(rot_dir, w, h)
@@ -1884,22 +1883,22 @@ class MetaEditor(object):
 
     def init_main_menu(self):
         self.main_menu_frame = ca.new_widget('Frame',
-                                                 {'size_request': (self.editor.window.width/4, 50),
-                                                  'set_shadow_type': Gtk.ShadowType.OUT,
-                                                  'show': True})
+                                             {'size_request': (self.editor.window.width/4, 50),
+                                              'set_shadow_type': Gtk.ShadowType.OUT,
+                                              'show': True})
 
         self.main_menu_hbox = ca.new_widget('HBox',
                                                 {'size_request': (-1, -1),
                                                  'show': True})
 
         self.meta_custom = ca.new_widget('Button',
-                                             {'label': 'Custom',
-                                              'show': True})
+                                         {'label': 'Custom',
+                                          'show': True})
         self.meta_custom.connect('clicked', self.init_custom)
 
         self.meta_search = ca.new_widget('Button',
-                                             {'label': 'Search',
-                                              'show': True})
+                                         {'label': 'Search',
+                                          'show': True})
         self.meta_search.connect('clicked', self.init_search)
 
         self.main_menu_hbox.pack_start(self.meta_custom, True, True, 0)
