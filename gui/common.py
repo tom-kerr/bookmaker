@@ -1,3 +1,4 @@
+import time
 import gi
 gi.require_version("Gtk", "3.0")
 gi.require_version("Gdk", "3.0")
@@ -36,21 +37,21 @@ class CommonActions(object):
             return response
     
     @staticmethod
-    def get_user_selection():
+    def get_user_selection(title='Select Book Directory'):
         file_chooser = \
-            Gtk.FileChooserDialog(title='Select Book Directory',
+            Gtk.FileChooserDialog(title=title,
                                   action=Gtk.FileChooserAction.SELECT_FOLDER,
                                   buttons=(Gtk.STOCK_OPEN, Gtk.ResponseType.APPLY,
                                            Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL))
-        while True:
-            response = file_chooser.run()
-            if response == Gtk.ResponseType.APPLY:
-                selected =  file_chooser.get_filename()
-                file_chooser.destroy()
-                return selected
-            else:
-                file_chooser.destroy()
-                return None
+        response = file_chooser.run()
+        file_chooser.hide()
+        if response == Gtk.ResponseType.APPLY:
+            selected =  file_chooser.get_filename()
+            file_chooser.destroy()
+            return selected
+        else:
+            file_chooser.destroy()
+            return None
             
     @staticmethod
     def set_window_size(window, width, height):
