@@ -30,4 +30,5 @@ void main(int argc, char **argv) {
   }
   
   ScaleAndRotate(in_file, rot_dir, scale_factor, out_file);
+  exit(0);
 }
