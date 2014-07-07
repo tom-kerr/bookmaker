@@ -55,15 +55,15 @@ class Util(object):
                     'retval': p.returncode}
 
     def end_active_processes(self):
-        for pid, proc in self.active_procs.items():
-            try:
+        try:        
+            for pid, proc in self.active_procs.items():
                 proc.terminate()
                 time.sleep(0.5)
                 alive = proc.poll()
                 if alive is None:
                     os.kill(pid, signal.SIGINT)
-            except:
-                pass
+        except:
+            pass
                 
     @staticmethod
     def exception_info():
