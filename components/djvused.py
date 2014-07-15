@@ -17,21 +17,19 @@ class Djvused(Component):
         self.book.add_dirs(dirs)
         
     def run(self, leaf, djvu_file=None, options=None, 
-            script=None, hook=None, **kwargs):
+            script=None, **kwargs):
         leafnum = "%04d" % leaf
         if not djvu_file:
             djvu_file = (self.book.dirs['derived'] + '/' +
                          self.book.identifier + '_' + leafnum + '.djvu')
         if not os.path.exists(djvu_file):
-            raise OSError(djvu_file + 'does not exist.')
+            self.on_failure(exception=OSError(djvu_file + 'does not exist.'))
         
-        kwargs.update({'djvu_file': djvu_file,
+        kwargs.update({'leaf': leaf,
+                       'djvu_file': djvu_file,
                        'options': options,
                        'script': script})
         
         output = self.execute(kwargs, return_output=True)
-        if hook:
-            self.execute_hook(hook, leaf, output, **kwargs)
-        else:
-            return output
+        return output
 

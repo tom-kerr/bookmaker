@@ -1,26 +1,21 @@
+from events import OnEvents
 from environment import Environment
 from util import Util
 
-class Component(object):
+class Component(OnEvents):
     """ Base Class for individual processes.
     """
     def __init__(self):
+        super(Component, self).__init__()
         self.exec_times = []
         self.Util = Util()
 
     def run(self, **kwargs):
-        """Method to override"""
         pass
-
-    def execute_hook(self, hook, *args, **kwargs):
-        if isinstance(hook, str):
-            getattr(self, hook)(*args, **kwargs)
-        elif hasattr(hook, '__call__'):
-            hook(*args, **kwargs)
-
+                           
     def execute(self, kwargs, stdout=None, stdin=None,
                 return_output=False, print_output=False,
-                current_wd=None, logger=None):
+                current_wd=None, logger=None, hook=True):
         cmd = [self.executable]
                         
         for arg in self.args:
@@ -41,13 +36,17 @@ class Component(object):
                     if not isinstance(value, list):
                         value = [value,]
                     for v in value:
-                        if v not in (None, ''):
-                            cmd.append(str(v))
-                        
+                        if v not in (None, '') and not (not v and isinstance(v, bool)):
+                            cmd.append(str(v))        
         output = self.Util.exec_cmd(cmd, stdout, stdin,
                                     return_output, print_output, 
                                     current_wd, logger)
         self.exec_times.append(output['exec_time'])        
+        if hook:
+            retval = output['retval']
+            kwargs.update({'output': output})
+            success = True if retval == 0 else False
+            self.event_trigger(success, **kwargs)            
         return output
 
     def get_last_exec_time(self):

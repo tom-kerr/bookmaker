@@ -2598,86 +2598,41 @@ class ExportHandler(object):
         self.disable_interface()
         queue = self.ProcessHandler.new_queue()
         update = []
-        fnc = self.ProcessHandler.run_pipeline_distributed
-
-        cls = 'Crop'
-        mth = 'cropper_pipeline'
-        pid = '.'.join((self.book.identifier, fnc.__name__, cls, mth))
-        queue[pid] = {'func': fnc,
-                      'args': [cls, mth, self.book, 
-                               None, {'crop': 'cropBox'}],
-                      'kwargs': {},
-                      'hook': None}
-        ca.run_in_background(self.update_progress, 2000, args=('Crop', 'cropper'))
+        
+        queue.add(self.book, cls='Crop', mth='cropper_pipeline', 
+                  kwargs={'crop': 'cropBox'})
         update.append('cropper')
 
         if self.language is not None:
-            cls = 'OCR'
-            mth = 'tesseract_hocr_pipeline'
-            pid = '.'.join((self.book.identifier, fnc.__name__, cls, mth))
-            queue[pid] = {'func': fnc,
-                          'args': [cls, mth, self.book, 
-                                   None, {'lang': self.language}],
-                          'kwargs': {},
-                          'hook': None}
+            queue.add(self.book, cls='OCR', mth='tesseract_hocr_pipeline',
+                      kwargs={'lang': self.language})            
             ca.run_in_background(self.update_progress, 2000, args=('OCR', 'ocr'))
             update.append('ocr')
 
         if self.check_derive_format_selected():
             formats = self.get_derive_format_args()
             if 'djvu' in formats:
-                cls = 'Djvu'
-                mth = 'make_djvu_with_c44'
-                pid = '.'.join((self.book.identifier, fnc.__name__, cls, mth))
-                queue[pid] = {'func': fnc,
-                              'args': [cls, mth, self.book, 
-                                       None, self.return_djvu_args()],
-                              'kwargs': {},
-                              'hook': 'assemble_djvu_with_djvm'}
+                queue.add(self.book, cls='Djvu', mth='make_djvu_with_c44', 
+                          kwargs=self.return_djvu_args())
                 ca.run_in_background(self.update_progress, 2000, args=('Djvu', 'djvu'))
                 update.append('djvu')
             
             if 'pdf' in formats:
-                cls = 'PDF'
-                mth = 'make_pdf_with_hocr2pdf'
-                pid = '.'.join((self.book.identifier, fnc.__name__, cls, mth))
-                queue[pid] = {'func': fnc,
-                              'args': [cls, mth, self.book, 
-                                       None, self.return_pdf_args()],
-                              'kwargs': {},
-                              'hook': 'assemble_pdf_with_pypdf'}
+                queue.add(self.book, cls='PDF', mth='make_pdf_with_hocr2pdf', 
+                          kwargs=self.return_pdf_args())
                 ca.run_in_background(self.update_progress, 2000, args=('PDF', 'pdf'))
                 update.append('pdf')
             
             if 'epub' in formats:
-                f = self.ProcessHandler.run_pipeline_distributed
-                cls = 'EPUB'
-                mth = 'make_epub'
-                pid = '.'.join((self.book.identifier, f.__name__, cls, mth))
-                queue[pid] = {'func': f,
-                              'args': [cls, mth, self.book, 
-                                       None, None],
-                              'kwargs': {},
-                              'hook': 'assemble_epub'}
+                queue.add(self.book, cls='EPUB', mth='make_epub')
                 ca.run_in_background(self.update_progress, 2000, args=('EPUB', 'epub'))
                 update.append('epub')
 
             if 'text' in formats:
-                cls = 'PlainText'
-                mth = 'make_full_plain_text'
-                pid = '.'.join((self.book.identifier, fnc.__name__, cls, mth))
-                queue[pid] = {'func': fnc,
-                              'args': [cls, mth, self.book, None, None],
-                              'kwargs': {},
-                              'hook': 'assemble_ocr_text'}
+                queue.add(self.book, cls='PlainText', mth='make_full_plain_text')
                 ca.run_in_background(self.update_progress, 2000, args=('PlainText', 'text'))
                 update.append('text')
-
-        self.ProcessHandler.add_process(func=self.ProcessHandler.drain_queue,
-                                        pid=self.book.identifier + '_drain_queue',
-                                        args=[queue, 'sync'],
-                                        kwargs={},
-                                        hook=None)
+        queue.drain(mode='sync', thread=True)
         ca.run_in_background(self.update_run_all_progress, 2000, update)
         
     def update_progress(self, args):
@@ -2692,7 +2647,7 @@ class ExportHandler(object):
             total = self.book.page_count-2
             state = self.ProcessHandler.get_op_state(self.book, 
                                                      identifier, cls, 
-                                                     total)                        
+                                                     total)
             if state['finished']:
                 setattr(self, gui_id + '_fraction', 1.0)
                 progress.set_fraction(1.0)
@@ -2742,73 +2697,37 @@ class ExportHandler(object):
             return True
 
     def run_cropper(self, widget):
-        fnc = self.ProcessHandler.run_pipeline_distributed
-        cls = 'Crop'
-        mth = 'cropper_pipeline'
-        pid = '.'.join((self.book.identifier, fnc.__name__, cls, mth ))
-        args = [cls, mth, self.book, None, {'crop': 'cropBox'}]
-        kwargs = {}
-        self.book.start_time = Util.microseconds()
-        self.ProcessHandler.add_process(fnc, pid, args, kwargs)  
+        queue = self.ProcessHandler.new_queue()
+        queue.add(self.book, cls='Crop', mth='cropper_pipeline',
+                  kwargs={'crop': 'cropBox'})
+        queue.drain(mode='sync', thread=True)
         ca.run_in_background(self.update_progress, 2000, args=('Crop', 'cropper'))
 
     def run_ocr(self, widget):
-        fnc = self.ProcessHandler.run_pipeline_distributed
-        cls = 'OCR'
-        mth = 'tesseract_hocr_pipeline'
-        pid = '.'.join((self.book.identifier, fnc.__name__, cls, mth))
-        args = [cls, mth, self.book, None, {'lang': self.language}]
-        self.ProcessHandler.add_process(fnc, pid, args, {})
+        queue = self.ProcessHandler.new_queue()
+        queue.add(self.book, cls='OCR', mth='tesseract_hocr_pipeline',
+                  kwargs={'lang': self.language})
+        queue.drain(mode='sync', thread=True)
         ca.run_in_background(self.update_progress, 2000, args=('OCR', 'ocr'))
 
     def run_derive(self, widget):
+        queue = self.ProcessHandler.new_queue()
         if self.derive_pdf.get_active():
-            self.make_pdf(widget)
+            queue.add(self.book, cls='PDF', mth='make_pdf_with_hocr2pdf',
+                      kwargs=self.return_pdf_args())
+            ca.run_in_background(self.update_progress, 2000, args=('PDF', 'pdf'))
         if self.derive_djvu.get_active():
-            self.make_djvu(widget)
+            queue.add(self.book, cls='Djvu', mth='make_djvu_with_c44',
+                      kwargs=self.return_djvu_args())
+            ca.run_in_background(self.update_progress, 2000, args=('Djvu', 'djvu'))
         if self.derive_plain_text.get_active():
-            self.make_plain_text(widget)
+            queue.add(self.book, cls='PlainText', mth='make_full_plain_text')
+            ca.run_in_background(self.update_progress, 2000, args=('PlainText', 'text'))
         if self.derive_epub.get_active():
-            self.make_epub(widget)
-
-    def make_pdf(self, widget):
-        fnc = self.ProcessHandler.run_pipeline_distributed
-        cls = 'PDF'
-        mth = 'make_pdf_with_hocr2pdf'
-        pid = '.'.join((self.book.identifier, fnc.__name__, cls, mth))
-        args = [cls, mth, self.book, None, self.return_pdf_args()]
-        self.ProcessHandler.add_process(fnc, pid, args, 
-                                        {'hook': 'assemble_pdf_with_pypdf'})
-        ca.run_in_background(self.update_progress, 2000, args=('PDF', 'pdf'))
-
-    def make_djvu(self, widget):
-        fnc = self.ProcessHandler.run_pipeline_distributed
-        cls = 'Djvu'
-        mth = 'make_djvu_with_c44'
-        pid = '.'.join((self.book.identifier, fnc.__name__, cls, mth))
-        args = [cls, mth, self.book, None, self.return_djvu_args()]
-        self.ProcessHandler.add_process(fnc, pid, args, 
-                                        {'hook': 'assemble_djvu_with_djvm'})
-        ca.run_in_background(self.update_progress, 2000, args=('Djvu', 'djvu'))
-
-    def make_epub(self, widget):
-        fnc = self.ProcessHandler.run_pipeline_distributed
-        cls = 'EPUB'
-        mth = 'make_epub'
-        pid = '.'.join((self.book.identifier, fnc.__name__, cls, mth))
-        args = [cls, mth, self.book, None, None]
-        self.ProcessHandler.add_process(fnc, pid, args, {'hook': 'assemble_epub'})
-        ca.run_in_background(self.update_progress, 2000, args=('EPUB', 'epub'))
-    
-    def make_plain_text(self, widget):
-        fnc = self.ProcessHandler.run_pipeline_distributed
-        cls = 'PlainText'
-        mth = 'make_full_plain_text'
-        pid = '.'.join((self.book.identifier, fnc.__name__, cls, mth))
-        args = [cls, mth, self.book, None, None]
-        self.ProcessHandler.add_process(fnc, pid, args, {'hook': 'assemble_ocr_text'})
-        ca.run_in_background(self.update_progress, 2000, args=('PlainText', 'text'))
-
+            queue.add(self.book, cls='EPUB', mth='make_epub')
+            ca.run_in_background(self.update_progress, 2000, args=('EPUB', 'epub'))        
+        queue.drain(mode='sync', thread=True)
+        
     def get_derive_format_args(self):
         formats = {}
         for name, attr in self.derivatives.items():

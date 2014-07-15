@@ -24,7 +24,7 @@ class FastCornerDetection(Component):
         self.CornerFilter = CornerFilter(book)
         
     def run(self, leaf, in_file=None, out_file=None, 
-            t='-t 44', s='', n='-n 9', l='-l', hook=None, **kwargs):
+            t='-t 44', s='', n='-n 9', l='-l', **kwargs):
         leafnum = '%04d' % leaf
         if not in_file:
             in_file = (self.book.dirs['scaled'] + '/' +
@@ -35,9 +35,10 @@ class FastCornerDetection(Component):
                         self.book.identifier + '_corners_' +
                         leafnum + '.txt')
         if not os.path.exists(in_file):
-            raise OSError(in_file + ' does not exist.')
+            self.on_failure(exception=OSError(in_file + ' does not exist.'))
         
-        kwargs.update({'in_file': in_file, 
+        kwargs.update({'leaf': leaf,
+                       'in_file': in_file, 
                        'out_file': out_file, 
                        't': t, 's': s, 
                        'n': n, 'l': l})
@@ -52,13 +53,10 @@ class FastCornerDetection(Component):
                 self.execute(kwargs)
         else:
             output = None
-        if hook:
-            self.execute_hook(hook, leaf, output, **kwargs)
-        else:
-            return output
+        return output
         
-    def post_process(self, *args, **kwargs):
-        leaf = args[0]
+    def on_success(self, **kwargs):
+        leaf = kwargs['leaf']
         leafnum = '%04d' % leaf
         window_file = (self.book.dirs['windows'] + '/' +
                        self.book.identifier + '_window_' +

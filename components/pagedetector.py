@@ -23,7 +23,7 @@ class PageDetector(Component):
         self.book.add_dirs(dirs)
 
     def run(self, leaf, in_file=None, scaled_out_file=None, 
-            scale_factor=None, rot_dir=None, hook=None, **kwargs):
+            scale_factor=None, rot_dir=None, **kwargs):
         leafnum = '%04d' % leaf        
         if not in_file:
             in_file = self.book.raw_images[leaf]
@@ -36,24 +36,22 @@ class PageDetector(Component):
         if not rot_dir:
             rot_dir = -1 if leaf%2==0 else 1
 
-        kwargs.update({'in_file': in_file,
+        kwargs.update({'leaf': leaf, 
+                       'in_file': in_file,
                        'scaled_out_file': scaled_out_file,
                        'scale_factor': scale_factor,
                        'rot_dir': rot_dir})
         
         if self.book.settings['respawn']:
             if not os.path.exists(in_file):
-                raise OSError(in_file + ' does not exist.')
+                self.on_failure(exception=OSError(in_file + ' does not exist.'))
             output = self.execute(kwargs, return_output=True)
         else:
             output = None        
-        if hook:
-            self.execute_hook(hook, leaf, output, **kwargs)
-        else:
-            return output
+        return output
 
-    def post_process(self, *args, **kwargs):        
-        leaf, output = args[0], args[1]
+    def on_success(self, **kwargs):        
+        leaf, output = kwargs['leaf'], kwargs['output']
         if not hasattr(self.book, 'pageCropScaled'):
             self.book.pageCropScaled = Crop('pageCrop', self.book.page_count,
                                             self.book.raw_image_dimensions,

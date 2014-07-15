@@ -21,13 +21,13 @@ class HOCR2Pdf(Component):
 
     def run(self, leaf, in_file=None, out_file=None, hocr_file=None,
             no_image=None, sloppy=None, ppi=None, resolution=None, 
-            hook=None, **kwargs):
+            **kwargs):
         leafnum = '%04d' % leaf
         if not in_file:
             in_file = (self.book.dirs['cropped'] + '/' +
                        self.book.identifier + '_' + leafnum + '.JPG')
         if not os.path.exists(in_file):
-            raise OSError(in_file + ' does not exist.')
+            self.on_failure(exception=OSError(in_file + ' does not exist.'))
         if not out_file:
             out_file = (self.book.dirs['derived'] + '/' +
                         self.book.identifier + '_' + leafnum + '.pdf')
@@ -38,7 +38,8 @@ class HOCR2Pdf(Component):
         if ppi:
             resolution = ['-r', str(ppi)]
             
-        kwargs.update({'in_file': in_file,
+        kwargs.update({'leaf': leaf, 
+                       'in_file': in_file,
                        'out_file': out_file,
                        'hocr_file': None,
                        'no_image': no_image,
@@ -47,7 +48,4 @@ class HOCR2Pdf(Component):
         
         stdin = hocr_file            
         output = self.execute(kwargs, return_output=True, stdin=stdin)
-        if hook:
-            self.execute_hook(hook, leaf, output, **kwargs)
-        else:
-            return output
+        return output

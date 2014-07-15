@@ -62,13 +62,13 @@ class Tesseract(Component):
         self.book.add_dirs(dirs)
 
     def run(self, leaf, in_file=None, out_base=None, 
-            lang='eng', psm='-psm 3', hocr='hocr', hook=None, **kwargs):
+            lang='eng', psm='-psm 3', hocr='hocr', **kwargs):
         leafnum = '%04d' % leaf
         if not in_file:
             in_file = (self.book.dirs['cropped'] + '/' +
                        self.book.identifier + '_' + str(leafnum) + '.JPG')
         if not os.path.exists(in_file):
-            raise OSError(in_file + ' does not exist.')
+            self.on_failure(exception=OSError(in_file + ' does not exist.'))
 
         if not out_base:
             out_base = (self.book.dirs['tesseract_ocr'] + '/' +
@@ -76,17 +76,15 @@ class Tesseract(Component):
 
         lang = '-l ' + str(lang)
 
-        kwargs.update({'in_file': in_file,
+        kwargs.update({'leaf': leaf,
+                       'in_file': in_file,
                        'out_base': out_base,
                        'language': lang,
                        'psm': psm, 
                        'hocr': hocr})
         
         output = self.execute(kwargs, return_output=True)
-        if hook:
-            self.execute_hook(hook, leaf, output, **kwargs)
-        else:
-            return output
+        return output
 
     def get_hocr_files(self, start=None, end=None):
         if None in (start, end):

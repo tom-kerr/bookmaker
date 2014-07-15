@@ -2,16 +2,16 @@ import os
 import time
 from copy import copy
 from util import Util
+
+from events import handle_events
 from environment import Environment
 from .operation import Operation
 
 class ImageCapture(Operation):
     
-    components = {'gphoto2': {'class': 'Gphoto2',
-                              'hook': 'make_thumb'}, 
-                  'raw2thumb': {'class': 'Raw2Thumb',
-                                'hook': None}}
-
+    components = [('gphoto2', 'Gphoto2'),
+                  ('raw2thumb', 'Raw2Thumb')]
+                  
     def __init__(self, ProcessHandler, book):
         self.ProcessHandler = ProcessHandler
         self.book = book
@@ -69,8 +69,7 @@ class ImageCapture(Operation):
             queue[pid] = {'func': func,
                           'pid': pid,
                           'args': [],
-                          'kwargs': kwargs[side],
-                          'hook': None}
+                          'kwargs': kwargs[side]}
         if not self.ProcessHandler.add_process(self.ProcessHandler.drain_queue,
                                                self.book.identifier + '.drain_queue', 
                                                [queue, 'async']):
@@ -80,6 +79,7 @@ class ImageCapture(Operation):
         #self.ProcessHandler.add_process(self.wait_for_captures, 
         #                                self.book.identifier + '.wait_for_captures', 
         #                                None, None)
+
     """
     def wait_for_captures(self, timeout=10):
         try:
@@ -93,26 +93,12 @@ class ImageCapture(Operation):
             pid = self.make_pid_string('capture_from_devices')
             self.ProcessHandler.join((pid, Util.exception_info()))
             """
-    def reset_capture(self, device=None):
-        self.capture_time = 0
-        if device:
-            self.captures[device] = False
-        else:
-            for device in self.captures.keys():
-                self.captures[device] = False
 
+    @handle_events
     def capture(self, device, *args, **kwargs):
-        try:
-            func = self.Gphoto2.run(device, **kwargs)
-        except (Exception, BaseException):
-            pid = self.make_pid_string('capture')
-            self.ProcessHandler.join((pid, Util.exception_info()))
-        else:
-            self.post_capture(device, *args, **kwargs)
-        finally:
-            self.reset_capture(device)
-
-    def post_capture(self, device, *args, **kwargs):
+        self.Gphoto2.run(device, **kwargs)
+        
+    def on_success(self, device, *args, **kwargs):
         self.captures[device] = True
         try:
             src = kwargs.get('filename')
@@ -121,10 +107,19 @@ class ImageCapture(Operation):
             leaf = kwargs.get('leaf')
             scaled_dst = kwargs.get('scaled_dst')
             self.Raw2Thumb.run(leaf, in_file=raw_dst, out_file=scaled_dst, rot_dir=0)
-        except OSError as e:
-            pid = self.make_pid_string('post_capture')
+        except (OSError, RuntimeError) as e:
+            pid = self.make_pid_string('on_success')
             self.ProcessHandler.join((pid, Util.exception_info()))
+        print ('success')
+
+    def on_failure(self, **kwargs):
+        print ('doom')
+
+    def on_exit(self, device=None, **kwargs):
+        print ('exit')
+        self.capture_time = 0
+        if device:
+            self.captures[device] = False
         else:
-            hook = kwargs.get('hook')
-            if hook:
-                hook()
+            for device in self.captures.keys():
+                self.captures[device] = False

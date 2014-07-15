@@ -18,7 +18,7 @@ class CornerFilter(Component):
 
     def run(self, leaf, in_file=None, out_file=None, 
             thumb_width=None, thumb_height=None, 
-            l=None, t=None, r=None, b=None, hook=None, **kwargs):
+            l=None, t=None, r=None, b=None, **kwargs):
         crop_filter = self.book.pageCropScaled.box[leaf]
         if not crop_filter.is_valid():
             return
@@ -28,7 +28,7 @@ class CornerFilter(Component):
                        self.book.identifier + '_corners_' +
                        leafnum + '.txt')
         if not os.path.exists(in_file):
-            raise OSError(in_file + ' does not exist!')
+            self.on_failure(exception=OSError(in_file + ' does not exist.'))
         if not out_file:
             out_file = (self.book.dirs['windows'] + '/' +
                         self.book.identifier + '_window_' +
@@ -50,7 +50,8 @@ class CornerFilter(Component):
         if not thumb_height:
             thumb_height = self.book.pageCropScaled.image_height[leaf]
 
-        kwargs.update({'in_file': in_file,
+        kwargs.update({'leaf': leaf,
+                       'in_file': in_file,
                        'out_file': out_file,
                        'thumb_width': thumb_width,
                        'thumb_height': thumb_height,
@@ -60,7 +61,4 @@ class CornerFilter(Component):
             output = self.execute(kwargs, return_output=True)
         finally:
             crop_filter.resize(10)
-        if hook:
-            self.execute_hook(hook, leaf, output, **kwargs)
-        else:
-            return output
+        return output

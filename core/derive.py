@@ -15,8 +15,7 @@ from components.tesseract import Tesseract
 class PDF(Operation):
     """ Handles PDF creation 
     """
-    components = {'hocr2pdf': {'class': 'HOCR2Pdf',
-                               'hook': None}}
+    components = [('hocr2pdf', 'HOCR2Pdf')]
 
     def __init__(self, ProcessHandler, book):
         self.ProcessHandler = ProcessHandler
@@ -27,7 +26,8 @@ class PDF(Operation):
         except (Exception, BaseException):
             pid = self.make_pid_string('__init__')
             self.ProcessHandler.join((pid, Util.exception_info()))
-        
+
+    @Operation.multithreaded
     def make_pdf_with_hocr2pdf(self, start=None, end=None, **kwargs):
         if None in (start, end):
             start, end = 1, self.book.page_count-1
@@ -82,6 +82,9 @@ class PDF(Operation):
                 os.remove(dummy_hocr)
             except OSError as e:
                 self.book.logger.warning('Failed to remove dummy hocr; ' + str(e))
+
+    def on_success(self, *args, **kwargs):
+        self.assemble_pdf_with_pypdf(**kwargs)
             
     def assemble_pdf_with_pypdf(self, **kwargs):
         self.book.logger.debug('assembling pdf with pypdf')
@@ -109,13 +112,10 @@ class PDF(Operation):
 class Djvu(Operation):
     """ Handles DjVu creation 
     """
-    components = {'c44': {'class': 'C44',
-                          'hook': None},
-                  'djvused': {'class': 'Djvused',
-                              'hook': None},
-                  'djvm': {'class': 'Djvm',
-                           'hook': None}}
-
+    components = [('c44', 'C44'),
+                  ('djvused', 'Djvused'),
+                  ('djvm', 'Djvm')]
+                  
     def __init__(self, ProcessHandler, book):
         self.ProcessHandler = ProcessHandler
         self.book = book
@@ -126,6 +126,7 @@ class Djvu(Operation):
             pid = self.make_pid_string('__init__')
             self.ProcessHandler.join((pid, Util.exception_info()))
 
+    @Operation.multithreaded
     def make_djvu_with_c44(self, start=None, end=None, **kwargs):
         if None in (start, end):
             start, end = 1, self.book.page_count-1
@@ -191,6 +192,9 @@ class Djvu(Operation):
                 else:
                     exec_time = self.Djvused.get_last_exec_time()
                     self.complete_process('Djvused', leaf, exec_time)
+
+    def on_success(self, *args, **kwargs):
+        self.assemble_djvu_with_djvm(**kwargs)
         
     def assemble_djvu_with_djvm(self, **kwargs):
         self.book.logger.debug('assembling djvu with djvm')
@@ -218,7 +222,7 @@ class Djvu(Operation):
 class PlainText(Operation):
     """ Handles Plain-text creation 
     """
-    components = {'tesseract': {'class': 'Tesseract'}}
+    components = [('tesseract', 'Tesseract')]
 
     def __init__(self, ProcessHandler, book):
         self.ProcessHandler = ProcessHandler
@@ -231,7 +235,8 @@ class PlainText(Operation):
         except (Exception, BaseException):
             pid = self.make_pid_string('__init__')
             self.ProcessHandler.join((pid, Util.exception_info()))
-        
+
+    @Operation.multithreaded        
     def make_full_plain_text(self, start=None, end=None, **kwargs):
         self.book.logger.info('Creating Full Plain Text...')
         self.files = {}
@@ -258,6 +263,9 @@ class PlainText(Operation):
             self.complete_process('Tesseract', range(1, self.book.page_count), 0)
         self.files.update(files)
 
+    def on_success(self, *args, **kwargs):
+        self.assemble_ocr_text()
+        
     def assemble_ocr_text(self):
         ocr_data = []
         for leaf, f in self.files.items():
@@ -287,13 +295,10 @@ class PlainText(Operation):
 
 class EPUB(Operation):
     """ Handles EPUB creation.
-    """
-    
-    components = {'cropper': {'class': 'Cropper',
-                              'hook': None},
-                  'tesseract': {'class': 'Tesseract',
-                                'hook': None}}
-
+    """    
+    components = [('cropper', 'Cropper'),
+                  ('tesseract', 'Tesseract')]
+                              
     def __init__(self, ProcessHandler, book):
         self.ProcessHandler = ProcessHandler
         self.book = book
@@ -306,6 +311,7 @@ class EPUB(Operation):
             pid = self.make_pid_string('__init__')
             self.ProcessHandler.join((pid, Util.exception_info()))
 
+    @Operation.multithreaded
     def make_epub(self, start=None, end=None, **kwargs):
         if None in (start, end):
             start, end = 1, self.book.page_count-1
@@ -426,13 +432,15 @@ class EPUB(Operation):
             pid = self.make_pid_string('create_opf')
             self.ProcessHandler.join((pid, Util.exception_info()))
                 
+    def on_success(self, *args, **kwargs):
+        self.assemble_epub()
+
     def assemble_epub(self):
         self.write_mimetype()
         self.write_container()
         self.create_OEBPS()
         self.create_opf()
         self.zip_up()
-        self.set_finished()
         
     def zip_up(self):
         epub_dir = self.book.dirs['derived'] + '/epub'

@@ -70,8 +70,13 @@ class Gphoto2(Component):
         kwargs['port'] = device
         kwargs['force_overwrite'] = ''
         kwargs['no_keep'] = ''
-        result = self.execute(kwargs, return_output=True)
-        if result['retval'] != 0:
-            raise OSError('Failed to capture from device ' + 
-                          device + ':\n\n' + result['output'])
+        kwargs['device'] = device
+        output = self.execute(kwargs, return_output=True)
+        return output
+
+    def on_failure(**kwargs):
+        device = kwargs['device']
+        output = kwargs['output']
+        raise OSError('Failed to capture from device ' + 
+                      device + ':\n\n' + str(output))
 

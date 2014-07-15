@@ -57,7 +57,7 @@ class SWClustering(Component):
         
     def run(self, leaf, in_file=None, out_file=None, window_width=None, 
             window_height=None, skew_angle=None, center_x=None, center_y=None,
-            hook=None, **kwargs):        
+            **kwargs):        
         if not self.book.corner_data[leaf]:
             self.book.contentCropScaled.classification[leaf] = 'Blank'
             return
@@ -67,7 +67,7 @@ class SWClustering(Component):
                        self.book.identifier + '_corners_' +
                        leafnum + '.txt')        
         if not os.path.exists(in_file):
-            raise OSError(in_file + ' does not exist.')
+            self.on_failure(exception=OSError(in_file + ' does not exist.'))
 
         if not out_file:
             out_file = (self.book.dirs['clusters'] + '/' +
@@ -85,7 +85,8 @@ class SWClustering(Component):
         if not center_y:
             center_y = self.book.scaled_center_point[leaf]['y']
 
-        kwargs.update({'in_file': in_file,
+        kwargs.update({'leaf': leaf,
+                       'in_file': in_file,
                        'out_file': out_file,
                        'window_width': window_width,
                        'window_height': window_height,
@@ -97,17 +98,18 @@ class SWClustering(Component):
             output = self.execute(kwargs, return_output=True)
         else:
             output = None
-        if hook:
-            self.execute_hook(hook, leaf, output, **kwargs)
-        else:
-            return output
+        return output
 
-    def post_process(self, *args, **kwargs):
-        leaf = args[0]
+    def on_exit(self, **kwargs):
+        leaf = kwargs['leaf']
         out_file = kwargs['out_file']
         self.parse_cluster_data(leaf, out_file)
         self.filter_clusters(leaf)
         self.get_content_dimensions(leaf)
+
+    def on_failure(self, **kwargs):
+        leaf = str(kwargs.get('leaf'))
+        self.book.logger.warn('swclustering failed on leaf ' + leaf)
         
     @staticmethod
     def get_cluster_data(cluster_file):
@@ -363,7 +365,7 @@ class SWClustering(Component):
         kwargs['center_y'] = self.book.scaled_center_point[0]['y']
 
         if self.book.settings['respawn']:
-            self.execute(kwargs)
+            self.execute(kwargs, hook=False)
 
         resurrect = {}
         contents = SWClustering.get_cluster_data(out_file)

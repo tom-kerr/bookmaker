@@ -8,11 +8,10 @@ from environment import Environment
 class Crop(Operation):
     """ Handles the cropping of images.
     """
-    components = {'cropper': {'class': 'Cropper',
-                              'callback': None}}
-
+    components = [('cropper', 'Cropper')]
+                              
     def __init__(self, ProcessHandler, book):
-        self.Processhandler = ProcessHandler
+        self.ProcessHandler = ProcessHandler
         self.book = book
         try:
             super(Crop, self).__init__(Crop.components)
@@ -21,12 +20,12 @@ class Crop(Operation):
             pid = self.make_pid_string('__init__')
             self.ProcessHandler.join((pid, Util.exception_info()))            
 
+    @Operation.multithreaded
     def cropper_pipeline(self, start=None, end=None, **kwargs):
         if None in (start, end):
             start, end = 0, self.book.page_count
         for leaf in range(start, end):
             self.book.logger.debug('Cropping leaf ' + str(leaf))
-            #callback = self.components['cropper']['callback']
             try:
                 self.Cropper.run(leaf, **kwargs)
             except (Exception, BaseException):

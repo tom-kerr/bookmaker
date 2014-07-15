@@ -25,14 +25,13 @@ class C44(Component):
             bpp=None, percent=None, dpi=None, gamma=None, decibel=None, 
             dbfrac=None, crcb=None, crcbnorm=None, crcbhalf=None, 
             crcbfull=None, crcbnone=None, crcbdelay=None, mask=None,
-            hook=None, **kwargs):
+            **kwargs):
         leafnum = "%04d" % leaf
         if not in_file:
             in_file = (self.book.dirs['cropped'] + '/' +
                        self.book.identifier + '_' + leafnum + '.JPG')
         if not os.path.exists(in_file):
-            raise OSError('Cannot find ' + in_file)
-
+            self.on_failure(exception=OSError(in_file + ' does not exist.'))
         if not out_file:
             out_file =(self.book.dirs['derived'] + '/' +
                        self.book.identifier + '_' + leafnum + '.djvu')
@@ -66,7 +65,8 @@ class C44(Component):
         if mask:
             mask = ['-mask', str(mask)]
 
-        kwargs.update({'in_file': in_file,
+        kwargs.update({'leaf': leaf,
+                       'in_file': in_file,
                        'out_file': out_file,
                        'slice': slices,
                        'size': size,
@@ -81,8 +81,5 @@ class C44(Component):
                        'mask': mask})
 
         output = self.execute(kwargs, return_output=True)
-        if hook:
-            self.execute_hook(hook, leaf, output, **kwargs)
-        else:
-            return output
+        return output
 

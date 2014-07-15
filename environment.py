@@ -222,6 +222,7 @@ class Book(object):
             self.determine_capture_style()
             self.init_crops(strict=True)
         elif stage == 'edit':
+            #self.init_scandata()
             self.determine_capture_style()
             self.init_crops(import_from_scandata=True, strict=True)        
         self.create_time = time.time()

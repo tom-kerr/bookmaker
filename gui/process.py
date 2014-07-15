@@ -268,34 +268,17 @@ class ProcessingGui(object):
             return
         queue = self.ProcessHandler.new_queue()
         for identifier in ids:
-            self.books[identifier].init_crops(strict=True)
-            fnc = self.ProcessHandler.run_pipeline_distributed
-            cls = 'FeatureDetection'
-            mth = 'pipeline'
-            pid = '.'.join((identifier, fnc.__name__, cls, mth))
-            
-            queue[pid] = {'func': fnc,
-                          'args': [cls, mth, self.books[identifier], None, None],
-                          'kwargs': {},
-                          'hook': 'post_process'}
+            #self.books[identifier].init_crops(strict=True)
+            queue.add(self.books[identifier], cls='FeatureDetection', mth='pipeline')
             self.follow_progress(identifier)
-
-        fnc = self.ProcessHandler.drain_queue
-        #logger = self.books[identifier].logger
-        pid = '.'.join((identifier, fnc.__name__))
-        args = [queue, 'sync']
-        #kwargs = {'qpid': identifier, 
-        #          'qlogger': logger}
-        #if not self._polling_exceptions:
-        #    self._init_poll_exceptions()
-        self.ProcessHandler.add_process(fnc, pid, args)
-                
+        queue.drain(mode='sync', thread=True)
+                        
     def follow_progress(self, identifier):
         GObject.timeout_add(1000, self.update_progress, identifier)
 
     def update_progress(self, identifier):
-        if not self.ProcessHandler.Polls._should_poll:
-            return False
+        #if not self.ProcessHandler.Polls._should_poll:
+        #    return False
         path = self.model.get_path(self.books[identifier].entry)
         if identifier not in self.ProcessHandler.OperationObjects:
             self.model[path][1] = 'waiting...'

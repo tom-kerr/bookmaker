@@ -17,18 +17,10 @@ def main(args):
         Util.bail(str(e))
 
     P = ProcessHandling()
+    queue = P.new_queue()
 
     for book in books:
-        queue = P.new_queue()
-        fnc = P.run_pipeline_distributed
-
-        cls = 'FeatureDetection'
-        mth = 'pipeline'
-        pid = '.'.join((book.identifier, fnc.__name__, cls, mth))
-        queue[pid] = {'func': fnc,
-                      'args': [cls, mth, book, None, None], 
-                      'kwargs': {},
-                      'hook': 'post_process'}
+        queue.add(book, cls='FeatureDetection', mth='pipeline')
              
         if args.derive_all or args.derive:
             if args.derive:
@@ -37,63 +29,26 @@ def main(args):
                 formats = ('djvu', 'pdf', 'epub', 'text')
                 
             if book.settings['respawn']:
-                cls = 'Crop'
-                mth = 'cropper_pipeline'
-                pid = '.'.join((book.identifier, fnc.__name__, cls, mth))
-                queue[pid] = {'func': fnc,
-                              'args': [cls, mth, book, None, 
-                                       {'crop': 'standardCrop'}], 
-                              'kwargs': {},
-                              'hook': None}
-                                     
-                cls = 'OCR'
-                mth = 'tesseract_hocr_pipeline'
-                pid = '.'.join((book.identifier, fnc.__name__, cls, mth))
-                queue[pid] = {'func': fnc,
-                              'args': [cls, mth, book, None, 
-                                       {'lang': args.language}],
-                              'kwargs': {},
-                              'hook': None}
+                queue.add(book, cls='Crop', mth='cropper_pipeline', 
+                          kwargs={'crop': 'standardCrop'})
+
+                queue.add(book, cls='OCR', mth='tesseract_hocr_pipeline',
+                          kwargs={'lang': args.language})
                 
             if 'djvu' in formats:
-                cls = 'Djvu'
-                mth = 'make_djvu_with_c44'
-                pid = '.'.join((book.identifier, fnc.__name__, cls, mth))
-                queue[pid] = {'func': fnc,
-                              'args': [cls, mth, book, None, None],
-                              'kwargs': {},
-                              'hook': 'assemble_djvu_with_djvm'}
-            
+                queue.add(book, cls='Djvu', mth='make_djvu_with_c44')
+                                              
             if 'pdf' in formats:
-                cls = 'PDF'
-                mth = 'make_pdf_with_hocr2pdf'
-                pid = '.'.join((book.identifier, fnc.__name__, cls, mth))
-                queue[pid] = {'func': fnc,
-                              'args': [cls, mth, book, None, None],
-                              'kwargs': {},
-                              'hook': 'assemble_pdf_with_pypdf'}
-
-            if 'epub' in formats:
-                cls = 'EPUB'
-                mth = 'make_epub'
-                pid = '.'.join((book.identifier, fnc.__name__, cls, mth))
-                queue[pid] = {'func': fnc,
-                              'args': [cls, mth, book, None, None],
-                              'kwargs': {},
-                              'hook': 'assemble_epub'}
-
-            if 'text' in formats:
-                cls = 'PlainText'
-                mth = 'make_full_plain_text'
-                pid = '.'.join((book.identifier, fnc.__name__, cls, mth))
-                queue[pid] = {'func': fnc,
-                              'args': [cls, mth, book, None, None],
-                              'kwargs': {},
-                              'hook': 'assemble_ocr_text'}
+                queue.add(book, cls='PDF', mth='make_pdf_with_hocr2pdf')
                               
-        P.drain_queue(queue, 'sync', 
-                      qpid=book.identifier, 
-                      qlogger=book.logger)
+            if 'epub' in formats:
+                queue.add(book, cls='EPUB', mth='make_epub')
+                                              
+            if 'text' in formats:
+                queue.add(book, cls='PlainText', mth='make_full_plain_text')
+        queue.drain('sync')
+
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser('./bookmaker')

@@ -1,5 +1,6 @@
 #import yappi
 import os, sys, time
+import re
 from copy import copy
 from collections import OrderedDict
 from datetime import date
@@ -38,8 +39,8 @@ class ProcessHandling(object):
 
             queue[pid] = {'func': function_to_be_called,
                           'args': [list_of_args], 
-                          'kwargs': {dict_of_kwargs},
-                          'hook': 'name_of_hook' or actual_function}
+                          'kwargs': {dict_of_kwargs}}
+                          
 
         In 'sync' mode, 'drain_queue' will walk through each item in the queue
         and call its function with the supplied arguments, therefore blocking
@@ -69,8 +70,8 @@ class ProcessHandling(object):
             self.min_threads = self.max_threads
         self.processes = 0
         self._active_threads = {}
-        self._inactive_threads = self.new_queue()
-        self._item_queue = self.new_queue()
+        self._inactive_threads = OrderedDict()
+        self._item_queue = OrderedDict()
         self._exception_queue = Queue()
         self.Polls = PollsFactory(self)
         self._handled_exceptions = []
@@ -153,7 +154,7 @@ class ProcessHandling(object):
         for pid in destroy:
             self._destroy_thread(pid)
         if not identifier:
-            self._item_queue = self.new_queue()
+            self._item_queue = OrderedDict()
         self.Polls.stop_polls()
 
     def _destroy_thread(self, pid):
@@ -201,7 +202,7 @@ class ProcessHandling(object):
             raise LookupError('Failed to find \'func\' argument; nothing to do.')
         else:
             d.append(data['func'])
-        for i in ('args', 'kwargs', 'hook'):
+        for i in ('args', 'kwargs'):
             if i in data:
                 d.append(data[i])
             else:
@@ -209,7 +210,35 @@ class ProcessHandling(object):
         return d
 
     def new_queue(self):
-        return OrderedDict()
+        class ProcessQueue(object):
+            def __init__(self, ProcessHandler):
+                self.ProcessHandler = ProcessHandler
+                self.queue = OrderedDict()
+            def add(self, book, cls=None, mth=None, args=None, kwargs=None):
+                if not cls or not mth:
+                    raise ValueError
+                else:
+                    if isinstance(mth, str):
+                        pid = '.'.join((book.identifier, cls, mth))
+                        f = self.ProcessHandler._create_operation_instance(book.identifier,
+                                                                           cls, mth, book)
+                        
+                    else:
+                        pid = '.'.join((book.identifier, cls, mth.__name__))
+                        f = mth
+                    self.queue[pid] = {'func': f,
+                                       'args': args,
+                                       'kwargs': kwargs}                    
+            def drain(self, mode, thread=False):
+                if not thread:
+                    self.ProcessHandler.drain_queue(self.queue, mode)
+                else:
+                    fnc = self.ProcessHandler.drain_queue
+                    pid = '.'.join((self.__str__(), fnc.__name__))
+                    args = [self.queue, ]
+                    kwargs = {'mode': 'sync'}
+                    self.ProcessHandler.add_process(fnc, pid, args, kwargs)
+        return ProcessQueue(self)
 
     def drain_queue(self, queue, mode, qpid=None, qlogger=None):
         self.Polls.start_polls()
@@ -218,13 +247,11 @@ class ProcessHandling(object):
         pids = []
         for pid, data in queue.items():
             pids.append(pid)
-            func, args, kwargs, hook = self._parse_queue_data(data)
+            func, args, kwargs = self._parse_queue_data(data)
             args, kwargs = self._parse_args(args, kwargs)
             identifier = pid.split('.')[0]
             logger = logging.getLogger(identifier)
             if mode == 'sync':                
-                if hook:
-                    kwargs['hook'] = hook
                 try:
                     start = Util.microseconds()
                     func(*args, **kwargs)
@@ -239,7 +266,7 @@ class ProcessHandling(object):
                                  str(tb) + '\nAborting.')
                     return False
             elif mode == 'async':
-                self.add_process(func, pid, args, kwargs, hook)                
+                self.add_process(func, pid, args, kwargs)                
         if mode == 'async':
             self._wait_till_idle(pids)      
         if qlogger and qpid:
@@ -249,10 +276,11 @@ class ProcessHandling(object):
                          qexec_time + ' minutes')
 
     def threads_available_for(self, pid):
-        pid = '.'.join(pid.split('.')[:3])
+        identifier, cls = pid.split('.')[:2]
         active = 0
         for _pid in self._active_threads:
-            if pid in _pid:
+            i, c = _pid.split('.')[:2]
+            if i==identifier and c==cls:
                 active += 1
         if active > 0:
             available_threads = self.max_threads - active
@@ -268,7 +296,7 @@ class ProcessHandling(object):
             else:
                 return False
                         
-    def add_process(self, func, pid, args=None, kwargs=None, hook=None):
+    def add_process(self, func, pid, args=None, kwargs=None):
         if self._already_processing(pid):
             return False
         self._clear_exceptions(pid)
@@ -291,8 +319,6 @@ class ProcessHandling(object):
                 self.processes += 1
             new_thread.logger.info('New Thread Started --> ' +
                                    'Pid: ' + str(pid))                                   
-            if hook:
-                self.execute_hook(identifier, func.__class__.__name__, hook)
             return True
 
     def add_operation_instance(self, instance, book):
@@ -311,103 +337,6 @@ class ProcessHandling(object):
             self.OperationObjects[identifier][cls].init_bookkeeping()
             function = getattr(self.OperationObjects[identifier][cls], method)
             return function
-
-    def _get_chunk(self, threads, pagecount, chunk):
-        remainder = pagecount % threads
-        pagecount = pagecount - remainder
-        chunksize = pagecount/threads
-        start = chunksize * chunk
-        end = start + chunksize
-        if chunk == threads-1:
-            end += remainder
-        return int(start), int(end)
-    
-    def multi_threaded(f):
-        def distribute(self, cls, mth, book, 
-                       args=None, kwargs=None, hook=None):
-            if not kwargs:
-                kwargs = {}
-            identifier = book.identifier
-            function = self._create_operation_instance(identifier, cls, mth, book)
-            queue = self.new_queue()
-            available_threads = self.cores - self.processes
-            self.OperationObjects[identifier][cls].thread_count = available_threads
-            book.start_time = Util.microseconds()
-            for chunk in range(0, available_threads):
-                start, end = self._get_chunk(available_threads, book.page_count, chunk)
-                kwargs['start'], kwargs['end'] = start, end
-                pid = '.'.join((book.identifier, cls, mth, str(start)))
-                queue[pid] = {'func': function,
-                              'args': args, 
-                              'kwargs': copy(kwargs),
-                              'hook': None}
-            return f(self, queue, identifier, cls, hook)
-        return distribute
-
-    def _add_default_op_hook(self, hook):
-        if not hook:
-            hook = []
-        elif not isinstance(hook, list):
-            hook = [hook, ]
-        hook.append('set_finished')
-        return hook
-
-    def was_successful(self, pid):
-        #first check unhandled exceptions
-        if [e for e in sys.exc_info() if e is not None]:
-            return False
-        #we don't care about individual distributed ops 
-        #and so drop the start field
-        pid = '.'.join(pid.split('.')[:3])
-        for he_pid in self._handled_exceptions:
-            if pid in he_pid:
-                return False
-        else:
-            return True
-
-    @multi_threaded
-    def run_pipeline_distributed(self, queue, identifier, cls, hook=None):
-        """ Distributes across available cores a function that takes a starting
-            leaf and ending leaf value and does some operation for each leaf in 
-            that range. The start and end values are determined based on the 
-            number of pages in the book and the number of available cores.
-        """
-        hook = self._add_default_op_hook(hook)
-        self.drain_queue(queue, 'async')
-        if hook:
-            for pid in queue.keys():
-                if not self.was_successful(pid):
-                    return
-            self.execute_hook(identifier, cls, hook)
-                        
-    def run_pipeline(self, cls, mth, book, 
-                     args=None, kwargs=None, hook=None):
-        identifier = book.identifier
-        hook = self._add_default_op_hook(hook)
-        function = self._create_operation_instance(identifier, cls, 
-                                                   mth, book)
-        queue = self.new_queue()
-        pid = '.'.join((book.identifier, cls, mth))
-        queue[pid] = {'func': function,
-                      'args': args, 
-                      'kwargs': kwargs,
-                      'hook': None}
-        book.start_time = Util.microseconds()
-        self.drain_queue(queue, 'async')
-        if hook:
-            for pid in queue.keys():
-                if not self.was_successful(pid):
-                    return
-            self.execute_hook(identifier, cls, hook)
-
-    def execute_hook(self, identifier, cls, hook):
-        if not isinstance(hook, list):
-            hook = [hook, ]
-        for h in hook:
-            if isinstance(h, str):
-                getattr(self.OperationObjects[identifier][cls], h)()
-            elif hasattr(h, '__call__'):
-                h()
 
     def get_time_elapsed(self, start_time):
         current_time = time.time()
@@ -428,7 +357,7 @@ class ProcessHandling(object):
         state = {'finished': False}
         op_obj = self.OperationObjects[identifier][cls]
         thread_count = self.OperationObjects[identifier][cls].thread_count
-        if op_obj.completed['__finished__'] or thread_count == 0:
+        if op_obj.completed['__finished__']:# and thread_count == 0:
             elapsed_mins, elapsed_secs = \
                 self.get_time_elapsed(book.start_time)
             state['finished'] = True
@@ -438,7 +367,7 @@ class ProcessHandling(object):
             state['estimated_secs'] = 0.0
             state['elapsed_mins'] = elapsed_mins
             state['elapsed_secs'] = elapsed_secs
-        else:
+        elif thread_count > 0:
             completed = 0
             op_num = len(op_obj.completed) - 1
             avg_exec_time = 0
@@ -461,4 +390,11 @@ class ProcessHandling(object):
             state['estimated_secs'] = estimated_secs
             state['elapsed_mins'] = elapsed_mins
             state['elapsed_secs'] = elapsed_secs
+        else:
+            state['completed'] = 0
+            state['fraction'] = 0.0
+            state['estimated_mins'] = '--'
+            state['estimated_secs'] = '--'
+            state['elapsed_mins'] = '--'
+            state['elapsed_secs'] = '--'
         return state

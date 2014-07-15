@@ -20,7 +20,7 @@ class Djvm(Component):
         self.book.add_dirs(dirs)
 
     def run(self, in_files=None, out_file=None, 
-            options=None, hook=None, **kwargs):
+            options=None, **kwargs):
         if not in_files:
             in_files = sorted([f for f in 
                         glob.glob(self.book.dirs['derived'] + '/*.djvu') 
@@ -30,17 +30,14 @@ class Djvm(Component):
                 self.book.identifier + '.djvu '
         for f in in_files:
             if not os.path.exists(f):
-                raise OSError(f + ' does not exist.')
+                self.on_failure(exception=OSError(f + ' does not exist.'))
 
         kwargs.update({'options': options,
                        'out_file': out_file,
                        'in_files': in_files})
 
         output = self.execute(kwargs, return_output=True)
-        if hook:
-            self.execute_hook(hook, leaf, output, **kwargs)
-        else:
-            return output
+        return output
 
     def remove_in_files(self, files=None):
         if not files:

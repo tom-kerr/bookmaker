@@ -394,27 +394,30 @@ class CaptureGui(object):
             if self.ImageCapture.capture_style == 'Single':
                 if reshoot:
                     leaf = self.left_leaf
-                    hook = self.reshoot_success
+                    self.ImageCapture.success_hooks.append(self.reshoot_success)
+                    self.ImageCapture.failure_hooks.append(self.reshoot_failure)
                 else:
                     leaf = self.left_leaf + 2
-                    hook = self.shoot_success
+                    self.ImageCapture.success_hooks.append(self.shoot_success)
+                    self.ImageCapture.failure_hooks.append(self.shoot_failure)
                 leafnum = "%04d" % leaf
                 dst = {'center': {'raw_dst': self.book.dirs['raw_images'] + '/' + \
                                       self.book.identifier + '_raw_' + leafnum + '.JPG',
                                   'scaled_dst': self.book.dirs['scaled'] + '/' + \
                                       self.book.identifier + '_scaled_' + leafnum + '.jpg',
                                   'leaf': leaf,
-                                  'hook': hook,
                                   'device': self.ImageCapture.get_device('center')}}
             elif self.ImageCapture.capture_style == 'Dual':
                 if reshoot:
                     left_leaf = self.left_leaf
                     right_leaf = self.right_leaf
-                    hook = self.reshoot_success
+                    self.ImageCapture.success_hooks.append(self.reshoot_success)
+                    self.ImageCapture.failure_hooks.append(self.reshoot_failure)
                 else:
                     left_leaf = self.left_leaf + 2
                     right_leaf = self.right_leaf + 2
-                    hook = self.shoot_success
+                    self.ImageCapture.success_hooks.append(self.shoot_success)
+                    self.ImageCapture.failure_hooks.append(self.shoot_failure)
                 left_leafnum = "%04d" % left_leaf
                 right_leafnum = "%04d" % right_leaf
                 dst = {'left': {'raw_dst': self.book.dirs['raw_images'] + '/' + \
@@ -422,25 +425,31 @@ class CaptureGui(object):
                                 'scaled_dst': self.book.dirs['scaled'] + '/' + \
                                       self.book.identifier + '_scaled_' + left_leafnum + '.jpg',
                                 'leaf': left_leaf,
-                                'hook': hook,
                                 'device': self.ImageCapture.get_device('left')},
                        'right': {'raw_dst': self.book.dirs['raw_images'] + '/' + \
                                      self.book.identifier + '_raw_' + right_leafnum + '.JPG',
                                  'scaled_dst': self.book.dirs['scaled'] + '/' + \
                                      self.book.identifier + '_scaled_' + right_leafnum + '.jpg',
                                  'leaf': right_leaf,
-                                 'hook': hook,
                                  'device': self.ImageCapture.get_device('right')}}
             self.ImageCapture.capture_from_devices(**dst)
             
-    def shoot_success(self):
+    def shoot_success(self, *args, **kwargs):
         self.book.page_count += 1
         self.nav_next_spread()
         self.shoot.set_sensitive(True)
         self.reshoot.set_sensitive(True)
         
-    def reshoot_success(self):
+    def shoot_failure(self, *args, **kwargs):
+        self.shoot.set_sensitive(True)
+        self.reshoot.set_sensitive(True)
+                
+    def reshoot_success(self, *args, **kwargs):
         self.update_preview()
+        self.shoot.set_sensitive(True)
+        self.reshoot.set_sensitive(True)
+
+    def reshoot_failure(self, *args, **kwargs):
         self.shoot.set_sensitive(True)
         self.reshoot.set_sensitive(True)
 
