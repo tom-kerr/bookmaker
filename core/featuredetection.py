@@ -16,7 +16,7 @@ class FeatureDetection(Operation):
     components = [('pagedetector', 'PageDetector'),
                   ('fastcornerdetection', 'FastCornerDetection'),
                   ('swclustering', 'SWClustering')]
-                           
+
     def __init__(self, ProcessHandler, book):
         self.ProcessHandler = ProcessHandler
         self.book = book
@@ -26,12 +26,9 @@ class FeatureDetection(Operation):
             if self.book.settings['respawn']:
                 self.book.clean_dirs()
             #self.book.init_scandata()
-            #self.book.init_crops(strict=True)
-            
+            #self.book.init_crops(strict=True)            
         except (Exception, BaseException) as e:
-            self.book.logger.error(str(e))
-            pid = self.make_pid_string('__init__')
-            self.ProcessHandler.join((pid, Util.exception_info()))
+            self.join()
 
     @Operation.multithreaded
     def pipeline(self, start=None, end=None):
@@ -48,8 +45,7 @@ class FeatureDetection(Operation):
                     exec_time = component.get_last_exec_time()
                     leaf_exec_time += exec_time
                 except (Exception, BaseException) as e:
-                    pid = self.make_pid_string('pipeline.'+ str(start))
-                    self.ProcessHandler.join((pid, Util.exception_info()))  
+                    self.join()
                 else:
                     self.complete_process(cls, leaf, leaf_exec_time)
                     self.book.logger.debug(

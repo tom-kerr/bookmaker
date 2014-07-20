@@ -23,9 +23,8 @@ class ImageCapture(Operation):
         except Warning:
             raise
         except (Exception, BaseException):
-            pid = self.make_pid_string('__init__')
-            self.ProcessHandler.join((pid, Util.exception_info()))
-            
+            self.join()
+                        
     def determine_capture_style(self):
         self.captures = {}
         if self.book.capture_style is not None:
@@ -81,13 +80,11 @@ class ImageCapture(Operation):
                                out_file=scaled_dst, 
                                rot_dir=rot_dir)
         except (OSError, RuntimeError):
-            pid = self.make_pid_string('on_success')
-            self.ProcessHandler.join((pid, Util.exception_info()))
+            self.join()
 
     def on_failure(self, **kwargs):
-        pid = self.make_pid_string('on_failure')
-        self.ProcessHandler.join((pid, Util.exception_info()))
-
+        self.join()
+        
     def on_exit(self, device=None, **kwargs):
         self.capture_time = 0
         if device:

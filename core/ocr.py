@@ -18,8 +18,7 @@ class OCR(Operation):
             super(OCR, self).__init__(OCR.components)
             self.init_components(self.book)
         except (Exception, BaseException):
-            pid = self.make_pid_string('__init__')
-            self.ProcessHandler.join((pid, Util.exception_info()))
+            self.join()
 
     @Operation.multithreaded
     def tesseract_hocr_pipeline(self, start=None, end=None, **kwargs):
@@ -33,8 +32,7 @@ class OCR(Operation):
             try:
                 self.Tesseract.run(leaf, **kwargs)
             except (Exception, BaseException):
-                pid = self.make_pid_string('tesseract_hocr_pipeline')
-                self.ProcessHandler.join((pid, Util.exception_info()))
+                self.join()
             else:
                 exec_time = self.Tesseract.get_last_exec_time()
                 self.complete_process('Tesseract', leaf, exec_time)

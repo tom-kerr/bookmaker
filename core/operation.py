@@ -1,7 +1,9 @@
+import inspect
 from copy import copy
 
 from events import OnEvents, handle_events
 from util import Util
+
 
 class Operation(OnEvents):
     """ Base Class for processing operations.
@@ -10,7 +12,7 @@ class Operation(OnEvents):
         super(Operation, self).__init__()
         self._import_components(components)        
         self.init_bookkeeping()
-
+                           
     def init_bookkeeping(self):
         """ In order to cleanly exit on completion/exception and display progress
             to the user, we keep track of how many cores are committed to the 
@@ -77,6 +79,12 @@ class Operation(OnEvents):
         return '.'.join((self.book.identifier, 
                          self.__class__.__name__, 
                          func_name))
+
+    def join(self):
+        curframe = inspect.currentframe()
+        calframe = inspect.getouterframes(curframe, 2)
+        pid = self.make_pid_string(calframe[1][3])
+        self.ProcessHandler.join((pid, Util.exception_info()))
 
     def abort(self):
         self.aborted = True

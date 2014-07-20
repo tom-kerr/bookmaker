@@ -24,8 +24,7 @@ class PDF(Operation):
             super(PDF, self).__init__(PDF.components)
             self.init_components(self.book)
         except (Exception, BaseException):
-            pid = self.make_pid_string('__init__')
-            self.ProcessHandler.join((pid, Util.exception_info()))
+            self.join()
 
     @Operation.multithreaded
     def make_pdf_with_hocr2pdf(self, start=None, end=None, **kwargs):
@@ -40,8 +39,7 @@ class PDF(Operation):
         try:
             self.hocr2pdf_pipeline(**kwargs)
         except (Exception, BaseException):
-            pid = self.make_pid_string('make_pdf_with_hocr.'+str(start))
-            self.ProcessHandler.join((pid, Util.exception_info()))
+            self.join()
 
     def hocr2pdf_pipeline(self, start=None, end=None, **kwargs):
         tesseract = Tesseract(self.book)
@@ -123,8 +121,7 @@ class Djvu(Operation):
             super(Djvu, self).__init__(Djvu.components)
             self.init_components(self.book)
         except (Exception, BaseException):
-            pid = self.make_pid_string('__init__')
-            self.ProcessHandler.join((pid, Util.exception_info()))
+            self.join()
 
     @Operation.multithreaded
     def make_djvu_with_c44(self, start=None, end=None, **kwargs):
@@ -140,8 +137,7 @@ class Djvu(Operation):
             self.c44_pipeline(**kwargs)
             self.djvused_add_ocr_pipeline(**kwargs)
         except (Exception, BaseException):
-            pid = self.make_pid_string('make_djvu_with_c44.' + str(start))
-            self.ProcessHandler.join((pid, Util.exception_info()))
+            self.join()
 
     def c44_pipeline(self, start=None, end=None, **kwargs):
         if None in (start, end):
@@ -203,8 +199,7 @@ class Djvu(Operation):
             self.Djvm.run(**kwargs)
             self.Djvm.remove_in_files()
         except (Exception, BaseException):
-            pid = self.make_pid_string('assemble_with_djvm')
-            self.ProcessHandler.join((pid, Util.exception_info()))
+            self.join()
         else:
             exec_time = self.Djvm.get_last_exec_time()
             self.complete_process('Djvm', range(1, self.book.page_count-1), 
@@ -233,8 +228,7 @@ class PlainText(Operation):
             self.book.add_dirs({'derived': self.book.root_dir + '/' + 
                                 self.book.identifier + '_derived'})
         except (Exception, BaseException):
-            pid = self.make_pid_string('__init__')
-            self.ProcessHandler.join((pid, Util.exception_info()))
+            self.join()
     
     def make_full_plain_text(self, **kwargs):
         self.book.logger.info('Creating Full Plain Text...')
@@ -274,8 +268,7 @@ class PlainText(Operation):
             out_file = open(self.book.dirs['derived'] + '/' +
                             self.book.identifier + '_full_plain_text.txt', 'w')
         except IOError:
-            pid = self.make_pid_string('make_full_plain_text')
-            self.ProcessHandler.join((pid, Util.exception_info()))
+            self.join()
         string = ''
         for page in ocr_data:
             for paragraph in page.paragraphs:
@@ -285,8 +278,7 @@ class PlainText(Operation):
         try:
             out_file.write(string)
         except (Exception, BaseException):
-            pid = self.make_pid_string('make_full_plain_text')
-            self.ProcessHandler.join((pid, Util.exception_info()))
+            self.join()
         else:
             self.book.logger.info('Finished deriving full plain text.')
 
@@ -306,8 +298,7 @@ class EPUB(Operation):
             self.book.add_dirs({'derived': self.book.root_dir + '/' + 
                                 self.book.identifier + '_derived'})
         except (Exception, BaseException):
-            pid = self.make_pid_string('__init__')
-            self.ProcessHandler.join((pid, Util.exception_info()))
+            self.join()
     
     def make_epub(self, **kwargs):
         self.book.logger.info('Creating EPUB...')
@@ -355,8 +346,7 @@ class EPUB(Operation):
             with open(self.book.dirs['derived']+ '/OEBPS/' + 'main.html', 'wb') as f:
                 tree.write(f, pretty_print=True)
         except (OSError, IOError):
-            pid = self.make_pid_string('hocr_to_epub')
-            self.ProcessHandler.join((pid, Util.exception_info()))        
+            self.join()
 
     def write_mimetype(self):
         mimetype = 'application/epub+zip'
@@ -365,8 +355,7 @@ class EPUB(Operation):
             with open(mimefile, 'w') as f:
                 f.write(mimetype)
         except (IOError, OSError):
-            pid = self.make_pid_string('write_mimetype')
-            self.ProcessHandler.join((pid, Util.exception_info))
+            self.join()
 
     def write_container(self):
         cdir = self.book.dirs['derived'] + '/META-INF'
@@ -374,8 +363,7 @@ class EPUB(Operation):
             try:
                 os.mkdir(cdir, 0o755)
             except OSError:
-                pid = self.make_pid_string('write_container')
-                self.ProcessHandler.join((pid, Util.exception_info()))
+                self.join()
         container_file = self.book.dirs['derived'] + '/META-INF/container.xml'
         root = etree.Element('container')
         root.set('version', '1.0')
@@ -389,8 +377,7 @@ class EPUB(Operation):
             with open(container_file, 'wb') as container:
                 doc.write(container, pretty_print=True)
         except (IOError, OSError):
-            pid = self.make_pid_string('write_container')
-            self.ProcessHandler.join((pid, Util.exception_info()))
+            self.join()
 
     def create_OEBPS(self):
         OEBPS_dir = self.book.dirs['derived'] + '/' + 'OEBPS'
@@ -398,8 +385,7 @@ class EPUB(Operation):
             try:
                 os.mkdir(OEBPS_dir, 0o755)
             except OSError:
-                pid = self.make_pid_string('write_OEBPS')
-                self.ProcessHandler.join((pid, Util.exception_info()))        
+                self.join()
         self.hocr_to_epub(self.parsed_hocr)
 
     def create_opf(self):
@@ -424,8 +410,7 @@ class EPUB(Operation):
                 tree.write(f, encoding='utf-8', xml_declaration=True, 
                            pretty_print=True)
         except (OSError, IOError):
-            pid = self.make_pid_string('create_opf')
-            self.ProcessHandler.join((pid, Util.exception_info()))
+            self.join()
                 
     def on_success(self, *args, **kwargs):
         self.assemble_epub()
