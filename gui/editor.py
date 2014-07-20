@@ -47,19 +47,9 @@ class Editor(object):
                          'are you sure you want to quit?',
                              {Gtk.STOCK_OK: Gtk.ResponseType.OK,
                               Gtk.STOCK_CANCEL: Gtk.ResponseType.CANCEL}):
-                try:
-                    self.ExportHandler.ProcessHandler.finish()
-                except Exception as e:
-                    ca.dialog(None, Gtk.MessageType.ERROR,
-                              'Failed to stop processes! \nException: ' + 
-                              str(e),
-                              {Gtk.STOCK_OK: Gtk.ResponseType.OK})
-                    return True
-                else:
-                    return False
-            else:
-                return True
-
+                self.ExportHandler.ProcessHandler.abort(\
+                    exception=RuntimeError('User aborted operations'))
+                
     def init_data(self, book):
         self.book = book
         for leaf in range(0, self.book.page_count):
@@ -2601,6 +2591,7 @@ class ExportHandler(object):
         
         queue.add(self.book, cls='Crop', mth='cropper_pipeline', 
                   kwargs={'crop': 'cropBox'})
+        ca.run_in_background(self.update_progress, 2000, args=('Crop', 'cropper'))
         update.append('cropper')
 
         if self.language is not None:
