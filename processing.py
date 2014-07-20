@@ -72,6 +72,7 @@ class ProcessHandling(object):
         self._active_threads = {}
         self._inactive_threads = OrderedDict()
         self._item_queue = OrderedDict()
+        self._waiting = set()
         self._exception_queue = Queue()
         self.Polls = PollsFactory(self)
         self._handled_exceptions = []
@@ -91,30 +92,45 @@ class ProcessHandling(object):
         else:
             return False
 
+    def is_waiting(self, pid):
+        identifier = pid.split('.')[0]
+        if identifier not in self.OperationObjects:
+            return True
+        for _pid in self._waiting:
+            if pid in _pid:
+                return True
+        for _pid in self._item_queue:
+            if pid in _pid:
+                return True
+        return False
+
     def _wait_till_idle(self, pids):
         finished = set()
         while True:
             if not self.Polls._should_poll:
-                break
+                break            
             active_pids = set()
             for pid, thread in self._active_threads.items():
                 active_pids.add(pid)
-            for id in pids:
-                if id not in active_pids and id not in self._item_queue:
-                    finished.add(id)
+            for pid in pids:
+                identifier = pid.split('.')[0]
+                self.raise_child_exception(identifier)
+                if pid not in active_pids and pid not in self._item_queue:
+                    finished.add(pid)
             if len(finished) == len(pids):
                 break
             else:
                 time.sleep(1)
 
-    def _wait(self, func, pid, args):
+    def _wait(self, func, pid, args, kwargs):
         if not pid in self._item_queue:
-            self._item_queue[pid] = (func, args)
+            self._item_queue[pid] = (func, args, kwargs)
 
     def _submit_waiting(self):
         queue = []
         for pid, item in self._item_queue.items():
-            if self.add_process(item[0], pid, item[1]):
+            func, args, kwargs = item
+            if self.add_process(func, pid, args, kwargs):
                 queue.append(pid)
                 time.sleep(1)
             else:
@@ -141,21 +157,24 @@ class ProcessHandling(object):
             self._inactive_threads[pid] = thread
             del self._active_threads[pid]
 
-    def finish(self, identifier=None):
+    def abort(self, identifier=None, exception=RuntimeError('Aborted.')):
+        if not identifier:
+            self._item_queue = OrderedDict()
+            self._waiting = set()
         destroy = []
         for pid, thread in self._active_threads.items():
             if not identifier:
                 destroy.append(pid)
             else:
                 if pid.startswith(identifier):
-                    for op, cls in self.OperationObjects[identifier].items():
-                        cls.terminate_child_processes()
                     destroy.append(pid)
         for pid in destroy:
             self._destroy_thread(pid)
-        if not identifier:
-            self._item_queue = OrderedDict()
-        self.Polls.stop_polls()
+            identifier = pid.split('.')[0]
+            if identifier in self.OperationObjects:
+                for op, cls in self.OperationObjects[identifier].items():
+                    cls.abort()
+                    self._handled_exceptions.append((pid, exception))
 
     def _destroy_thread(self, pid):
         if pid in self._active_threads:
@@ -166,24 +185,37 @@ class ProcessHandling(object):
             del self._active_threads[pid]
 
     def _clear_exceptions(self, pid):
-        remove = None
+        remove = []
         for num, item in enumerate(self._handled_exceptions):
-            if item == pid:
-                remove = num
-            if remove is not None:
-                del self._handled_exceptions[remove]
+            _pid, exception = item
+            if _pid == pid:
+                remove.append(num)
+        if remove:
+            for num in remove:
+                del self._handled_exceptions[num]
 
-    def had_exception(self, identifier, cls=None, mth=None):
+    def had_error(self, identifier, cls=None, mth=None):
         if cls: 
-            _pid = '.'.join((identifier, cls))
+            _pid = '.'.join(('^', identifier, cls + '.[0-9]*'))
             if mth: 
                 _pid = '.'.join((_pid, mth))
         else:
-            _pid = identifier
-        for pid in self._handled_exceptions:
-            if _pid in pid:
+            _pid = '^' + identifier
+        for item in self._handled_exceptions:
+            pid, exception = item
+            if re.match(_pid, pid):
                 return True
+        else:
+            for cls in self.OperationObjects[identifier].values():
+                if cls.aborted:
+                    return True
         return False
+
+    def raise_child_exception(self, identifier):
+        for item in self._handled_exceptions:
+            pid, exception = item
+            if re.match('^' + identifier, pid):
+                raise exception
 
     def join(self, args):
         self._exception_queue.put(args)
@@ -222,7 +254,6 @@ class ProcessHandling(object):
                         pid = '.'.join((book.identifier, cls, mth))
                         f = self.ProcessHandler._create_operation_instance(book.identifier,
                                                                            cls, mth, book)
-                        
                     else:
                         pid = '.'.join((book.identifier, cls, mth.__name__))
                         f = mth
@@ -245,13 +276,22 @@ class ProcessHandling(object):
         if qlogger and qpid:
             qstart = Util.microseconds()
         pids = []
+        if mode == 'sync':
+            for _pid in queue.keys():
+                self._waiting.add(_pid)
         for pid, data in queue.items():
             pids.append(pid)
             func, args, kwargs = self._parse_queue_data(data)
             args, kwargs = self._parse_args(args, kwargs)
             identifier = pid.split('.')[0]
             logger = logging.getLogger(identifier)
-            if mode == 'sync':                
+            if mode == 'sync':        
+                while not self.threads_available_for(pid):
+                    time.sleep(1.0)
+                    if not self.Polls._should_poll:
+                        break
+                else:
+                    self._waiting.remove(pid)
                 try:
                     start = Util.microseconds()
                     func(*args, **kwargs)
@@ -259,49 +299,44 @@ class ProcessHandling(object):
                     exec_time = round((end-start)/60, 2)
                     logger.info('pid ' + pid + ' finished in ' + 
                                 str(exec_time) + ' minutes')
+                    self.raise_child_exception(identifier)
                 except (Exception, BaseException):
-                    tb = Util.exception_info()
+                    exception, tb = Util.exception_info()
                     logger.error('pid ' + str(pid) + 
-                                 ' encountered an error; ' + 
-                                 str(tb) + '\nAborting.')
-                    return False
+                                 ' encountered an error:\n' + str(tb))
+                    if 'User aborted operations' in tb:
+                        raise
             elif mode == 'async':
                 self.add_process(func, pid, args, kwargs)                
         if mode == 'async':
-            self._wait_till_idle(pids)      
+            self._wait_till_idle(pids)                        
         if qlogger and qpid:
             qend = Util.microseconds()
             qexec_time = str(round((qend - qstart)/60, 2))
             qlogger.info('Drained queue ' + qpid + ' in ' + 
                          qexec_time + ' minutes')
-
+        
     def threads_available_for(self, pid):
+        if pid.startswith('<'):
+            return True
         identifier, cls = pid.split('.')[:2]
-        active = 0
         for _pid in self._active_threads:
+            if _pid.startswith('<'):
+                continue
             i, c = _pid.split('.')[:2]
-            if i==identifier and c==cls:
-                active += 1
-        if active > 0:
-            available_threads = self.max_threads - active
-            if available_threads > 0:
-                return True
-            else:
+            if i!=identifier and c!=cls:
                 return False
+        if self.cores - self.processes in range(1, self.max_threads+1):
+            return True
         else:
-            available_threads = self.max_threads - self.processes
-            if available_threads >= self.min_threads and \
-                    available_threads <= self.max_threads:
-                return True
-            else:
-                return False
-                        
+            return False
+                     
     def add_process(self, func, pid, args=None, kwargs=None):
         if self._already_processing(pid):
             return False
         self._clear_exceptions(pid)
         if not self.threads_available_for(pid):
-            self._wait(func, pid, args)
+            self._wait(func, pid, args, kwargs)
             return False
         else:
             self.Polls.start_polls()
@@ -357,7 +392,7 @@ class ProcessHandling(object):
         state = {'finished': False}
         op_obj = self.OperationObjects[identifier][cls]
         thread_count = self.OperationObjects[identifier][cls].thread_count
-        if op_obj.completed['__finished__']:# and thread_count == 0:
+        if op_obj.completed['__finished__']:
             elapsed_mins, elapsed_secs = \
                 self.get_time_elapsed(book.start_time)
             state['finished'] = True
