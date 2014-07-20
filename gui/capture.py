@@ -7,6 +7,8 @@ from gi.repository import Gtk, GdkPixbuf, GObject
 
 from util import Util
 from gui.common import CommonActions as CA
+from components.raw2thumb import Raw2Thumb
+
 
 class CaptureGui(object):
     """ Image Capture Interface
@@ -16,6 +18,7 @@ class CaptureGui(object):
         self.book = book
         self.ProcessHandler = ProcessHandler
         self.ImageCapture = ImageCapture
+        self.Raw2Thumb = Raw2Thumb(self.book)
         self.init_main_box()
         self.init_capture_box()
         self.init_info()
@@ -62,6 +65,8 @@ class CaptureGui(object):
             leafnum = "%04d" % leaf
             image_file = self.book.dirs['scaled'] + '/' + \
                 self.book.identifier + '_scaled_' + leafnum + '.jpg'
+            if not os.path.exists(image_file):
+                self.make_scaled_image(leaf, image_file)
             img = self.get_scaled_image(image_file)
             self.preview_images[index] = img
             self.preview.add(img)
@@ -73,6 +78,20 @@ class CaptureGui(object):
                 self.preview.remove(img)
         self.draw_preview()
 
+    def make_scaled_image(self, leaf, image_file):        
+        if self.ImageCapture.capture_style == 'Single':
+            leaf = int(leaf/2 -2)
+            rot_dir = 0
+        elif self.ImageCapture.capture_style == 'Dual':
+            if leaf%2==0:
+                rot_dir = -1
+            else:
+                rot_dir = 1
+        raw = self.book.raw_images[leaf]
+        self.Raw2Thumb.run(l, in_file=raw, 
+                           out_file=image_file, 
+                           rot_dir=rot_dir)
+        
     def get_scaled_image(self, image_file):        
         pb = GdkPixbuf.Pixbuf.new_from_file(image_file)        
         w, h = pb.get_width(), pb.get_height()
@@ -406,7 +425,8 @@ class CaptureGui(object):
                                   'scaled_dst': self.book.dirs['scaled'] + '/' + \
                                       self.book.identifier + '_scaled_' + leafnum + '.jpg',
                                   'leaf': leaf,
-                                  'device': self.ImageCapture.get_device('center')}}
+                                  'device': self.ImageCapture.get_device('center'),
+                                  'rot_dir': 0}}
             elif self.ImageCapture.capture_style == 'Dual':
                 if reshoot:
                     left_leaf = self.left_leaf
@@ -425,13 +445,15 @@ class CaptureGui(object):
                                 'scaled_dst': self.book.dirs['scaled'] + '/' + \
                                       self.book.identifier + '_scaled_' + left_leafnum + '.jpg',
                                 'leaf': left_leaf,
-                                'device': self.ImageCapture.get_device('left')},
+                                'device': self.ImageCapture.get_device('left'),
+                                'rot_dir': -1},
                        'right': {'raw_dst': self.book.dirs['raw_images'] + '/' + \
                                      self.book.identifier + '_raw_' + right_leafnum + '.JPG',
                                  'scaled_dst': self.book.dirs['scaled'] + '/' + \
                                      self.book.identifier + '_scaled_' + right_leafnum + '.jpg',
                                  'leaf': right_leaf,
-                                 'device': self.ImageCapture.get_device('right')}}
+                                 'device': self.ImageCapture.get_device('right'),
+                                 'rot_dir': 1}}
             self.ImageCapture.capture_from_devices(**dst)
             
     def shoot_success(self, *args, **kwargs):
