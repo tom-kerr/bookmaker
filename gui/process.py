@@ -38,21 +38,8 @@ class ProcessingGui(object):
                          'There are processes running, are you sure you want to quit?',
                          {Gtk.STOCK_OK: Gtk.ResponseType.OK,
                           Gtk.STOCK_CANCEL: Gtk.ResponseType.CANCEL}):
-                try:     
-                    self.ProcessHandler.finish()
-                except Exception as e:
-                    ca.dialog(None, Gtk.MessageType.ERROR,
-                                  'Failed to stop processes! \nException: ' + str(e),
-                                  {Gtk.STOCK_OK: Gtk.ResponseType.OK})
-                    return True
-                else:
-                    self.ProcessHandler.Polls.stop_polls()
-                    return False
-            else:
-                return True
-        else:
-            self.ProcessHandler.Polls.stop_polls()
-
+                self.ProcessHandler.abort(exception=RuntimeError('User aborted operations.'))
+                
     def init_main(self):
         kwargs = {'orientation': Gtk.Orientation.VERTICAL}
         self.main = Gtk.Box(**kwargs) 
@@ -280,18 +267,16 @@ class ProcessingGui(object):
         #if not self.ProcessHandler.Polls._should_poll:
         #    return False
         path = self.model.get_path(self.books[identifier].entry)
-        if identifier not in self.ProcessHandler.OperationObjects:
+        if self.ProcessHandler.is_waiting(identifier):
             self.model[path][1] = 'waiting...'
             return True
-        if not identifier in self.ProcessHandler._item_queue:
+        elif self.ProcessHandler.had_error(identifier, cls='FeatureDetection'):
+            self.model[path][1] = 'ERROR'
+            self.model[path][3] = '--'
+            return True
+        else:
             #self.books[identifier].start_time = Util.microseconds()
             self.model[path][1] = 'processing'
-            
-            if self.ProcessHandler.had_exception(identifier, cls='FeatureDetection'):
-                self.model[path][1] = 'ERROR'
-                self.model[path][3] = '--'
-                return False 
-
             op_obj = self.ProcessHandler.OperationObjects[identifier]                
             if not 'FeatureDetection' in op_obj:
                 return True            
@@ -304,7 +289,7 @@ class ProcessingGui(object):
                 self.model[path][1] = 'finished'
                 self.model[path][3] = '--'
                 self.model[path][5] = 100.0
-                return False
+                return True
             self.model[path][3] = (str(state['estimated_mins']) + ' min ' + 
                                    str(state['estimated_secs']) + ' sec')
             self.model[path][4] = (str(state['elapsed_mins']) + ' min ' + 
