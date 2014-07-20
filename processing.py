@@ -18,6 +18,7 @@ from core.derive import EPUB
 from core.derive import PlainText
 from core.crop import Crop
 from core.ocr import OCR
+from core.capture import ImageCapture
 from gui.common import CommonActions as ca
 from poll import PollsFactory
 
@@ -252,8 +253,7 @@ class ProcessHandling(object):
                 else:
                     if isinstance(mth, str):
                         pid = '.'.join((book.identifier, cls, mth))
-                        f = self.ProcessHandler._create_operation_instance(book.identifier,
-                                                                           cls, mth, book)
+                        f = self.ProcessHandler._get_operation_method(cls, mth, book)
                     else:
                         pid = '.'.join((book.identifier, cls, mth.__name__))
                         f = mth
@@ -362,16 +362,19 @@ class ProcessHandling(object):
             cls = instance.__class__.__name__
             self.OperationObjects[book.identifier][cls] = instance
 
-    def _create_operation_instance(self, identifier, cls, method, book):
+    def _get_operation_method(self, cls, method, book):
         if cls not in globals():
             raise LookupError('Could not find module \'' + cls + '\'')
+        if not book.identifier in self.OperationObjects:
+            self.OperationObjects[book.identifier] = {}
+        if cls in self.OperationObjects[book.identifier]:
+            instance = self.OperationObjects[book.identifier][cls]
         else:
-            if identifier not in self.OperationObjects:
-                self.OperationObjects[identifier] = {}
-            self.OperationObjects[identifier][cls] = globals()[cls](self, book)
-            self.OperationObjects[identifier][cls].init_bookkeeping()
-            function = getattr(self.OperationObjects[identifier][cls], method)
-            return function
+            instance = globals()[cls](self, book)
+            self.OperationObjects[book.identifier][cls] = instance
+        instance.init_bookkeeping()
+        function = getattr(self.OperationObjects[book.identifier][cls], method)
+        return function
 
     def get_time_elapsed(self, start_time):
         current_time = time.time()
