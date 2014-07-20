@@ -67,9 +67,9 @@ class Util(object):
                 
     @staticmethod
     def exception_info():
-        exc_type, exc_obj, exc_tb = sys.exc_info()
+        exc_type, exc_obj, exc_tb  = sys.exc_info()
         stack = traceback.format_exc()
-        return str(stack)
+        return (exc_obj, str(stack))
 
     @staticmethod
     def bail(message, logger=None):
