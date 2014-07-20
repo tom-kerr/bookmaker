@@ -235,11 +235,14 @@ class PlainText(Operation):
         except (Exception, BaseException):
             pid = self.make_pid_string('__init__')
             self.ProcessHandler.join((pid, Util.exception_info()))
-
-    @Operation.multithreaded        
-    def make_full_plain_text(self, start=None, end=None, **kwargs):
+    
+    def make_full_plain_text(self, **kwargs):
         self.book.logger.info('Creating Full Plain Text...')
         self.files = {}
+        self.get_ocr_files(**kwargs)
+
+    @Operation.multithreaded            
+    def get_ocr_files(self, start=None, end=None, **kwargs):
         if None in (start, end):
             start, end = 1, self.book.page_count-1
         else:
@@ -247,11 +250,6 @@ class PlainText(Operation):
                 start = 1
             if end == self.book.page_count:
                 end = self.book.page_count-1
-        self.get_ocr_files(start, end, **kwargs)
-        
-    def get_ocr_files(self, start=None, end=None, **kwargs):
-        if None in (start, end):
-            start, end = 1, self.book.page_count-1
         files = self.Tesseract.get_hocr_files(start, end)
         if not files:
             for leaf in range(start, end):
@@ -310,18 +308,14 @@ class EPUB(Operation):
         except (Exception, BaseException):
             pid = self.make_pid_string('__init__')
             self.ProcessHandler.join((pid, Util.exception_info()))
-
-    @Operation.multithreaded
-    def make_epub(self, start=None, end=None, **kwargs):
-        if None in (start, end):
-            start, end = 1, self.book.page_count-1
+    
+    def make_epub(self, **kwargs):
         self.book.logger.info('Creating EPUB...')
         self.parsed_hocr = {}
-        hocr_files = self.get_hocr_files(start, end)
-        for leaf, f in hocr_files.items():
-            self.parsed_hocr[leaf] = self.Tesseract.parse_hocr(f)
+        self.get_parsed_hocr(**kwargs)
 
-    def get_hocr_files(self, start=None, end=None, **kwargs):
+    @Operation.multithreaded
+    def get_parsed_hocr(self, start=None, end=None, **kwargs):
         if None in (start, end):
             start, end = 1, self.book.page_count-1
         files = self.Tesseract.get_hocr_files(start, end)
@@ -333,7 +327,8 @@ class EPUB(Operation):
             files = self.Tesseract.get_hocr_files(start, end)
         else:
             self.complete_process('Tesseract', range(1, self.book.page_count), 0)
-        return files
+        for leaf, f in files.items():
+            self.parsed_hocr[leaf] = self.Tesseract.parse_hocr(f)
 
     def hocr_to_epub(self, hocr):        
         main_doc = etree.Element('html')
@@ -349,12 +344,12 @@ class EPUB(Operation):
                     pdiv.set('id', 'page-'+str(pagination))
             for par in page.paragraphs:
                 p = etree.SubElement(body, 'p')
+                text = []
                 for line in par.lines:
-                    text = []
                     for word in line.words:
                         if word.text:
                             text.append(word.text.lstrip('"').rstrip('"'))
-                    p.text = " ".join(text)
+                p.text = " ".join(text)
         tree = etree.ElementTree(main_doc)
         try:
             with open(self.book.dirs['derived']+ '/OEBPS/' + 'main.html', 'wb') as f:
