@@ -48,7 +48,6 @@ class FeatureDetection(Operation):
                     exec_time = component.get_last_exec_time()
                     leaf_exec_time += exec_time
                 except (Exception, BaseException) as e:
-                    self.book.logger.error(str(e))
                     pid = self.make_pid_string('pipeline.'+ str(start))
                     self.ProcessHandler.join((pid, Util.exception_info()))  
                 else:
