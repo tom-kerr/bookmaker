@@ -95,14 +95,19 @@ class ShellPolls(BasePolls):
                 self._is_polling_exceptions = False
                 break
             try:
-                pid, traceback = self.ProcessHandler._exception_queue.get_nowait()
+                pid, exc_info = self.ProcessHandler._exception_queue.get_nowait()
             except Empty:
                 pass
             else:
-                self.ProcessHandler._handled_exceptions.append(pid)
+                exception, traceback = exc_info
+                for _pid, _exception in self.ProcessHandler._handled_exceptions:
+                    identifier, cls = pid.split('.')[:2]
+                    if identifier+'.'+cls in _pid:
+                        return True
+                self.ProcessHandler._handled_exceptions.append((pid, exception))
                 msg = 'Exception in ' + pid + ':\n' + traceback
                 identifier = pid.split('.')[0]
-                self.ProcessHandler.finish(identifier)
+                self.ProcessHandler.abort(identifier)
                 print (msg)
                 
 
@@ -135,7 +140,7 @@ class GUIPolls(BasePolls):
 
     def _start_exception_poll(self):
         if not self._is_polling_exceptions:
-            GObject.timeout_add(1000, self._exception_poll)
+            GObject.timeout_add(500, self._exception_poll)
             self._is_polling_exceptions = True
 
     def _exception_poll(self):
@@ -146,15 +151,19 @@ class GUIPolls(BasePolls):
         #    return False
         try:
             #print ('epoll')
-            pid, traceback = self.ProcessHandler._exception_queue.get_nowait()
+            pid, exc_info = self.ProcessHandler._exception_queue.get_nowait()
         except Empty:
             return True
         else:
-            self.ProcessHandler._handled_exceptions.append(pid)
+            exception, traceback = exc_info
+            for _pid, _exception in self.ProcessHandler._handled_exceptions:
+                identifier, cls = pid.split('.')[:2]
+                if identifier+'.'+cls in _pid:
+                    return True
+            self.ProcessHandler._handled_exceptions.append((pid, exception))
             msg = 'Exception in ' + pid + ':\n' + traceback
             identifier = pid.split('.')[0]
-            self.ProcessHandler.finish(identifier)
+            self.ProcessHandler.abort(identifier)
             ca.dialog(message=msg)
             return True
-            #raise Exception(msg)
             
