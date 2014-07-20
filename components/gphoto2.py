@@ -63,7 +63,8 @@ class Gphoto2(Component):
             for device in remove:
                 del Gphoto2.devices[device]                                   
         
-    def run(self, device, **kwargs):
+    def run(self, **kwargs):
+        device = kwargs['device']
         kwargs['autodetect'] = None
         kwargs['capture'] = ''
         kwargs['list_config'] = None
