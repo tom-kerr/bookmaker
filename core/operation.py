@@ -18,6 +18,7 @@ class Operation(OnEvents):
         """
         self.thread_count = 0
         self.completed = {'__finished__': False}
+        self.aborted = False
         self.exec_times = {}
         for component in self.imports:
             cls = component[1]
@@ -62,15 +63,14 @@ class Operation(OnEvents):
             if not kwargs:
                 kwargs = {}
             queue = self.ProcessHandler.new_queue()
-            available_threads = self.ProcessHandler.cores - self.ProcessHandler.processes
-            self.thread_count = available_threads
+            self.thread_count = self.ProcessHandler.min_threads
             self.book.start_time = Util.microseconds()
-            for chunk in range(0, available_threads):
-                start, end = self._get_chunk(available_threads, self.book.page_count, chunk)
+            for chunk in range(0, self.thread_count):
+                start, end = self._get_chunk(self.thread_count, self.book.page_count, chunk)
                 kwargs['start'], kwargs['end'] = start, end
                 queue.add(self.book, self.__class__.__name__+'.'+str(chunk), 
-                          f, args, copy(kwargs))
-            return queue.drain(mode='async')
+                          f, args, copy(kwargs))    
+            queue.drain(mode='async')
         return distribute
 
     def make_pid_string(self, func_name):
@@ -78,6 +78,10 @@ class Operation(OnEvents):
                          self.__class__.__name__, 
                          func_name))
 
+    def abort(self):
+        self.aborted = True
+        self.terminate_child_processes()
+        
     def terminate_child_processes(self):
         """ Signal to subprocesses to terminate """
         for component in self.components:
