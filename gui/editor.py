@@ -45,8 +45,8 @@ class Editor(object):
             if ca.dialog(None, Gtk.MessageType.QUESTION,
                          'There are unsaved changes/running processes, '+
                          'are you sure you want to quit?',
-                             {Gtk.STOCK_OK: Gtk.ResponseType.OK,
-                              Gtk.STOCK_CANCEL: Gtk.ResponseType.CANCEL}):
+                         [(Gtk.STOCK_OK, Gtk.ResponseType.OK),
+                           (Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL)]):
                 self.ExportHandler.ProcessHandler.abort(\
                     exception=RuntimeError('User aborted operations'))
                 
@@ -282,13 +282,13 @@ class ImageEditor(object):
         self.step_seek.hide()
 
     def toggle_active_crop(self, widget):
-        buttons={'Apply to all pages?': 0,
-                 'Apply to all pages going forward?': 1,
-                 Gtk.STOCK_CANCEL: Gtk.ResponseType.NO}
+        buttons=[('Apply to all pages?', 0),
+                 ('Apply to all pages going forward?', 1),
+                 (Gtk.STOCK_CANCEL, Gtk.ResponseType.NO)]
         if self.selected is None:
-            buttons['Apply to this spread only?'] = 2
+            buttons.append(('Apply to this spread only?', 2))
         else:
-            buttons['Apply to this leaf only?'] = 3
+            buttons.append(('Apply to this leaf only?', 3))
         response = ca.dialog(message='Do you want to...', Buttons=buttons)
         if response is False:
             return
@@ -717,9 +717,9 @@ class ImageEditor(object):
         if self.selected is None:
             return
         response = ca.dialog(message='Enter page number:',
-                             Buttons={Gtk.STOCK_OK: Gtk.ResponseType.APPLY,
-                                      Gtk.STOCK_CANCEL: Gtk.ResponseType.CANCEL,
-                                      'Delete': Gtk.ResponseType.DELETE_EVENT},
+                             Buttons=[(Gtk.STOCK_OK, Gtk.ResponseType.APPLY),
+                                      (Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL),
+                                      ('Delete', Gtk.ResponseType.DELETE_EVENT)],
                              get_input=True)
         if not response:
             return
