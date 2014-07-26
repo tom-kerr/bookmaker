@@ -8,7 +8,7 @@ class CommonActions(object):
 
     @staticmethod
     def dialog(parent=None, d_type=Gtk.MessageType.INFO, message='Error.', 
-               Buttons={Gtk.STOCK_OK: Gtk.ResponseType.OK},
+               Buttons=[(Gtk.STOCK_OK, Gtk.ResponseType.OK)],
                get_input=False):
         d = Gtk.MessageDialog(parent, Gtk.DialogFlags.DESTROY_WITH_PARENT,  
                               d_type, message_format=message)
@@ -17,7 +17,7 @@ class CommonActions(object):
             d.vbox.pack_start(entry, True, True, 0)
             entry.show()
 
-        for text, response_id in Buttons.items():
+        for text, response_id in Buttons:
             d.add_button(text, response_id)
         response = d.run()
 

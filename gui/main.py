@@ -63,8 +63,8 @@ class BookmakerGUI:
     def capture_book(self, widget):
         book = None
         new = ca.dialog(message='What would you like to do?', 
-                        Buttons={'Create New Project': Gtk.ResponseType.YES,
-                                 'Open Existing Project': Gtk.ResponseType.NO})
+                        Buttons=[('Create New Project', Gtk.ResponseType.YES),
+                                 ('Open Existing Project', Gtk.ResponseType.NO)])
         if new:
             try:
                 book = self.create_new_book()
@@ -85,13 +85,11 @@ class BookmakerGUI:
                 return
             if not books:
                 ca.dialog(None, Gtk.MessageType.ERROR, 
-                          str(root_dir) + ' is not a valid bookmaker directory!', 
-                          {Gtk.STOCK_OK: Gtk.ResponseType.OK})
+                          str(root_dir) + ' is not a valid bookmaker directory!')                          
                 return
             elif len(books) > 1:
                 ca.dialog(None, Gtk.MessageType.ERROR, 
-                          'Cannot edit multiple books. Please refine your selection.', 
-                          {Gtk.STOCK_OK: Gtk.ResponseType.OK})
+                          'Cannot edit multiple books. Please refine your selection.')                          
                 return
         book = books[0]
         window = Gtk.Window(Gtk.WindowType.TOPLEVEL)
@@ -104,8 +102,7 @@ class BookmakerGUI:
         try:
             IC = ImageCapture(ProcessHandler, book)
         except Warning as e:
-            ca.dialog(None, Gtk.MessageType.WARNING, 
-                      str(e),Buttons={'OK': 1})
+            ca.dialog(None, Gtk.MessageType.WARNING, str(e))
         except (Exception, BaseException) as e:
             ca.dialog(None, Gtk.MessageType.ERROR, str(e))
             return
@@ -115,15 +112,15 @@ class BookmakerGUI:
 
     def create_new_book(self):
         capture_style = ca.dialog(message='Please Select a capture style:', 
-                                  Buttons={'Single Camera': 1,
-                                           'Dual Cameras': 2})
+                                  Buttons=[('Single Camera', 1),
+                                           ('Dual Cameras', 2)])
         if capture_style == 1:
             capture_style = 'Single'
         else:
             capture_style = 'Dual'
         identifier = ca.dialog(message='Please name this project:', 
-                               Buttons={Gtk.STOCK_OK: Gtk.ResponseType.OK,
-                                        Gtk.STOCK_CANCEL: Gtk.ResponseType.NO},
+                               Buttons=[(Gtk.STOCK_OK, Gtk.ResponseType.OK),
+                                        (Gtk.STOCK_CANCEL, Gtk.ResponseType.NO)],
                                get_input=True)
         if not identifier:
             return False
@@ -167,13 +164,11 @@ class BookmakerGUI:
             return
         if not books:
             ca.dialog(None, Gtk.MessageType.ERROR, 
-                      str(root_dir) + ' is not a valid bookmaker directory!', 
-                      {Gtk.STOCK_OK: Gtk.ResponseType.OK})
+                      str(root_dir) + ' is not a valid bookmaker directory!')
             return
         elif len(books) > 1:
             ca.dialog(None, Gtk.MessageType.ERROR, 
-                      'Cannot edit multiple books. Please refine your selection.', 
-                      {Gtk.STOCK_OK: Gtk.ResponseType.OK})
+                      'Cannot edit multiple books. Please refine your selection.')
             return
         book = books[0]
         window = Gtk.Window(Gtk.WindowType.TOPLEVEL)
@@ -207,8 +202,7 @@ class BookmakerGUI:
                     break
             if exists is False:
                 ca.dialog(None, Gtk.MessageType.ERROR, 
-                              'Did not find essential item ' + str(essential),
-                              {Gtk.STOCK_OK: Gtk.ResponseType.OK})
+                              'Did not find essential item ' + str(essential))
                 return False
         return True
             
