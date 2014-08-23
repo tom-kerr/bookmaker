@@ -11,7 +11,7 @@ from gi.repository import Gtk, Gdk, GObject
 from util import Util
 from environment import Environment
 from .common import CommonActions as ca
-from .editor import Editor
+from .editor import EditorGui
 from .options import Options
 
  
@@ -223,7 +223,7 @@ class ProcessingGui(object):
                 ca.set_window_size(window,
                                    Gdk.Screen.width()-40,
                                    Gdk.Screen.height()-50)
-                editor = Editor(window, self.books[identifier])
+                editor = EditorGui(window, self.books[identifier])
             except Exception as e:
                 ca.dialog(None, Gtk.MessageType.ERROR, str(e))
                 return

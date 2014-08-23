@@ -6,7 +6,7 @@ gi.require_version("Gdk", "3.0")
 from gi.repository import Gtk, GdkPixbuf, GObject
 
 from util import Util
-from gui.common import CommonActions as CA
+from gui.common import CommonActions as ca
 from components.raw2thumb import Raw2Thumb
 
 
@@ -191,6 +191,9 @@ class CaptureGui(object):
             self.insert.hide()
 
     def init_device_controls(self):
+        self.device_controls = DeviceControls(self)
+        self.main_box.pack_end(self.device_controls, True, False, 0)
+        """
         kwargs = {'visible': True,
                   'orientation': Gtk.Orientation.VERTICAL}
         self.device_controls = Gtk.Box(**kwargs)
@@ -213,7 +216,9 @@ class CaptureGui(object):
         self.device_controls.pack_end(self.update_dev_button, True, False, 0)
         self.main_box.pack_end(self.device_controls, True, False, 0)
         self.device_controls.show_all()
+        """
 
+    """
     def build_device_controls(self):        
         if self.ImageCapture.capture_style == 'Single':
             l = [str, bool]
@@ -302,7 +307,7 @@ class CaptureGui(object):
                 entry.append(left_tb)
                 entry.append(right_tb)            
             self.device_entries[device] = self.device_models[device].append(entry)
-
+            """
     def update_devices(self, widget):
         self.ImageCapture.Gphoto2.find_devices()
         self.ImageCapture.init_devices()        
@@ -376,11 +381,11 @@ class CaptureGui(object):
     def devices_are_ready(self):
         if not self.ImageCapture.are_devices() or \
                 not self.ImageCapture.capture_style:
-            CA.dialog(message='Cannot capture: No devices found.')
+            ca.dialog(message='Cannot capture: No devices found.')
             return False
         elif self.book.capture_style is not None and \
                 self.ImageCapture.capture_style != self.book.capture_style:
-            CA.dialog(message='Cannot capture: Detected capture style ('+
+            ca.dialog(message='Cannot capture: Detected capture style ('+
                       self.ImageCapture.capture_style+') does not match scandata ('+
                       self.book.capture_style+')')
             return False
@@ -389,7 +394,7 @@ class CaptureGui(object):
                 for device in self.device_toggles['center']:
                     if device.get_active():
                         return True
-                CA.dialog(message='Cannot capture: No device selected.')
+                ca.dialog(message='Cannot capture: No device selected.')
                 return False
             elif self.ImageCapture.capture_style == 'Dual':
                 l, r = False
@@ -403,7 +408,7 @@ class CaptureGui(object):
                         return True
                 if False in (l, r):
                     missing = [side for k, side in {l:'left', r:'right'}.items() if not k ].join(', ')
-                    CA.dialog(message='Cannot capture: Please select a '+missing+' device.')
+                    ca.dialog(message='Cannot capture: Please select a '+missing+' device.')
                     return False
 
     def handle_shoot(self, widget, reshoot=False):
@@ -476,12 +481,136 @@ class CaptureGui(object):
         self.reshoot.set_sensitive(True)
 
     def handle_reshoot(self, widget):
-        reshoot = CA.dialog(message='Are you sure you want to '+
+        reshoot = ca.dialog(message='Are you sure you want to '+
                             'reshoot the current spread?',
-                            Buttons={Gtk.STOCK_YES: Gtk.ResponseType.YES,
-                                     Gtk.STOCK_NO: Gtk.ResponseType.NO})
+                            Buttons=[(Gtk.STOCK_YES, Gtk.ResponseType.YES),
+                                     (Gtk.STOCK_NO, Gtk.ResponseType.NO)])
         if reshoot:
             self.handle_shoot(widget, reshoot=True)
 
     def handle_insert(self, widget):
         pass
+
+
+class DeviceControls(Gtk.Box):
+    
+    def __init__(self, parent):
+        self.parent = parent
+        kwargs = {'visible': True,
+                  'orientation': Gtk.Orientation.VERTICAL}
+        super(DeviceControls, self).__init__(**kwargs)
+        self.set_halign(Gtk.Align.CENTER)
+        self.set_valign(Gtk.Align.CENTER)
+        self.build()
+
+    def build(self):        
+        kwargs = {'label': 'Update Devices'}
+        self.update_dev_button = Gtk.Button(**kwargs)
+        self.update_dev_button.connect('clicked', self.update_devices)
+        self.pack_end(self.update_dev_button, True, False, 0)
+        if not self.parent.ImageCapture.are_devices():
+            none_label = Gtk.Label('No Devices Detected.')
+            self.add(none_label)
+        else:
+            self.device_models = {}
+            self.device_treeviews = {}
+            self.device_entries = {}
+            self.device_toggles = {'center': [],
+                                   'left': [],
+                                   'right': []}
+        if self.parent.ImageCapture.capture_style == 'Single':
+            l = [str, bool]
+        elif self.parent.ImageCapture.capture_style == 'Dual':
+            l = [str, bool, bool]
+        
+        for device, info in self.parent.ImageCapture.Gphoto2.devices.items():
+            self.device_models[device] = Gtk.ListStore(*l)
+            self.device_treeviews[device] = Gtk.TreeView(self.device_models[device])
+            self.device_treeviews[device].set_size_request(-1, 100)
+            self.device_controls.pack_start(self.device_treeviews[device], False, False, 0)
+
+            entry = []
+            col = Gtk.TreeViewColumn(device)
+            cell = Gtk.CellRendererText()
+            col.pack_start(cell, False)
+            col.set_attributes(cell, text=0)
+            self.device_treeviews[device].append_column(col)
+            
+            entry_string = ''
+            for k, v in info.items():
+                if k == 'side': continue
+                entry_string += k + ': ' + v + ' \n'
+            entry.append(entry_string)
+            
+            if self.parent.ImageCapture.capture_style == 'Single':
+                col = Gtk.TreeViewColumn('Center')
+                kwargs = {'activatable': True,
+                          'radio': True}
+                crt = Gtk.CellRendererToggle(**kwargs)
+                setattr(crt, 'side', 'center')
+                setattr(crt, 'device', device)
+                crt.connect('toggled', self.toggle_device)
+                self.device_toggles['center'].append(crt)
+                col.pack_start(crt, False)
+                self.device_treeviews[device].append_column(col)
+                if info['Serial Number'] in self.book.settings['devices'].keys():
+                    side = self.book.settings['devices'][info['Serial Number']]
+                    if side == 'center':
+                        crt.set_active(True)
+                        self.parent.ImageCapture.Gphoto2.devices[device]['side'] = side
+                else:
+                    self.parent.ImageCapture.Gphoto2.devices[device]['side'] = None
+                kwargs = {'visible': True}
+                tb = Gtk.ToggleButton(**kwargs)
+                entry.append(tb)
+                 
+            elif self.parent.ImageCapture.capture_style == 'Dual':
+                col = Gtk.TreeViewColumn('Left')
+                kwargs = {'activatable': True,
+                          'radio': True}
+                left_crt = Gtk.CellRendererToggle(**kwargs)
+                setattr(left_crt, 'side', 'left')
+                setattr(left_crt, 'device', device)
+                left_crt.connect('toggled', self.toggle_device)
+                self.device_toggles['left'].append(left_crt)
+                col.pack_start(left_crt, False)
+                self.device_treeviews[device].append_column(col)
+                
+                col = Gtk.TreeViewColumn('Right')
+                kwargs = {'activatable': True,
+                          'radio': True}
+                right_crt = Gtk.CellRendererToggle(**kwargs)
+                setattr(right_crt, 'side', 'right')
+                setattr(right_crt, 'device', device)
+                right_crt.connect('toggled', self.toggle_device)
+                self.device_toggles['right'].append(right_crt)
+                col.pack_start(right_crt, False)
+                self.device_treeviews[device].append_column(col)
+                
+                kwargs = {'visible': True}
+                left_tb = Gtk.ToggleButton(**kwargs)
+                kwargs = {'visible': True}
+                right_tb = Gtk.ToggleButton(**kwargs)
+                
+                if info['Serial Number'] in self.book.settings['devices'].keys():
+                    side = self.book.settings['devices'][info['Serial Number']]
+                    self.parent.ImageCapture.Gphoto2.devices[device]['side'] = side
+                    if side == 'left':
+                        left_crt.set_active(True)
+                        
+                    elif side == 'right':
+                        right_crt.set_active(True)                    
+                else:
+                    self.parent.ImageCapture.Gphoto2.devices[device]['side'] = None
+                entry.append(left_tb)
+                entry.append(right_tb)            
+            self.device_entries[device] = self.device_models[device].append(entry)
+        self.show_all()
+
+    def update_devices(self, widget):
+        self.parent.ImageCapture.Gphoto2.find_devices()
+        self.parent.ImageCapture.init_devices()        
+        for child in self.get_children():
+            self.remove(child)
+        self.build()
+        self.show_all()

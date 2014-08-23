@@ -73,7 +73,8 @@ def check_sys_dep():
 def install_with_package_manager(mod):
     if dist in ('ubuntu', 'debian'):
         cmd = ['sudo', 'apt-get', '-y', 'install', mod]
-    retval = Util.exec_cmd(cmd, retval=True, print_output=True)
+    output = Util.exec_cmd(cmd, print_output=True)
+    retval = output['retval']
     if retval != 0:
         return False
     else:
@@ -82,7 +83,8 @@ def install_with_package_manager(mod):
 def install_with_pip(mod):
     pip = 'pip3'
     cmd = [pip, 'install', '-I',  mod]
-    retval = Util.exec_cmd(cmd, retval=True, print_output=True)
+    output = Util.exec_cmd(cmd, print_output=True)
+    retval = output['retval']
     if retval != 0:
         return False
     else:
