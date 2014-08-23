@@ -59,7 +59,7 @@ Begins the processing for the selected project directory(s).
 Opens the editor for the selected project directory. Note that the processing must finish before one can edit the item. 
 
 
-An illustration of three items that are undergoing processing:
+An illustration of some items that are undergoing processing:
 
 ![Processing] (/imgs/processing.png)
 
