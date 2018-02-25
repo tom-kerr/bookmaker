@@ -23,19 +23,19 @@ The GUI can be started by running gui_main.py:
 
     ./gui_main.py
 
-![Main Menu] (/imgs/main_menu.png)    
+![Main Menu] (https://github.com/reklaklislaw/bookmaker/tree/master/imgs/main_menu.png)    
 
 
 <h2>Capturing</h2>
 
-![Capturing] (/imgs/capture.png)
+![Capturing] (https://github.com/reklaklislaw/bookmaker/tree/master/imgs/capture.png)
 
 
 <h2>Processing</h2>
 
 Selecting 'process', will bring up the processing queue window:
 
-![Processing Queue] (/imgs/processing_queue.png)
+![Processing Queue] (https://github.com/reklaklislaw/bookmaker/tree/master/imgs/processing_queue.png)
 
 
 Processing will automatically detect the dimensions of all the pages and content as well as generate a clean crop box and record this in an Internet Archive-style 'scandata' XML file.
@@ -61,12 +61,12 @@ Opens the editor for the selected project directory. Note that the processing mu
 
 An illustration of some items that are undergoing processing:
 
-![Processing] (/imgs/processing.png)
+![Processing] (https://github.com/reklaklislaw/bookmaker/tree/master/imgs/processing.png)
 
 
 <h2>Editing</h2>
  
-![Editing] (/imgs/editing.png)
+![Editing] (https://github.com/reklaklislaw/bookmaker/tree/master/imgs/editing.png)
 
 
 <h2>Metadata</h2>
@@ -75,7 +75,7 @@ TODO
 
 <h2>Export</h2>
 
-![Exporting] (/imgs/exporting.png)
+![Exporting] (https://github.com/reklaklislaw/bookmaker/tree/master/imgs/exporting.png)
 
 
 ----
